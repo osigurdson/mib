@@ -1,0 +1,10 @@
+/hello-wayland
+/xdg-shell-client-protocol.h
+/xdg-shell-protocol.c
+/viewporter-client-protocol.h
+/viewporter-protocol.c
+/fractional-scale-v1-client-protocol.h
+/fractional-scale-v1-protocol.c
+/tiny-vi
+/editor-test
+/client-test
