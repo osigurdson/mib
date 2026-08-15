@@ -1,12 +1,13 @@
 # Tiny vi
 
-A small C text editor that talks directly to Wayland and renders on the CPU.
+A small C text editor with native Linux/Wayland and Windows backends, rendering
+on the CPU.
 Its bundled monospace Nerd Font uses a small custom outline format, an 8×8
 supersampling rasterizer, and a bounded glyph cache. There are no runtime
 FreeType, HarfBuzz, Fontconfig, or system-font dependencies. Fractional scaling
 rasterizes fresh glyphs at the actual physical pixel size.
 
-## Build and run
+## Build and run (Linux)
 
 Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
 libxkbcommon development files, `wayland-scanner`, and `wayland-protocols` with
@@ -24,12 +25,13 @@ Run inside a Wayland session. A missing file opens as a new, empty buffer.
 
 ## Platforms and source organization
 
-Linux/Wayland remains the working platform. Shared editor, application, renderer,
-and font code now live under `src/`; OS window, file, and memory code lives under
-`src/platform/linux/` and `src/platform/windows/`. Windows has real page
-allocation and explicit file/window stubs, not a working editor yet.
+Linux/Wayland and Windows share the editor, application, renderer, and bundled
+font code under `src/`. Native window, file, and memory code lives under
+`src/platform/linux/` and `src/platform/windows/`. The Windows build uses Win32
+and GDI and is tested under Wine. See [Windows build/run instructions and tested
+limitations](docs/windows.md).
 
-See [platform contracts, build commands, and the Windows port plan](docs/platforms.md).
+See [platform contracts, build commands, and platform implementation details](docs/platforms.md).
 CMake selects the target backend without introducing Linux dependencies into a
 Windows build:
 
@@ -65,7 +67,11 @@ Closing the window also protects unsaved changes.
 
 Saves write a temporary file in the destination directory before renaming it,
 so a failed write does not truncate the original. Existing file permissions are
-preserved, and symlinks are followed. New files use private permissions (0600).
+preserved, and symlinks are followed on Linux. New Linux files use private
+permissions (0600). Windows uses native file attributes/sharing checks and
+replacement APIs; new files inherit the directory ACL. LF and CRLF files are
+edited as LF internally and saved using the first input newline's style. New
+buffers default to LF.
 
 This is a minimal editor: no undo, search, selections, clipboard, or Vim command
 language. Editing preserves UTF-8 bytes, but display is limited to the bundled

@@ -77,6 +77,15 @@ int main(void)
     editor_destroy(&ed);
 
     ed = (struct editor){0}; assert(!editor_open(&ed, directory)); editor_destroy(&ed);
+    FILE *dos = fopen(path, "wb"); assert(dos);
+    assert(fwrite("a\r\nb\r\n", 1, 6, dos) == 6); fclose(dos);
+    ed = (struct editor){0}; assert(editor_open(&ed, path));
+    assert(ed.crlf && !strcmp(ed.text, "a\nb\n"));
+    type(&ed, "i"); type(&ed, "X"); escape(&ed); command(&ed, "wq");
+    assert(ed.quit && !ed.modified); editor_destroy(&ed);
+    dos = fopen(path, "rb"); assert(dos);
+    char raw[16] = {0}; assert(fread(raw, 1, sizeof(raw), dos) == 7); fclose(dos);
+    assert(!memcmp(raw, "Xa\r\nb\r\n", 7));
     FILE *binary = fopen(path, "wb"); assert(binary);
     assert(fwrite("a\0b", 1, 3, binary) == 3); fclose(binary);
     ed = (struct editor){0}; assert(!editor_open(&ed, path)); editor_destroy(&ed);

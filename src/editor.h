@@ -12,6 +12,7 @@ struct editor {
     size_t length, capacity, cursor, top, left;
     enum editor_mode mode;
     bool modified, command_active, quit;
+    bool crlf; /* Internal lines are LF; preserve the first input line ending on save. */
     char command[1024], message[256];
     size_t command_length;
 };

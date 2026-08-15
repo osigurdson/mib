@@ -10,6 +10,7 @@ struct app {
     uint32_t scale120;                 /* Physical pixels per logical pixel × 120. */
     bool dirty, running, failed;
 };
+int app_main(int argc, char **argv);
 bool app_open(struct app *app, const char *filename);
 void app_close(struct app *app);
 void app_input(struct app *app, enum editor_key key, const char *text);

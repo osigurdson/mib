@@ -1,0 +1,10 @@
+# Cross-compile on Linux using Zig's bundled mingw-w64 headers/libraries.
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR AMD64)
+get_filename_component(TINYVI_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(CMAKE_C_COMPILER "${TINYVI_ROOT}/tools/zig-windows-cc.sh")
+set(CMAKE_RC_COMPILER "" CACHE FILEPATH "No resource compiler required")
+find_program(TINYVI_WINE wine)
+if(TINYVI_WINE)
+    set(CMAKE_CROSSCOMPILING_EMULATOR "${TINYVI_WINE}" CACHE STRING "Run Windows tests under Wine")
+endif()

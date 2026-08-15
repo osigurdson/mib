@@ -1,5 +1,4 @@
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "win32.h"
 #include "platform.h"
 
 void *platform_allocate_zeroed(size_t bytes)

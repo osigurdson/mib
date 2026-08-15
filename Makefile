@@ -1,4 +1,4 @@
-# Linux convenience build. CMake also configures the Windows stub backend.
+# Linux convenience build. CMake also builds the native Windows backend.
 CC ?= cc
 PYTHON ?= python3
 PKG_CONFIG ?= pkg-config
@@ -43,8 +43,8 @@ $(GEN)/fractional-scale-v1-protocol.c: $(PROTOCOLS_DIR)/staging/fractional-scale
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)
 	$(PYTHON) tools/embed-font.py $< $@
 
-tiny-vi: src/main.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ src/main.c $(CORE) $(MEMORY) $(FILES) $(WINDOW) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
+tiny-vi: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ src/main.c src/platform/linux/entry.c $(CORE) $(MEMORY) $(FILES) $(WINDOW) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
 
 run: tiny-vi
 	./tiny-vi
@@ -61,15 +61,11 @@ font-test: tests/font-test.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY)
 app-test: tests/app-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/app-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
-platform-stub-test: tests/platform-stub-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) src/platform/windows/files_stub.c src/platform/windows/window_stub.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/platform-stub-test.c $(CORE) $(MEMORY) src/platform/windows/files_stub.c src/platform/windows/window_stub.c $(LDLIBS)
-
-test: editor-test client-test font-test app-test platform-stub-test
+test: editor-test client-test font-test app-test
 	./editor-test
 	./client-test
 	./font-test
 	./app-test
-	./platform-stub-test
 
 font-preview: tools/font-preview.c src/editor.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/font-preview.c src/editor.c src/tiny-font.c $(MEMORY) $(FILES) $(LDLIBS)
@@ -82,5 +78,5 @@ memory: tiny-vi
 	$(PYTHON) tools/measure-memory.py
 
 clean:
-	rm -f tiny-vi editor-test client-test font-test app-test platform-stub-test font-preview
+	rm -f tiny-vi editor-test client-test font-test app-test font-preview
 	rm -rf $(GEN)

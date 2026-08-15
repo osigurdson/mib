@@ -1,15 +1,14 @@
-# Platform boundaries and Windows port plan
+# Platform boundaries and backends
 
-The current runnable editor is the Linux/Wayland version. Windows has a native
-page-allocation implementation and explicit window/file stubs. It is not yet a
-usable Windows editor. The stubs return errors rather than silently succeeding,
-opening empty buffers for unreadable files, or losing unsaved edits.
+Linux/Wayland and native Windows backends are implemented. Both share the
+editor, CPU renderer, and bundled font. Windows builds and automated tests were
+run under Wine; see [Windows build and test details](windows.md).
 
 ## Source layout
 
 ```text
 src/
-  main.c                  argument handling and application lifetime
+  main.c                  shared argument handling and application lifetime
   app.h, app.c            shared editor state, normalized input, close policy
   editor.h, editor.c      text buffer, movement, modes, commands, UTF-8 traversal
   render.c                shared CPU UI renderer and physical-pixel layout
@@ -17,13 +16,16 @@ src/
   platform.h              small platform contract; no OS headers
   platform/
     linux/
+      entry.c             Linux main entry
       wayland.c           window, xdg-shell, display scale, keyboard, event loop
       files.c             regular-file reads and atomic saves
       memory.c            mmap/munmap and optional glibc heap trimming
     windows/
-      window_stub.c       explicit failure; future Win32 window/event backend
-      files_stub.c        explicit failures; future Unicode/atomic file backend
-      memory.c            VirtualAlloc/VirtualFree, ready for native build
+      entry.c             Unicode wmain entry and argument conversion
+      window.c            Win32 window/messages, DPI, CPU bitmap presentation
+      files.c             Unicode reads and temporary-file replacement
+      utf.c, win32.h      UTF-8/UTF-16 paths and Windows errors
+      memory.c            VirtualAlloc/VirtualFree
 ```
 
 Generated font and Wayland protocol code lives in `.build/generated/` for Make,
@@ -84,54 +86,26 @@ ctest --test-dir .build/cmake --output-on-failure
 ./.build/cmake/tiny-vi notes.txt
 ```
 
-Windows, once using a native C11 compiler/Windows SDK and Python 3:
+Windows builds, cross-compilation, Wine commands, coverage, and limitations are
+in [windows.md](windows.md). CMake selects source files based on the target OS.
+It does not query Wayland, xkbcommon, or wayland-scanner for a Windows build.
 
-```powershell
-cmake -S . -B build-windows
-cmake --build build-windows --config MinSizeRel
-ctest --test-dir build-windows -C MinSizeRel --output-on-failure
-```
+The shared `app_main` function owns argument validation and app lifetime;
+`platform/linux/entry.c` provides `main`, and `platform/windows/entry.c` provides
+`wmain` with UTF-16-to-UTF-8 conversion. OS-specific command-line handling stays
+outside the shared model and renderer.
 
-CMake selects Windows sources using the target OS (`WIN32`). It does not query
-pkg-config, Wayland, xkbcommon, or wayland-scanner on Windows. The resulting
-executable currently reports that its window backend is not implemented and
-exits unsuccessfully. Supplying a filename reports the unimplemented file
-backend instead. No working native Windows build was verified on the Linux
-development host, which has no Windows compiler/SDK.
+## Verification
 
-The Windows file/window failure contracts are also compiled and tested on Linux
-with `platform-stub-test`, using Linux page allocation. This verifies shared-core
-compatibility and safe stub behavior; it does not verify Win32 ABI integration.
+Make tests and CMake/CTest pass on Linux. Windows CMake builds using the Zig
+cross-toolchain, and five Windows tests pass under Wine. Shared-core tests check
+pitched versus tightly packed buffers and close protection; backend tests cover
+actual file operations, input messages, saves and failure paths. The real
+Windows executable is exercised by a separate process/window integration test.
+Font assets and raster output remain common to both builds.
 
-## Remaining Windows work
-
-1. Replace `window_stub.c` with a Win32 class/window and event loop. Normalize
-   keys/text into `app_input`, honor close protection, handle key repeat/focus,
-   and convert UTF-16 surrogate pairs into committed UTF-8.
-2. Handle per-monitor DPI changes, updating logical geometry and `scale120`.
-   Paint into a top-down 32-bit DIB at the physical pixel size and present it
-   without scaling already-rasterized text.
-3. Replace `files_stub.c` with UTF-8-to-UTF-16 path handling, binary read streams,
-   regular-file checks, and sibling-temporary-file/flush/atomic replacement.
-   Define Windows permission, symlink, sharing, and rename-error semantics.
-4. Handle Unicode command-line paths at the Windows entry point, and add native
-   Windows file/keyboard/DPI tests. Decide separately on GUI packaging and an
-   executable icon; the current stub is a console target for visible errors.
-
-The Linux file behavior, editor commands, glyph cache, and font format do not
-need another rewrite for these steps.
-
-## Verification after the split
-
-Make tests and CMake/CTest pass on Linux. Portable code and the file/window stubs
-pass a strict C11 syntax check. Tests cover pitched versus tightly packed frame
-buffers, input/mode transitions, close protection, file failures, and stub save
-failure preserving the document/modified flag. Native Linux document and cursor
-pixels match the pre-split renderer. A smoke test still maps a 1200×840 buffer
-at 150% scale.
-
-An initial Make build measured 158,904 bytes (including debug information);
-the CMake MinSizeRel build measured 70,040 bytes without debug information.
-Empty-file idle samples were 807–863 KiB PSS and 2,756–2,824 KiB RSS on the same
-Wayland host. This remains consistent with the earlier custom-font version;
-GNOME System Monitor may report a different memory category.
+The earlier platform-separation measurements were 158,904 bytes for the Linux
+Make debug build and 70,040 bytes for CMake MinSizeRel. Empty-file samples were
+807–863 KiB PSS and 2,756–2,824 KiB RSS on the Wayland host; these are historical
+Linux figures, not Windows/Wine memory claims. GNOME System Monitor may display
+a different memory category.

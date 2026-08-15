@@ -57,6 +57,16 @@ bool editor_open(struct editor *ed, const char *filename)
     bool ok = !ferror(file);
     if (!ok) snprintf(ed->message, sizeof(ed->message), "Read: %s", strerror(errno));
     fclose(file);
+    if (ok) {
+        const char *first = memchr(ed->text, '\n', ed->length);
+        ed->crlf = first && first > ed->text && first[-1] == '\r';
+        size_t output = 0;
+        for (size_t input = 0; input < ed->length; ++input) {
+            if (ed->text[input] == '\r' && input + 1 < ed->length && ed->text[input + 1] == '\n') continue;
+            ed->text[output++] = ed->text[input];
+        }
+        ed->length = output;
+    }
     ed->text[ed->length] = '\0';
     return ok;
 }
@@ -183,14 +193,34 @@ static bool save(struct editor *ed, const char *filename)
         snprintf(ed->message, sizeof(ed->message), "Out of memory");
         return false;
     }
-    if (!platform_file_write_atomic(filename, ed->text, ed->length, ed->message, sizeof(ed->message))) {
+    const char *data = ed->text;
+    char *encoded = NULL;
+    size_t bytes = ed->length;
+    if (ed->crlf) {
+        size_t newlines = 0;
+        for (size_t i = 0; i < ed->length; ++i) if (ed->text[i] == '\n') ++newlines;
+        if (newlines > SIZE_MAX - bytes || !(encoded = malloc(bytes + newlines + (bytes + newlines == 0)))) {
+            free(new_name);
+            snprintf(ed->message, sizeof(ed->message), "Out of memory encoding CRLF lines");
+            return false;
+        }
+        size_t output = 0;
+        for (size_t i = 0; i < ed->length; ++i) {
+            if (ed->text[i] == '\n') encoded[output++] = '\r';
+            encoded[output++] = ed->text[i];
+        }
+        bytes = output; data = encoded;
+    }
+    bool saved = platform_file_write_atomic(filename, data, bytes, ed->message, sizeof(ed->message));
+    free(encoded);
+    if (!saved) {
         free(new_name);
         return false;
     }
     free(ed->filename);
     ed->filename = new_name;
     ed->modified = false;
-    snprintf(ed->message, sizeof(ed->message), "Written %zu bytes", ed->length);
+    snprintf(ed->message, sizeof(ed->message), "Written %zu bytes", bytes);
     return true;
 }
 
