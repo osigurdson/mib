@@ -11,10 +11,10 @@ INCLUDES := -Isrc -I$(GEN)
 WAYLAND_CFLAGS := $(shell $(PKG_CONFIG) --cflags wayland-client xkbcommon)
 WAYLAND_LIBS := $(shell $(PKG_CONFIG) --libs wayland-client xkbcommon)
 PROTOCOLS_DIR := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
-PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1
+PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-activation-v1
 PROTOCOL_HEADERS := $(addprefix $(GEN)/,$(addsuffix -client-protocol.h,$(PROTOCOL_NAMES)))
 PROTOCOL_SOURCES := $(addprefix $(GEN)/,$(addsuffix -protocol.c,$(PROTOCOL_NAMES)))
-CORE := src/app.c src/editor.c src/render.c src/tiny-font.c
+CORE := src/app.c src/session.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c
 HEADERS := $(wildcard src/*.h)
 MEMORY := src/platform/linux/memory.c
 FILES := src/platform/linux/files.c
@@ -40,6 +40,11 @@ $(GEN)/fractional-scale-v1-client-protocol.h: $(PROTOCOLS_DIR)/staging/fractiona
 $(GEN)/fractional-scale-v1-protocol.c: $(PROTOCOLS_DIR)/staging/fractional-scale/fractional-scale-v1.xml | $(GEN)
 	$(WAYLAND_SCANNER) private-code $< $@
 
+$(GEN)/xdg-activation-v1-client-protocol.h: $(PROTOCOLS_DIR)/staging/xdg-activation/xdg-activation-v1.xml | $(GEN)
+	$(WAYLAND_SCANNER) client-header $< $@
+$(GEN)/xdg-activation-v1-protocol.c: $(PROTOCOLS_DIR)/staging/xdg-activation/xdg-activation-v1.xml | $(GEN)
+	$(WAYLAND_SCANNER) private-code $< $@
+
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)
 	$(PYTHON) tools/embed-font.py $< $@
 
@@ -49,8 +54,8 @@ tiny-vi: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FI
 run: tiny-vi
 	./tiny-vi
 
-editor-test: tests/editor-test.c src/editor.c $(HEADERS) $(FILES)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/editor-test.c src/editor.c $(FILES) $(LDLIBS)
+editor-test: tests/editor-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(HEADERS) $(FILES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/editor-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(FILES) $(LDLIBS)
 
 client-test: tests/client-test.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/client-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
@@ -61,14 +66,22 @@ font-test: tests/font-test.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY)
 app-test: tests/app-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/app-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
-test: editor-test client-test font-test app-test
+modal-test: tests/modal-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(HEADERS) $(FILES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/modal-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(FILES) $(LDLIBS)
+
+session-test: tests/session-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/session-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+
+test: editor-test client-test font-test app-test modal-test session-test
+	./session-test
+	./modal-test
 	./editor-test
 	./client-test
 	./font-test
 	./app-test
 
-font-preview: tools/font-preview.c src/editor.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/font-preview.c src/editor.c src/tiny-font.c $(MEMORY) $(FILES) $(LDLIBS)
+font-preview: tools/font-preview.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/font-preview.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/tiny-font.c $(MEMORY) $(FILES) $(LDLIBS)
 
 subset-font: | $(GEN)
 	$(PYTHON) tools/subset-font.py fonts/JetBrainsMonoNerdFontMono-Regular.ttf fonts/editor.tvf

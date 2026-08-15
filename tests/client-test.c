@@ -76,7 +76,7 @@ int main(int argc, char **argv)
         pixels = calloc((size_t)width * height, sizeof(*pixels)); assert(pixels);
         assert(app_paint(&app,pixels,width,height,width)); free(pixels);
     }
-    assert(app.editor.top > 0 && app.editor.left > 0);
+    assert(app.editor.top > 0 && app.editor.left == 0 && app.editor.viewport_columns > 0);
     press(&client, XKB_KEY_Escape);
     press(&client, XKB_KEY_colon); press(&client, XKB_KEY_w); press(&client, XKB_KEY_q); press(&client, XKB_KEY_Return);
     assert(app.editor.quit && !app.running);

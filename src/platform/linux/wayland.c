@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 #include "app.h"
+#include "session.h"
+#include <sys/socket.h>
 #include "platform.h"
 #include <errno.h>
 #include <limits.h>
@@ -16,6 +18,7 @@
 #include "xdg-shell-client-protocol.h"
 #include "viewporter-client-protocol.h"
 #include "fractional-scale-v1-client-protocol.h"
+#include "xdg-activation-v1-client-protocol.h"
 
 struct wayland_client {
     struct app *app;
@@ -31,8 +34,13 @@ struct wayland_client {
     struct wp_viewport *viewport;
     struct wp_fractional_scale_manager_v1 *scale_manager;
     struct wp_fractional_scale_v1 *fractional_scale;
+    struct xdg_activation_v1 *activation;
     struct wl_seat *seat;
     struct wl_keyboard *keyboard;
+    struct wl_pointer *pointer;
+    int pointer_x, pointer_y;
+    bool dragging;
+    uint32_t serial;
     struct xkb_context *xkb_context;
     struct xkb_keymap *xkb_keymap;
     struct xkb_state *xkb_state;
@@ -234,6 +242,34 @@ static void handle_key(struct wayland_client *client, uint32_t key)
     case XKB_KEY_Tab: action = KEY_TAB; break;
     default: break;
     }
+    bool control = xkb_state_mod_name_is_active(client->xkb_state, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0;
+    bool shift = xkb_state_mod_name_is_active(client->xkb_state, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0;
+    if (symbol == XKB_KEY_ISO_Left_Tab) action = KEY_SHIFT_TAB;
+    if (symbol == XKB_KEY_Home) action = KEY_HOME;
+    if (symbol == XKB_KEY_End) action = KEY_END;
+    if (symbol == XKB_KEY_Page_Up) action = KEY_PAGE_UP;
+    if (symbol == XKB_KEY_Page_Down) action = KEY_PAGE_DOWN;
+    if (control) {
+        switch (xkb_keysym_to_lower(symbol)) {
+        case XKB_KEY_bracketleft: action = KEY_ESCAPE; break;
+        case XKB_KEY_b: action = KEY_CTRL_B; break;
+        case XKB_KEY_c: action = shift ? KEY_COPY_IMAGE_TEXT : KEY_CTRL_C; break;
+        case XKB_KEY_d: action = KEY_CTRL_D; break;
+        case XKB_KEY_e: action = KEY_CTRL_E; break;
+        case XKB_KEY_f: action = KEY_CTRL_F; break;
+        case XKB_KEY_q: action = KEY_CTRL_Q; break;
+        case XKB_KEY_r: action = KEY_CTRL_R; break;
+        case XKB_KEY_s: action = KEY_CTRL_S; break;
+        case XKB_KEY_u: action = KEY_CTRL_U; break;
+        case XKB_KEY_v: action = KEY_CTRL_V; break;
+        case XKB_KEY_w: action = KEY_CTRL_W; break;
+        case XKB_KEY_y: action = KEY_CTRL_Y; break;
+        case XKB_KEY_plus: case XKB_KEY_equal: action = KEY_ZOOM_IN; break;
+        case XKB_KEY_minus: action = KEY_ZOOM_OUT; break;
+        case XKB_KEY_0: action = KEY_ZOOM_RESET; break;
+        default: return;
+        }
+    }
     char text[64] = {0};
     if (action == KEY_TEXT) {
         int length = xkb_state_key_get_utf8(client->xkb_state, key + 8, text, sizeof(text));
@@ -278,6 +314,7 @@ static void keyboard_enter(void *data, struct wl_keyboard *keyboard, uint32_t se
                            struct wl_surface *surface, struct wl_array *keys)
 {
     (void)keyboard; (void)serial; (void)surface; (void)keys;
+    session_focus(((struct wayland_client *)data)->app, true);
     stop_repeat(data);
 }
 
@@ -285,6 +322,7 @@ static void keyboard_leave(void *data, struct wl_keyboard *keyboard, uint32_t se
                            struct wl_surface *surface)
 {
     (void)keyboard; (void)serial; (void)surface;
+    session_focus(((struct wayland_client *)data)->app, false);
     struct wayland_client *client = data;
     stop_repeat(client);
     if (client->xkb_state) xkb_state_update_mask(client->xkb_state, 0, 0, 0, 0, 0, 0);
@@ -300,7 +338,8 @@ static int64_t now_ms(void)
 static void keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial,
                          uint32_t time, uint32_t key, uint32_t state)
 {
-    (void)keyboard; (void)serial; (void)time;
+    (void)keyboard; (void)time;
+    ((struct wayland_client *)data)->serial = serial;
     struct wayland_client *client = data;
     if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
         if (client->repeat_key == key + 8) stop_repeat(client);
@@ -336,9 +375,30 @@ static const struct wl_keyboard_listener keyboard_listener = {
     .key = keyboard_key, .modifiers = keyboard_modifiers, .repeat_info = keyboard_repeat,
 };
 
+
+static void pointer_enter(void *data,struct wl_pointer *pointer,uint32_t serial,struct wl_surface *surface,wl_fixed_t x,wl_fixed_t y)
+{ (void)pointer;(void)surface;struct wayland_client *c=data;c->serial=serial;c->pointer_x=wl_fixed_to_int(x);c->pointer_y=wl_fixed_to_int(y); }
+static void pointer_leave(void *data,struct wl_pointer *pointer,uint32_t serial,struct wl_surface *surface)
+{ (void)pointer;(void)serial;(void)surface;((struct wayland_client *)data)->dragging=false; }
+static void pointer_motion(void *data,struct wl_pointer *pointer,uint32_t time,wl_fixed_t x,wl_fixed_t y)
+{ (void)pointer;(void)time;struct wayland_client *c=data;c->pointer_x=wl_fixed_to_int(x);c->pointer_y=wl_fixed_to_int(y);if(c->dragging)app_pointer(c->app,c->pointer_x,c->pointer_y,true); }
+static void pointer_button(void *data,struct wl_pointer *pointer,uint32_t serial,uint32_t time,uint32_t button,uint32_t state)
+{
+    (void)pointer;(void)time;struct wayland_client *c=data;c->serial=serial;
+    if(button==0x110){c->dragging=state==WL_POINTER_BUTTON_STATE_PRESSED;if(c->dragging)app_pointer(c->app,c->pointer_x,c->pointer_y,false);}
+}
+static void pointer_axis(void *data,struct wl_pointer *pointer,uint32_t time,uint32_t axis,wl_fixed_t value)
+{ (void)pointer;(void)time;if(axis==WL_POINTER_AXIS_VERTICAL_SCROLL)app_scroll(((struct wayland_client *)data)->app,value>0?3:-3); }
+static const struct wl_pointer_listener pointer_listener={.enter=pointer_enter,.leave=pointer_leave,.motion=pointer_motion,.button=pointer_button,.axis=pointer_axis};
 static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities)
 {
     struct wayland_client *client = data;
+    if ((capabilities & WL_SEAT_CAPABILITY_POINTER) && !client->pointer) {
+        client->pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(client->pointer, &pointer_listener, client);
+    } else if (!(capabilities & WL_SEAT_CAPABILITY_POINTER) && client->pointer) {
+        wl_pointer_destroy(client->pointer); client->pointer = NULL;
+    }
     if ((capabilities & WL_SEAT_CAPABILITY_KEYBOARD) && !client->keyboard) {
         client->keyboard = wl_seat_get_keyboard(seat);
         wl_keyboard_add_listener(client->keyboard, &keyboard_listener, client);
@@ -365,9 +425,11 @@ static void registry_global(void *data, struct wl_registry *registry,
     if (strcmp(interface, wl_compositor_interface.name) == 0)
         client->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, version < 6 ? version : 6);
     else if (strcmp(interface, wl_seat_interface.name) == 0 && !client->seat) {
-        client->seat = wl_registry_bind(registry, name, &wl_seat_interface, version < 5 ? version : 5);
+        client->seat = wl_registry_bind(registry, name, &wl_seat_interface, version < 4 ? version : 4);
         wl_seat_add_listener(client->seat, &seat_listener, client);
     }
+    else if (strcmp(interface, xdg_activation_v1_interface.name) == 0)
+        client->activation = wl_registry_bind(registry, name, &xdg_activation_v1_interface, 1);
     else if (strcmp(interface, wl_shm_interface.name) == 0)
         client->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
     else if (strcmp(interface, wp_viewporter_interface.name) == 0)
@@ -429,6 +491,7 @@ int platform_run(struct app *app)
     /* Initial empty commit asks the compositor to configure the window. */
     wl_surface_commit(client->surface);
     while (client->app->running) {
+        session_tick(client->app);
         if (wl_display_dispatch_pending(client->display) < 0) { client->app->failed = true; break; }
         if (!client->app->running) break;
         if (client->repeat_key && now_ms() >= client->repeat_at) {
@@ -447,7 +510,17 @@ int platform_run(struct app *app)
             int64_t remaining = client->repeat_at - now_ms();
             timeout = remaining <= 0 ? 0 : remaining > INT_MAX ? INT_MAX : (int)remaining;
         }
-        int ready = poll(&socket, 1, timeout);
+        if (app->save_at) {
+            uint64_t now = session_now(); int remaining = app->save_at <= now ? 0 : (int)(app->save_at - now);
+            if (timeout < 0 || remaining < timeout) timeout = remaining;
+        }
+        struct pollfd sockets[2] = {socket, {.fd=app->activation_fd,.events=POLLIN}};
+        int ready = poll(sockets, 2, timeout);
+        socket = sockets[0];
+        if (sockets[1].revents & POLLIN) {
+            char token[1024]; ssize_t n = recv(app->activation_fd, token, sizeof(token)-1, 0);
+            if (n >= 0) { token[n] = 0; if (client->activation && *token) xdg_activation_v1_activate(client->activation, token, client->surface); app->dirty=true; }
+        }
         if (ready < 0 && errno == EINTR) continue;
         if (ready < 0 || (socket.revents & (POLLERR | POLLHUP | POLLNVAL))) {
             client->app->failed = true; break;
@@ -459,6 +532,8 @@ int platform_run(struct app *app)
     status = client->app->failed ? EXIT_FAILURE : EXIT_SUCCESS;
 
 cleanup:
+    if (client->activation) xdg_activation_v1_destroy(client->activation);
+    if (client->pointer) wl_pointer_destroy(client->pointer);
     if (client->keyboard) wl_keyboard_destroy(client->keyboard);
     if (client->seat) wl_seat_destroy(client->seat);
     xkb_state_unref(client->xkb_state);

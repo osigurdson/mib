@@ -38,7 +38,7 @@ int main(void)
     text(handle,L"\x1b");text(handle,L"khjl");assert(app.editor.cursor==10);
     text(handle,L"i!");SendMessageW(handle,WM_KEYDOWN,VK_LEFT,1);
     SendMessageW(handle,WM_KEYDOWN,VK_DELETE,1);assert(!strcmp(app.editor.text,"hello\nworld"));
-    text(handle,L"\r\t");text(handle,L"\b\b");assert(!strcmp(app.editor.text,"hello\nworld"));
+    text(handle,L"\r\t");text(handle,L"\b\b\b\b\b");assert(!strcmp(app.editor.text,"hello\nworld"));
     SendMessageW(handle,WM_CHAR,L'x',3);assert(strstr(app.editor.text,"xxx"));
     SendMessageW(handle,WM_CHAR,0xd83d,1);SendMessageW(handle,WM_CHAR,0xdcc4,1);
     assert(strstr(app.editor.text,"\xf0\x9f\x93\x84"));

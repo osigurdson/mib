@@ -21,7 +21,7 @@ add_custom_command(OUTPUT "${GENERATED}/font-data.h"
     DEPENDS tools/embed-font.py fonts/editor.tvf VERBATIM)
 add_custom_target(font-data DEPENDS "${GENERATED}/font-data.h")
 
-add_library(tinyvi-core STATIC src/app.c src/editor.c src/render.c src/tiny-font.c)
+add_library(tinyvi-core STATIC src/app.c src/session.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c)
 add_dependencies(tinyvi-core font-data)
 target_include_directories(tinyvi-core PUBLIC src PRIVATE "${GENERATED}")
 
@@ -43,11 +43,12 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(NOT PROTOCOLS_DIR)
         message(FATAL_ERROR "wayland-protocols development package is required")
     endif()
-    set(PROTOCOL_NAMES xdg-shell viewporter fractional-scale-v1)
+    set(PROTOCOL_NAMES xdg-shell viewporter fractional-scale-v1 xdg-activation-v1)
     set(PROTOCOL_XMLS
         "${PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
         "${PROTOCOLS_DIR}/stable/viewporter/viewporter.xml"
-        "${PROTOCOLS_DIR}/staging/fractional-scale/fractional-scale-v1.xml")
+        "${PROTOCOLS_DIR}/staging/fractional-scale/fractional-scale-v1.xml"
+        "${PROTOCOLS_DIR}/staging/xdg-activation/xdg-activation-v1.xml")
     foreach(NAME XML IN ZIP_LISTS PROTOCOL_NAMES PROTOCOL_XMLS)
         set(HEADER "${GENERATED}/${NAME}-client-protocol.h")
         set(SOURCE "${GENERATED}/${NAME}-protocol.c")
@@ -88,6 +89,14 @@ if(BUILD_TESTING)
     target_include_directories(font-test PRIVATE "${GENERATED}")
     target_link_libraries(font-test PRIVATE tinyvi-memory)
     add_test(NAME font COMMAND font-test)
+
+    add_executable(session-test tests/session-test.c ${PLATFORM_FILES})
+    target_link_libraries(session-test PRIVATE tinyvi-core tinyvi-memory ${PLATFORM_LIBRARIES})
+    add_test(NAME session COMMAND session-test)
+
+    add_executable(modal-test tests/modal-test.c ${PLATFORM_FILES})
+    target_link_libraries(modal-test PRIVATE tinyvi-core tinyvi-memory)
+    add_test(NAME modal COMMAND modal-test)
 
     add_executable(app-test tests/app-test.c ${PLATFORM_FILES})
     target_link_libraries(app-test PRIVATE tinyvi-core tinyvi-memory)

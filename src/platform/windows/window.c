@@ -1,5 +1,6 @@
 #include "win32.h"
 #include "app.h"
+#include "session.h"
 #include "platform.h"
 #include <limits.h>
 #include <stdio.h>
@@ -12,6 +13,7 @@ struct windows_window {
     UINT dpi;
     wchar_t high_surrogate;
     unsigned high_repeat;
+    bool dragging;
 };
 
 static void update_geometry(struct windows_window *window)
@@ -26,6 +28,10 @@ static void update_geometry(struct windows_window *window)
 
 static void changed(struct windows_window *window)
 {
+    if (window->app->save_at) {
+        uint64_t now=session_now(), remaining=window->app->save_at>now?window->app->save_at-now:1;
+        SetTimer(window->handle,1,(UINT)remaining,NULL);
+    }
     if (!window->app->running) DestroyWindow(window->handle);
     else if (window->app->dirty) InvalidateRect(window->handle, NULL, FALSE);
 }
@@ -38,7 +44,19 @@ static void codepoint(struct windows_window *window, uint32_t cp, unsigned repea
     if (cp == 27) key = KEY_ESCAPE;
     else if (cp == 13) key = KEY_ENTER;
     else if (cp == 8) key = KEY_BACKSPACE;
-    else if (cp == 9) key = KEY_TAB;
+    else if (cp == 9) key = GetKeyState(VK_SHIFT) < 0 ? KEY_SHIFT_TAB : KEY_TAB;
+    else if (cp == 2) key = KEY_CTRL_B;
+    else if (cp == 3) key = GetKeyState(VK_SHIFT) < 0 ? KEY_COPY_IMAGE_TEXT : KEY_CTRL_C;
+    else if (cp == 4) key = KEY_CTRL_D;
+    else if (cp == 5) key = KEY_CTRL_E;
+    else if (cp == 6) key = KEY_CTRL_F;
+    else if (cp == 17) key = KEY_CTRL_Q;
+    else if (cp == 18) key = KEY_CTRL_R;
+    else if (cp == 19) key = KEY_CTRL_S;
+    else if (cp == 21) key = KEY_CTRL_U;
+    else if (cp == 22) key = KEY_CTRL_V;
+    else if (cp == 23) key = KEY_CTRL_W;
+    else if (cp == 25) key = KEY_CTRL_Y;
     else if (cp < 32 || cp == 127) return;
     else if (cp < 0x80) text[0] = (char)cp;
     else if (cp < 0x800) {
@@ -143,13 +161,31 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         }
         return 0;
     }
+    case WM_MOUSEWHEEL:
+        app_scroll(window->app, (short)HIWORD(wparam) > 0 ? -3 : 3); changed(window); return 0;
+    case WM_LBUTTONDOWN:
+        window->dragging = true; SetCapture(handle);
+        app_pointer(window->app, MulDiv((short)LOWORD(lparam),96,(int)window->dpi), MulDiv((short)HIWORD(lparam),96,(int)window->dpi), (wparam & MK_SHIFT) != 0);
+        changed(window); return 0;
+    case WM_MOUSEMOVE:
+        if(window->dragging) { app_pointer(window->app, MulDiv((short)LOWORD(lparam),96,(int)window->dpi), MulDiv((short)HIWORD(lparam),96,(int)window->dpi), true); changed(window); }
+        return 0;
+    case WM_LBUTTONUP:
+        window->dragging = false; ReleaseCapture(); return 0;
     case WM_KEYDOWN: {
         enum editor_key key;
+        if (GetKeyState(VK_CONTROL) < 0 && (wparam == VK_OEM_PLUS || wparam == VK_ADD || wparam == VK_OEM_MINUS || wparam == VK_SUBTRACT || wparam == '0')) {
+            app_input(window->app, wparam == '0' ? KEY_ZOOM_RESET : wparam == VK_OEM_MINUS || wparam == VK_SUBTRACT ? KEY_ZOOM_OUT : KEY_ZOOM_IN, ""); changed(window); return 0;
+        }
         switch (wparam) {
         case VK_LEFT: key = KEY_LEFT; break;
         case VK_RIGHT: key = KEY_RIGHT; break;
         case VK_UP: key = KEY_UP; break;
         case VK_DOWN: key = KEY_DOWN; break;
+        case VK_HOME: key = KEY_HOME; break;
+        case VK_END: key = KEY_END; break;
+        case VK_PRIOR: key = KEY_PAGE_UP; break;
+        case VK_NEXT: key = KEY_PAGE_DOWN; break;
         case VK_DELETE: key = KEY_DELETE; break;
         default: return DefWindowProcW(handle, message, wparam, lparam);
         }
@@ -169,7 +205,12 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         codepoint(window, (uint32_t)wparam, 1);
         changed(window);
         return 0;
+    case WM_TIMER:
+        if (wparam==1) { KillTimer(handle,1);session_tick(window->app);changed(window); } return 0;
+    case WM_SETFOCUS:
+        session_focus(window->app,true);changed(window);return 0;
     case WM_KILLFOCUS:
+        session_focus(window->app,false);
         window->high_surrogate = 0;
         return 0;
     case WM_CLOSE:
@@ -208,6 +249,7 @@ static bool open_window(struct windows_window *window, struct app *app, int show
         CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left, size.bottom - size.top,
         NULL, NULL, instance, window);
     if (!handle) return false;
+    if (app->scratch) { wchar_t name[64]; swprintf(name,64,L"Local\\TinyViPage-%016llx",(unsigned long long)app->page_id); SetWindowTextW(handle,name); }
     ShowWindow(handle, show);
     UpdateWindow(handle);
     return window->handle != NULL;
