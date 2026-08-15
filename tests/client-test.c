@@ -27,14 +27,14 @@ int main(int argc, char **argv)
     char path[] = "/tmp/tiny-vi-integration-XXXXXX";
     int fd = mkstemp(path); assert(fd >= 0); close(fd);
     assert(editor_open(&app.editor, path));
-    assert(init_font(&app, "monospace"));
+    assert(init_font(&app));
     app.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(app.xkb_context);
     struct xkb_rule_names names = {.layout = "us"};
     app.xkb_keymap = xkb_keymap_new_from_names(app.xkb_context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
     assert(app.xkb_keymap);
     app.xkb_state = xkb_state_new(app.xkb_keymap); assert(app.xkb_state);
     press(&app, XKB_KEY_i);
-    const char *text = "Tiny vi, directly on Wayland.\nCPU rendering with FreeType.\n\n";
+    const char *text = "Tiny vi, directly on Wayland.\nCPU rendering with tiny-font.\n\n";
     for (const char *p = text; *p; ++p) press(&app, *p == '\n' ? XKB_KEY_Return : (xkb_keysym_t)*p);
     assert(!strcmp(app.editor.text, text));
     press(&app, XKB_KEY_Escape);
@@ -56,6 +56,18 @@ int main(int argc, char **argv)
         }
         fclose(preview);
     }
+    /* A complete font unload/reload must preserve the rasterized frame. */
+    size_t count = (size_t)width * height;
+    uint32_t *reference = malloc(count * sizeof(*reference)); assert(reference);
+    memcpy(reference, pixels, count * sizeof(*reference));
+    for (int reload = 0; reload < 4; ++reload) {
+        close_font(&app);
+        assert(!app.font);
+        assert(init_font(&app));
+        assert(paint(&app, pixels, width, height));
+        assert(!memcmp(reference, pixels, count * sizeof(*pixels)));
+    }
+    free(reference);
     free(pixels);
     /* Exercise scrolling and clipping after repeated input. */
     press(&app, XKB_KEY_i);
@@ -73,7 +85,7 @@ int main(int argc, char **argv)
     assert(app.editor.quit && !app.running);
     editor_destroy(&app.editor);
     xkb_state_unref(app.xkb_state); xkb_keymap_unref(app.xkb_keymap); xkb_context_unref(app.xkb_context);
-    FT_Done_Face(app.font); FT_Done_FreeType(app.freetype);
+    close_font(&app);
     unlink(path);
     puts("Keyboard, rendering, scrolling, and save/quit integration passed");
 }

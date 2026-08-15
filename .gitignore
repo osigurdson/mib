@@ -8,3 +8,8 @@
 /tiny-vi
 /editor-test
 /client-test
+/.build/
+
+/font-data.h
+/font-test
+/font-preview

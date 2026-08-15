@@ -1,8 +1,6 @@
 #define _GNU_SOURCE
 #include <errno.h>
-#include <fontconfig/fontconfig.h>
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include "tiny-font.h"
 #include <limits.h>
 #include <poll.h>
 #include <time.h>
@@ -40,8 +38,7 @@ struct app {
     struct wp_fractional_scale_v1 *fractional_scale;
     uint32_t scale120;
     bool configured;
-    FT_Library freetype;
-    FT_Face font;
+    struct tiny_font *font;
     int width, height;
     struct editor editor;
     struct wl_seat *seat;
@@ -57,45 +54,16 @@ struct app {
     bool running, failed;
 };
 
-/* Fontconfig locates a system font; FreeType rasterizes it on the CPU. */
-static bool init_font(struct app *app, const char *name)
+static void close_font(struct app *app)
 {
-    if (FT_Init_FreeType(&app->freetype)) {
-        fprintf(stderr, "Could not initialize FreeType\n");
-        return false;
-    }
-    FcConfig *config = FcInitLoadConfigAndFonts();
-    FcPattern *pattern = FcNameParse((const FcChar8 *)name);
-    if (!config || !pattern) {
-        fprintf(stderr, "Could not initialize font matching\n");
-        if (pattern) FcPatternDestroy(pattern);
-        if (config) FcConfigDestroy(config);
-        FcFini();
-        return false;
-    }
-    FcPatternAddBool(pattern, FC_SCALABLE, FcTrue);
-    FcConfigSubstitute(config, pattern, FcMatchPattern);
-    FcDefaultSubstitute(pattern);
-    FcResult result;
-    FcPattern *match = FcFontMatch(config, pattern, &result);
-    FcChar8 *path = NULL;
-    int index = 0;
-    bool loaded = false;
-    if (match && FcPatternGetString(match, FC_FILE, 0, &path) == FcResultMatch) {
-        FcPatternGetInteger(match, FC_INDEX, 0, &index);
-        loaded = FT_New_Face(app->freetype, (const char *)path, index, &app->font) == 0;
-    }
-    if (match) FcPatternDestroy(match);
-    FcPatternDestroy(pattern);
-    FcConfigDestroy(config);
-    /* Font discovery is finished; FreeType owns the selected face now. */
-    FcFini();
-#ifdef __GLIBC__
-    /* Return the temporary font-discovery heap pages to the OS. */
-    malloc_trim(0);
-#endif
-    if (!loaded) fprintf(stderr, "Could not load font: %s\n", name);
-    return loaded;
+    tiny_font_close(app->font);
+    app->font = NULL;
+}
+
+static bool init_font(struct app *app)
+{
+    if (!app->font) app->font = tiny_font_open();
+    return app->font != NULL;
 }
 
 static uint32_t blend(uint32_t background, unsigned alpha)
@@ -121,17 +89,14 @@ static void rectangle(uint32_t *pixels, int width, int height,
 static bool glyph(struct app *app, uint32_t *pixels, int width, int height,
                   uint32_t cp, int x, int baseline, int clip_bottom)
 {
-    if (FT_Load_Char(app->font, cp, FT_LOAD_RENDER | FT_LOAD_NO_BITMAP | FT_LOAD_TARGET_LIGHT))
-        return false;
-    FT_GlyphSlot slot = app->font->glyph;
-    FT_Bitmap *bitmap = &slot->bitmap;
-    if (bitmap->width && bitmap->rows && bitmap->pixel_mode != FT_PIXEL_MODE_GRAY) return false;
-    for (unsigned row = 0; row < bitmap->rows; ++row) {
-        int y = baseline - slot->bitmap_top + (int)row;
+    const struct tiny_glyph *bitmap = tiny_font_glyph(app->font, cp);
+    if (!bitmap) return false;
+    for (int row = 0; row < bitmap->height; ++row) {
+        int y = baseline - bitmap->top + row;
         if (y < 0 || y >= height || y >= clip_bottom) continue;
-        const unsigned char *coverage = bitmap->buffer + (ptrdiff_t)row * bitmap->pitch;
-        for (unsigned col = 0; col < bitmap->width; ++col) {
-            int px = x + slot->bitmap_left + (int)col;
+        const unsigned char *coverage = bitmap->alpha + (size_t)row * bitmap->width;
+        for (int col = 0; col < bitmap->width; ++col) {
+            int px = x + bitmap->left + col;
             if (px < 0 || px >= width) continue;
             size_t offset = (size_t)y * (size_t)width + (size_t)px;
             pixels[offset] = blend(pixels[offset], coverage[col]);
@@ -156,14 +121,12 @@ static bool label(struct app *app, uint32_t *pixels, int width, int height,
 static bool paint(struct app *app, uint32_t *pixels, int width, int height)
 {
     struct editor *ed = &app->editor;
-    FT_F26Dot6 size = (FT_F26Dot6)((18 * 64 * (int64_t)app->scale120 + 60) / 120);
-    if (FT_Set_Char_Size(app->font, 0, size, 72, 72)) return false;
-    if (FT_Load_Char(app->font, 'M', FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT)) return false;
-    int cell = (int)(app->font->glyph->advance.x / 64);
-    if (cell < 1) cell = 1;
-    int ascender = (int)(app->font->size->metrics.ascender / 64);
-    int line_height = (int)(app->font->size->metrics.height / 64) + 2;
-    if (line_height < 1) line_height = 1;
+    unsigned size = (unsigned)((18 * 64 * (int64_t)app->scale120 + 60) / 120);
+    if (!tiny_font_set_size(app->font, size)) return false;
+    struct tiny_font_metrics metrics = tiny_font_metrics(app->font);
+    int cell = metrics.advance;
+    int ascender = metrics.ascender;
+    int line_height = metrics.line_height + 2;
     int padding = (int)((8 * (int64_t)app->scale120 + 60) / 120);
     int status_y = height - 2 * line_height - padding;
     int rows = (status_y - padding) / line_height;
@@ -213,9 +176,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height)
     }
     rectangle(pixels, width, height, 0, status_y, width, line_height + 2 * padding, 0xff283443);
     char status[512];
-    snprintf(status, sizeof(status), "%s  %s%s  |  %zu:%zu",
-             ed->mode == INSERT ? "INSERT" : "NORMAL",
-             ed->filename ? ed->filename : "[No Name]", ed->modified ? " [+]" : "",
+    snprintf(status, sizeof(status), "%s  \uf15b %s%s  |  %zu:%zu",
+             ed->mode == INSERT ? "\uf040 INSERT" : "NORMAL",
+             ed->filename ? ed->filename : "[No Name]", ed->modified ? " [+] \uf111" : "",
              cursor_row + 1, cursor_column + 1);
     if (!label(app, pixels, width, height, status, padding, status_y + ascender, cell)) return false;
     char prompt[1100];
@@ -271,8 +234,14 @@ static bool draw(struct app *app)
         close(fd);
         return false;
     }
-    if (!paint(app, pixels, width, height)) {
-        fprintf(stderr, "Could not rasterize text with FreeType\n");
+    bool painted = (app->font || init_font(app)) && paint(app, pixels, width, height);
+    /* Retain only the bounded glyph cache between edits. */
+    tiny_font_end_frame(app->font);
+#ifdef __GLIBC__
+    malloc_trim(0);
+#endif
+    if (!painted) {
+        fprintf(stderr, "Could not rasterize the bundled font\n");
         munmap(pixels, (size_t)size);
         close(fd);
         return false;
@@ -457,6 +426,10 @@ static void keyboard_keymap(void *data, struct wl_keyboard *keyboard,
     xkb_keymap_unref(app->xkb_keymap);
     app->xkb_keymap = keymap;
     app->xkb_state = state;
+#ifdef __GLIBC__
+    /* The keymap compiler uses temporary allocations that are now free. */
+    malloc_trim(0);
+#endif
 }
 
 static void keyboard_enter(void *data, struct wl_keyboard *keyboard, uint32_t serial,
@@ -589,7 +562,6 @@ int main(int argc, char **argv)
         fprintf(stderr, "%s\n", app.editor.message[0] ? app.editor.message : "Could not open file");
         goto cleanup;
     }
-    if (!init_font(&app, "monospace")) goto cleanup;
     app.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     if (!app.xkb_context) goto cleanup;
     app.display = wl_display_connect(NULL);
@@ -669,8 +641,7 @@ cleanup:
     if (app.compositor) wl_compositor_destroy(app.compositor);
     if (app.registry) wl_registry_destroy(app.registry);
     if (app.display) wl_display_disconnect(app.display);
-    if (app.font) FT_Done_Face(app.font);
-    if (app.freetype) FT_Done_FreeType(app.freetype);
+    close_font(&app);
     editor_destroy(&app.editor);
     return status;
 }

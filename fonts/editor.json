@@ -1,0 +1,680 @@
+{
+  "family": "Tiny Vi Mono Subset",
+  "source_family": "JetBrainsMono NFM",
+  "source_version": "Version 2.304; ttfautohint (v1.8.4.7-5d5b);Nerd Fonts 3.5.1",
+  "source_sha256": "f2a5ea6cfab397445ffab00c0370927b66d61e560a05db5db271b42006381c1a",
+  "units_per_em": 1000,
+  "advance": 600,
+  "glyphs": [
+    {
+      "codepoint": "U+0020",
+      "source_glyph": "space",
+      "commands": 0
+    },
+    {
+      "codepoint": "U+0021",
+      "source_glyph": "exclam",
+      "commands": 16
+    },
+    {
+      "codepoint": "U+0022",
+      "source_glyph": "quotedbl",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+0023",
+      "source_glyph": "numbersign",
+      "commands": 34
+    },
+    {
+      "codepoint": "U+0024",
+      "source_glyph": "dollar",
+      "commands": 43
+    },
+    {
+      "codepoint": "U+0025",
+      "source_glyph": "percent",
+      "commands": 53
+    },
+    {
+      "codepoint": "U+0026",
+      "source_glyph": "ampersand",
+      "commands": 41
+    },
+    {
+      "codepoint": "U+0027",
+      "source_glyph": "quotesingle",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+0028",
+      "source_glyph": "parenleft",
+      "commands": 15
+    },
+    {
+      "codepoint": "U+0029",
+      "source_glyph": "parenright",
+      "commands": 16
+    },
+    {
+      "codepoint": "U+002A",
+      "source_glyph": "asterisk",
+      "commands": 36
+    },
+    {
+      "codepoint": "U+002B",
+      "source_glyph": "plus",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+002C",
+      "source_glyph": "comma",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+002D",
+      "source_glyph": "hyphen",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+002E",
+      "source_glyph": "period",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+002F",
+      "source_glyph": "slash",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+0030",
+      "source_glyph": "zero",
+      "commands": 35
+    },
+    {
+      "codepoint": "U+0031",
+      "source_glyph": "one",
+      "commands": 12
+    },
+    {
+      "codepoint": "U+0032",
+      "source_glyph": "two",
+      "commands": 20
+    },
+    {
+      "codepoint": "U+0033",
+      "source_glyph": "three",
+      "commands": 25
+    },
+    {
+      "codepoint": "U+0034",
+      "source_glyph": "four",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+0035",
+      "source_glyph": "five",
+      "commands": 24
+    },
+    {
+      "codepoint": "U+0036",
+      "source_glyph": "six",
+      "commands": 29
+    },
+    {
+      "codepoint": "U+0037",
+      "source_glyph": "seven",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+0038",
+      "source_glyph": "eight",
+      "commands": 44
+    },
+    {
+      "codepoint": "U+0039",
+      "source_glyph": "nine",
+      "commands": 28
+    },
+    {
+      "codepoint": "U+003A",
+      "source_glyph": "colon",
+      "commands": 20
+    },
+    {
+      "codepoint": "U+003B",
+      "source_glyph": "semicolon",
+      "commands": 16
+    },
+    {
+      "codepoint": "U+003C",
+      "source_glyph": "less",
+      "commands": 12
+    },
+    {
+      "codepoint": "U+003D",
+      "source_glyph": "equal",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+003E",
+      "source_glyph": "greater",
+      "commands": 12
+    },
+    {
+      "codepoint": "U+003F",
+      "source_glyph": "question",
+      "commands": 29
+    },
+    {
+      "codepoint": "U+0040",
+      "source_glyph": "at",
+      "commands": 43
+    },
+    {
+      "codepoint": "U+0041",
+      "source_glyph": "A",
+      "commands": 17
+    },
+    {
+      "codepoint": "U+0042",
+      "source_glyph": "B",
+      "commands": 30
+    },
+    {
+      "codepoint": "U+0043",
+      "source_glyph": "C",
+      "commands": 22
+    },
+    {
+      "codepoint": "U+0044",
+      "source_glyph": "D",
+      "commands": 20
+    },
+    {
+      "codepoint": "U+0045",
+      "source_glyph": "E",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+0046",
+      "source_glyph": "F",
+      "commands": 11
+    },
+    {
+      "codepoint": "U+0047",
+      "source_glyph": "G",
+      "commands": 26
+    },
+    {
+      "codepoint": "U+0048",
+      "source_glyph": "H",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+0049",
+      "source_glyph": "I",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+004A",
+      "source_glyph": "J",
+      "commands": 14
+    },
+    {
+      "codepoint": "U+004B",
+      "source_glyph": "K",
+      "commands": 14
+    },
+    {
+      "codepoint": "U+004C",
+      "source_glyph": "L",
+      "commands": 7
+    },
+    {
+      "codepoint": "U+004D",
+      "source_glyph": "M",
+      "commands": 19
+    },
+    {
+      "codepoint": "U+004E",
+      "source_glyph": "N",
+      "commands": 17
+    },
+    {
+      "codepoint": "U+004F",
+      "source_glyph": "O",
+      "commands": 24
+    },
+    {
+      "codepoint": "U+0050",
+      "source_glyph": "P",
+      "commands": 18
+    },
+    {
+      "codepoint": "U+0051",
+      "source_glyph": "Q",
+      "commands": 28
+    },
+    {
+      "codepoint": "U+0052",
+      "source_glyph": "R",
+      "commands": 22
+    },
+    {
+      "codepoint": "U+0053",
+      "source_glyph": "S",
+      "commands": 32
+    },
+    {
+      "codepoint": "U+0054",
+      "source_glyph": "T",
+      "commands": 9
+    },
+    {
+      "codepoint": "U+0055",
+      "source_glyph": "U",
+      "commands": 16
+    },
+    {
+      "codepoint": "U+0056",
+      "source_glyph": "V",
+      "commands": 12
+    },
+    {
+      "codepoint": "U+0057",
+      "source_glyph": "W",
+      "commands": 26
+    },
+    {
+      "codepoint": "U+0058",
+      "source_glyph": "X",
+      "commands": 21
+    },
+    {
+      "codepoint": "U+0059",
+      "source_glyph": "Y",
+      "commands": 14
+    },
+    {
+      "codepoint": "U+005A",
+      "source_glyph": "Z",
+      "commands": 11
+    },
+    {
+      "codepoint": "U+005B",
+      "source_glyph": "bracketleft",
+      "commands": 9
+    },
+    {
+      "codepoint": "U+005C",
+      "source_glyph": "backslash",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+005D",
+      "source_glyph": "bracketright",
+      "commands": 9
+    },
+    {
+      "codepoint": "U+005E",
+      "source_glyph": "asciicircum",
+      "commands": 12
+    },
+    {
+      "codepoint": "U+005F",
+      "source_glyph": "underscore",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+0060",
+      "source_glyph": "grave",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+0061",
+      "source_glyph": "a",
+      "commands": 33
+    },
+    {
+      "codepoint": "U+0062",
+      "source_glyph": "b",
+      "commands": 31
+    },
+    {
+      "codepoint": "U+0063",
+      "source_glyph": "c",
+      "commands": 22
+    },
+    {
+      "codepoint": "U+0064",
+      "source_glyph": "d",
+      "commands": 31
+    },
+    {
+      "codepoint": "U+0065",
+      "source_glyph": "e",
+      "commands": 28
+    },
+    {
+      "codepoint": "U+0066",
+      "source_glyph": "f",
+      "commands": 18
+    },
+    {
+      "codepoint": "U+0067",
+      "source_glyph": "g",
+      "commands": 36
+    },
+    {
+      "codepoint": "U+0068",
+      "source_glyph": "h",
+      "commands": 18
+    },
+    {
+      "codepoint": "U+0069",
+      "source_glyph": "i",
+      "commands": 21
+    },
+    {
+      "codepoint": "U+006A",
+      "source_glyph": "j",
+      "commands": 23
+    },
+    {
+      "codepoint": "U+006B",
+      "source_glyph": "k",
+      "commands": 14
+    },
+    {
+      "codepoint": "U+006C",
+      "source_glyph": "l",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+006D",
+      "source_glyph": "m",
+      "commands": 30
+    },
+    {
+      "codepoint": "U+006E",
+      "source_glyph": "n",
+      "commands": 18
+    },
+    {
+      "codepoint": "U+006F",
+      "source_glyph": "o",
+      "commands": 24
+    },
+    {
+      "codepoint": "U+0070",
+      "source_glyph": "p",
+      "commands": 30
+    },
+    {
+      "codepoint": "U+0071",
+      "source_glyph": "q",
+      "commands": 30
+    },
+    {
+      "codepoint": "U+0072",
+      "source_glyph": "r",
+      "commands": 17
+    },
+    {
+      "codepoint": "U+0073",
+      "source_glyph": "s",
+      "commands": 30
+    },
+    {
+      "codepoint": "U+0074",
+      "source_glyph": "t",
+      "commands": 19
+    },
+    {
+      "codepoint": "U+0075",
+      "source_glyph": "u",
+      "commands": 16
+    },
+    {
+      "codepoint": "U+0076",
+      "source_glyph": "v",
+      "commands": 12
+    },
+    {
+      "codepoint": "U+0077",
+      "source_glyph": "w",
+      "commands": 26
+    },
+    {
+      "codepoint": "U+0078",
+      "source_glyph": "x",
+      "commands": 21
+    },
+    {
+      "codepoint": "U+0079",
+      "source_glyph": "y",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+007A",
+      "source_glyph": "z",
+      "commands": 11
+    },
+    {
+      "codepoint": "U+007B",
+      "source_glyph": "braceleft",
+      "commands": 30
+    },
+    {
+      "codepoint": "U+007C",
+      "source_glyph": "bar",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+007D",
+      "source_glyph": "braceright",
+      "commands": 32
+    },
+    {
+      "codepoint": "U+007E",
+      "source_glyph": "asciitilde",
+      "commands": 23
+    },
+    {
+      "codepoint": "U+00A0",
+      "source_glyph": "uni00A0",
+      "commands": 0
+    },
+    {
+      "codepoint": "U+00B0",
+      "source_glyph": "degree",
+      "commands": 20
+    },
+    {
+      "codepoint": "U+00B7",
+      "source_glyph": "periodcentered",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+00D7",
+      "source_glyph": "multiply",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+2010",
+      "source_glyph": "uni2010",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+2013",
+      "source_glyph": "endash",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+2014",
+      "source_glyph": "emdash",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+2018",
+      "source_glyph": "quoteleft",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+2019",
+      "source_glyph": "quoteright",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+201A",
+      "source_glyph": "quotesinglbase",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+201B",
+      "source_glyph": "quotereversed",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+201C",
+      "source_glyph": "quotedblleft",
+      "commands": 26
+    },
+    {
+      "codepoint": "U+201D",
+      "source_glyph": "quotedblright",
+      "commands": 26
+    },
+    {
+      "codepoint": "U+201E",
+      "source_glyph": "quotedblbase",
+      "commands": 26
+    },
+    {
+      "codepoint": "U+201F",
+      "source_glyph": "uni201F",
+      "commands": 26
+    },
+    {
+      "codepoint": "U+2022",
+      "source_glyph": "bullet",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+2026",
+      "source_glyph": "ellipsis",
+      "commands": 36
+    },
+    {
+      "codepoint": "U+2032",
+      "source_glyph": "minute",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+2033",
+      "source_glyph": "second",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+2190",
+      "source_glyph": "arrowleft",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+2191",
+      "source_glyph": "arrowup",
+      "commands": 14
+    },
+    {
+      "codepoint": "U+2192",
+      "source_glyph": "arrowright",
+      "commands": 13
+    },
+    {
+      "codepoint": "U+2193",
+      "source_glyph": "arrowdown",
+      "commands": 14
+    },
+    {
+      "codepoint": "U+2500",
+      "source_glyph": "uni2500",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+2502",
+      "source_glyph": "uni2502",
+      "commands": 5
+    },
+    {
+      "codepoint": "U+250C",
+      "source_glyph": "uni250C",
+      "commands": 7
+    },
+    {
+      "codepoint": "U+2510",
+      "source_glyph": "uni2510",
+      "commands": 7
+    },
+    {
+      "codepoint": "U+2514",
+      "source_glyph": "uni2514",
+      "commands": 7
+    },
+    {
+      "codepoint": "U+2518",
+      "source_glyph": "uni2518",
+      "commands": 7
+    },
+    {
+      "codepoint": "U+E0B0",
+      "source_glyph": "pl-left_hard_divider",
+      "commands": 6
+    },
+    {
+      "codepoint": "U+E0B2",
+      "source_glyph": "pl-right_hard_divider",
+      "commands": 6
+    },
+    {
+      "codepoint": "U+F00C",
+      "source_glyph": "fa-check",
+      "commands": 16
+    },
+    {
+      "codepoint": "U+F040",
+      "source_glyph": "fa-pencil",
+      "commands": 53
+    },
+    {
+      "codepoint": "U+F071",
+      "source_glyph": "fa-warning",
+      "commands": 33
+    },
+    {
+      "codepoint": "U+F07B",
+      "source_glyph": "fa-folder",
+      "commands": 17
+    },
+    {
+      "codepoint": "U+F0C7",
+      "source_glyph": "fa-save",
+      "commands": 52
+    },
+    {
+      "codepoint": "U+F111",
+      "source_glyph": "fa-circle",
+      "commands": 10
+    },
+    {
+      "codepoint": "U+F15B",
+      "source_glyph": "fa-file",
+      "commands": 19
+    },
+    {
+      "codepoint": "U+FFFD",
+      "source_glyph": "replacement",
+      "commands": 43
+    }
+  ]
+}
