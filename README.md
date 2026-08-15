@@ -11,17 +11,30 @@ rasterizes fresh glyphs at the actual physical pixel size.
 
 Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
 libxkbcommon development files, `wayland-scanner`, and `wayland-protocols` with
-xdg-shell, viewporter, and fractional-scale-v1. Normal builds use the checked-in
+xdg-shell, viewporter, fractional-scale-v1, and xdg-activation-v1. Normal builds use the checked-in
 19,164-byte subset; there are no downloads or font-library build steps.
 
 ```sh
 make
 ./tiny-vi notes.txt
-# Or start an unnamed buffer:
+# Open an autosaved scratch page:
 ./tiny-vi
+./tiny-vi work
+./tiny-vi --page ./scratch
+# Or start an unnamed, manually saved buffer:
+./tiny-vi --file -
 ```
 
-Run inside a Wayland session. A missing file opens as a new, empty buffer.
+Run inside a Wayland session. File-looking arguments (a name with an extension)
+open explicit files; missing files start empty. `--file path` forces that mode.
+Other arguments follow jot's page conventions: no argument uses `$JOT_DIR` or
+`~/Documents/jot/default` (`~/jot/default` without Documents), a bare name chooses
+a sibling page, and a path chooses a page folder. `--page folder` forces page
+mode. Pages contain `jot.md`, private `assets/`, and agent instructions on first
+creation. They autosave after 400 ms without typing, save on focus loss, and
+reload external changes on focus when no local edits are pending. One process
+owns a page; a second launch requests activation of that window. Explicit files
+retain manual saves and unsaved-change protection.
 
 ## Platforms and source organization
 
@@ -43,27 +56,18 @@ ctest --test-dir .build/cmake --output-on-failure
 
 ## Keys
 
-The editor starts in normal mode.
+The shared editor implements normal, insert, visual and visual-line modes,
+counts, operators/text objects, grouped undo/redo, smart-case incremental search,
+Ex ranges/substitutions, clipboard paste/yank, wrapping, and conservative
+Markdown styling. See the [complete key reference](docs/keys.md).
 
-| Key | Action |
-| --- | --- |
-| `h` / `j` / `k` / `l` | Left / down / up / right in normal mode |
-| `i` | Enter insert mode |
-| `Esc` | Return to normal mode, or cancel a command |
-| Text, Enter, Tab | Insert in insert mode |
-| Backspace / Delete | Delete before / under the cursor in insert mode |
-| Arrow keys | Move in either mode |
-| `:w` + Enter | Save the current file |
-| `:w path` + Enter | Save under a filename (required for an unnamed buffer) |
-| `:q` + Enter | Quit if there are no unsaved changes |
-| `:wq` + Enter | Save, then quit if the save succeeds |
-| `:wq path` + Enter | Save under a filename, then quit |
-| `:q!` + Enter | Discard changes and quit |
-
-The status bar shows the mode, filename, modification flag, and cursor position.
-The view scrolls to follow the cursor, including across long lines. Tabs occupy
-four-column stops. Holding a key follows the compositor's repeat settings.
-Closing the window also protects unsaved changes.
+`Ctrl+S` saves, `Ctrl+Q` quits, and `Ctrl+plus/minus/0` changes the font size.
+`:set nu/nonu` toggles line numbers, `:set md/nomd` toggles Markdown styling.
+Screenshots can be pasted or imported by dropping image files. Images stay as
+standalone `![](assets/name.png)` lines. `gx` or double-click opens an image;
+`Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.
+Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`
+sidecars used by search/highlighting. `TINYVI_OCR=0` disables automatic OCR.
 
 Saves write a temporary file in the destination directory before renaming it,
 so a failed write does not truncate the original. Existing file permissions are
@@ -73,21 +77,22 @@ replacement APIs; new files inherit the directory ACL. LF and CRLF files are
 edited as LF internally and saved using the first input newline's style. New
 buffers default to LF.
 
-This is a minimal editor: no undo, search, selections, clipboard, or Vim command
-language. Editing preserves UTF-8 bytes, but display is limited to the bundled
-subset; unsupported codepoints use a replacement glyph. Complex shaping,
-combining sequences, wide characters, font fallback, and input methods are not
-implemented.
+Editing preserves UTF-8 bytes, but display is limited to the bundled font
+subset. Unsupported codepoints use a replacement glyph. Complex shaping,
+combining sequences, wide characters, fallback fonts and input methods remain
+unsupported. Regex/case operations implement a deliberately small subset; see
+[feature scope and current verification](docs/jot-parity.md).
 
 ## Implementation and checks
 
-`src/editor.c` holds the portable text buffer, movement, modes, and commands.
-`src/app.c` handles shared input/lifetime/close policy, and `src/render.c` paints
-the UI through the pitch-aware `app_paint` interface. `src/tiny-font.c` implements
-the font reader, contour flattener, scan converter, and glyph cache. Native
-window, file, and page-allocation implementations are isolated under
-`src/platform/`. The UI uses bundled Nerd Font
-file, pencil, and modified-state icons.
+`src/editor.c` holds the portable text buffer and file operations; `keys.c`,
+`ex.c`, `substitute.c` and `history.c` implement the editing language. `session.c`
+handles page persistence/ownership, while `media.c` handles asset references and
+external OCR. PNG/JPEG codecs are vendored from stb with bounded allocations.
+`src/app.c` handles shared input/lifetime/close policy and `src/render.c` paints
+through the pitch-aware `app_paint` interface. `src/tiny-font.c` implements the
+outline font and glyph cache. Native windows, clipboard, file and memory code
+remain isolated under `src/platform/`.
 
 Only two submitted pixel buffers can be pending at once. Rendering is coalesced
 between event batches and happens only when needed. The font cache is a fixed
@@ -102,8 +107,10 @@ make test
 make clean
 ```
 
-Tests cover editing, UTF-8 boundaries, movement, save/quit behavior, write
-failures, keyboard translation, and rendering/scrolling at small window sizes.
+Tests cover modal editing, grouped undo, regex captures/ranges, UTF-8 boundaries,
+safe file saves, page ownership/autosave/reload, image round trips, OCR sidecar
+search, input translation, DPI rendering and small-window wrapping. Native
+clipboard integration verification is tracked separately in the parity report.
 
 ## Font assets and measurements
 

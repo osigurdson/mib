@@ -1,6 +1,8 @@
 #include "app.h"
+#include "media.h"
 #include "session.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 bool app_open(struct app *app, const char *filename)
@@ -14,11 +16,29 @@ bool app_open(struct app *app, const char *filename)
                         .follow_cursor = true,
                         .dirty = true,
                         .running = true};
-    return editor_open(&app->editor, filename);
+    bool ok = editor_open(&app->editor, filename);
+    if (ok && filename) {
+        const char *slash = strrchr(filename, '/'), *back = strrchr(filename, '\\');
+        if (back && (!slash || back > slash))
+            slash = back;
+        size_t n = slash ? (size_t)(slash - filename) : 1;
+        if (slash == filename || (slash && slash > filename && slash[-1] == ':'))
+            ++n;
+        app->directory = malloc(n + 1);
+        if (!app->directory)
+            return false;
+        if (slash)
+            memcpy(app->directory, filename, n);
+        else
+            app->directory[0] = '.';
+        app->directory[n] = 0;
+    }
+    return ok;
 }
 
 void app_close(struct app *app)
 {
+    media_close(app);
     session_close(app);
     tiny_font_close(app->font);
     editor_destroy(&app->editor);
@@ -27,6 +47,27 @@ void app_close(struct app *app)
 
 void app_input(struct app *app, enum editor_key key, const char *text)
 {
+    if (app->context_menu) {
+        if (key == KEY_ESCAPE) {
+            app->context_menu = false;
+            app->dirty = true;
+            return;
+        }
+        if (key == KEY_UP || key == KEY_DOWN) {
+            app->context_choice ^= 1;
+            app->dirty = true;
+            return;
+        }
+        if (key == KEY_ENTER) {
+            unsigned request = app->context_choice ? ED_OPEN : ED_COPY_OCR;
+            app->context_menu = false;
+            if (app->service)
+                app->service(app, request, app->service_data);
+            app->dirty = true;
+            return;
+        }
+        app->context_menu = false;
+    }
     if (app->scratch &&
         ((key == KEY_CTRL_Q) ||
          (key == KEY_ENTER && app->editor.command_active && app->editor.command_kind == ':' &&
@@ -41,6 +82,12 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         app->dirty = true;
         return;
     }
+    const struct media_entry *selected_image = media_at(app, app->editor.cursor);
+    char image_name[256] = {0};
+    if (selected_image)
+        snprintf(image_name, sizeof(image_name), "%s", selected_image->name);
+    app->editor.extra_search = media_search;
+    app->editor.extra_search_data = app;
     uint64_t before = app->editor.revision;
     editor_input(&app->editor, key, text);
     if (app->editor.revision != before)
@@ -57,6 +104,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     if (requests & ED_ZOOM_RESET)
         app->font_size = 18;
     app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET);
+    if ((app->editor.requests & ED_COPY) && image_name[0])
+        app->clipboard_image = session_path(app, image_name);
     unsigned service_requests = app->editor.requests;
     app->editor.requests = 0;
     if (app->service)
@@ -64,10 +113,13 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     else if (service_requests & ED_PASTE)
         editor_put(&app->editor, app->editor.register_text, app->editor.register_length,
                    app->editor.register_linewise, app->editor.put_after, app->editor.put_count);
+    free(app->clipboard_image);
+    app->clipboard_image = NULL;
     if (app->editor.revision != before)
         session_changed(app);
     app->follow_cursor = key != KEY_CTRL_E && key != KEY_CTRL_Y;
     app->dirty = true;
+    media_tick(app);
     if (app->editor.quit)
         app->running = false;
 }
@@ -89,7 +141,7 @@ void app_scroll(struct app *app, int rows)
     struct editor *ed = &app->editor;
     if (rows > 0)
         while (rows--)
-            ed->top = app_row_next(ed, ed->top, ed->viewport_columns ? ed->viewport_columns : 80);
+            ed->top = app_view_next(app, ed->top);
     else
         while (rows++) {
             if (!ed->top)
@@ -103,6 +155,20 @@ void app_scroll(struct app *app, int rows)
 void app_pointer(struct app *app, int x, int y, bool extend)
 {
     struct editor *ed = &app->editor;
+    if (app->context_menu && !extend) {
+        int px = (int)((int64_t)x * app->scale120 / 120),
+            py = (int)((int64_t)y * app->scale120 / 120);
+        int width = 26 * app->cell;
+        if (px >= app->context_x && px < app->context_x + width && py >= app->context_y &&
+            py < app->context_y + 2 * app->line_height) {
+            unsigned request = py < app->context_y + app->line_height ? ED_COPY_OCR : ED_OPEN;
+            if (app->service)
+                app->service(app, request, app->service_data);
+        }
+        app->context_menu = false;
+        app->dirty = true;
+        return;
+    }
     if (extend) {
         if (ed->mode != VISUAL) {
             ed->anchor = ed->cursor;
@@ -115,4 +181,24 @@ void app_pointer(struct app *app, int x, int y, bool extend)
     ed->cursor = app_hit_test(app, x, y);
     app->dirty = true;
     app->follow_cursor = false;
+}
+
+void app_context(struct app *app, int x, int y)
+{
+    app_pointer(app, x, y, false);
+    if (!media_at(app, app->editor.cursor))
+        return;
+    int px = (int)((int64_t)x * app->scale120 / 120), py = (int)((int64_t)y * app->scale120 / 120);
+    int width = 26 * app->cell, height = 2 * app->line_height;
+    if (px + width > app->view_width)
+        px = app->view_width - width;
+    int bottom =
+        (int)((int64_t)app->height * app->scale120 / 120) - 2 * app->line_height - app->padding;
+    if (py + height > bottom)
+        py = bottom - height;
+    app->context_x = px < 0 ? 0 : px;
+    app->context_y = py < 0 ? 0 : py;
+    app->context_choice = 0;
+    app->context_menu = true;
+    app->dirty = true;
 }

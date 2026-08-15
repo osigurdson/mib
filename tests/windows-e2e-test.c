@@ -18,7 +18,7 @@ static struct launched launch(const wchar_t *exe,const wchar_t *file)
 {
     wchar_t command[4096];
     if(file)swprintf(command,4096,L"\"%ls\" \"%ls\"",exe,file);
-    else swprintf(command,4096,L"\"%ls\"",exe);
+    else swprintf(command,4096,L"\"%ls\" --file -",exe);
     STARTUPINFOW startup={0};startup.cb=sizeof(startup);
     struct launched app={0};
     assert(CreateProcessW(NULL,command,NULL,NULL,FALSE,0,NULL,NULL,&startup,&app.process));

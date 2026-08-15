@@ -31,7 +31,7 @@ int app_main(int argc, char **argv)
         return EXIT_FAILURE;
     }
     struct app app;
-    if (!app_open(&app, file ? name : NULL))
+    if (!app_open(&app, file && strcmp(name, "-") ? name : NULL))
         goto failed;
     if (!file) {
         int opened = session_open(&app, name);

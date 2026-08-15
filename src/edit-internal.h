@@ -4,6 +4,7 @@
 bool editor_reserve(struct editor *ed, size_t needed);
 bool editor_raw_replace(struct editor *ed, size_t from, size_t to, const char *text, size_t length);
 uint64_t editor_hash(const struct editor *ed);
+bool editor_change_active(const struct editor *ed);
 void editor_history_clear(struct editor *ed);
 void editor_clamp(struct editor *ed);
 void editor_yank(struct editor *ed, size_t from, size_t to, bool linewise);

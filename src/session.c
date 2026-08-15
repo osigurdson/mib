@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "session.h"
 #include "app.h"
+#include "media.h"
 #include "platform.h"
 #include <errno.h>
 #include <stdio.h>
@@ -428,6 +429,7 @@ void session_changed(struct app *app)
 }
 void session_tick(struct app *app)
 {
+    media_tick(app);
     if (app->save_at && session_now() >= app->save_at) {
         app->save_at = 0;
         if (!session_save(app))

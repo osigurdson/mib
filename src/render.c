@@ -1,5 +1,6 @@
 #include "app.h"
 #include "markdown.h"
+#include "media.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -79,6 +80,57 @@ size_t app_row_next(const struct editor *ed, size_t start, unsigned columns)
     }
     return p < ed->length ? p + 1 : p;
 }
+size_t app_view_next(struct app *app, size_t start)
+{
+    const struct media_entry *image = media_at(app, start);
+    if (image && image->width > 0)
+        return image->end < app->editor.length ? image->end + 1 : image->end;
+    return app_row_next(&app->editor, start,
+                        app->editor.viewport_columns ? app->editor.viewport_columns : 80);
+}
+int app_view_rows(struct app *app, size_t start)
+{
+    return media_rows(app, start, app->view_width - 2 * app->padding - app->gutter,
+                      app->line_height ? app->line_height : 24,
+                      app->editor.viewport_rows ? app->editor.viewport_rows : 24);
+}
+static void draw_image(struct app *app, const struct media_entry *entry, uint32_t *pixels,
+                       int width, int height, int stride, int x, int y, int available_width,
+                       int available_height, bool selected)
+{
+    struct image image = {0};
+    if (available_width < 1 || available_height < 1 || !media_pixels(app, entry, &image))
+        return;
+    int w = image.width, h = image.height;
+    if (w > available_width) {
+        h = (int)((int64_t)h * available_width / w);
+        w = available_width;
+    }
+    if (h > available_height) {
+        w = (int)((int64_t)w * available_height / h);
+        h = available_height;
+    }
+    if (w < 1)
+        w = 1;
+    if (h < 1)
+        h = 1;
+    if (selected)
+        rectangle(pixels, width, height, stride, x - 2, y - 2, w + 4, h + 4, 0xff88c0d0);
+    for (int row = 0; row < h && row + y < height; ++row)
+        for (int col = 0; col < w && col + x < width; ++col) {
+            if (row + y < 0 || col + x < 0)
+                continue;
+            const unsigned char *p =
+                image.rgba + ((size_t)((int64_t)row * image.height / h) * image.width +
+                              (size_t)((int64_t)col * image.width / w)) *
+                                 4;
+            uint32_t color = 0xff000000 | ((uint32_t)p[0] << 16) | ((uint32_t)p[1] << 8) | p[2];
+            size_t at = (size_t)(row + y) * stride + col + x;
+            pixels[at] = blend(pixels[at], p[3], color);
+        }
+    media_highlight(app, entry, pixels, width, height, stride, x, y, w, h);
+    image_free(&image);
+}
 static bool fence(const struct editor *ed, size_t start)
 {
     size_t end = editor_line_end(ed, start), p = start;
@@ -132,6 +184,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         columns = 1;
     ed->viewport_rows = (unsigned)rows;
     ed->viewport_columns = (unsigned)columns;
+    app->view_width = width;
+    media_sync(app);
     app->cell = cell;
     app->line_height = line_height;
     app->padding = padding;
@@ -143,16 +197,21 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             ed->top = editor_line_start(ed, ed->cursor);
         size_t p = ed->top, cursor_row = 0;
         while (p < ed->cursor) {
-            size_t next = app_row_next(ed, p, (unsigned)columns);
+            size_t next = app_view_next(app, p);
             if (next <= p || next > ed->cursor ||
                 (next == ed->cursor && ed->text[next - 1] != '\n' && next == ed->length))
                 break;
+            cursor_row += (size_t)app_view_rows(app, p);
             p = next;
-            ++cursor_row;
         }
         size_t remove = cursor_row >= (size_t)rows ? cursor_row - (size_t)rows + 1 : 0;
-        while (remove--)
-            ed->top = app_row_next(ed, ed->top, (unsigned)columns);
+        while (remove) {
+            size_t step = (size_t)app_view_rows(app, ed->top), next = app_view_next(app, ed->top);
+            if (next == ed->top)
+                break;
+            ed->top = next;
+            remove = remove > step ? remove - step : 0;
+        }
     }
     for (int y = 0; y < height; ++y)
         for (int x = 0; x < width; ++x)
@@ -172,7 +231,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     size_t start = ed->top, last_line = SIZE_MAX;
     int cursor_x = -1, cursor_y = -1;
     for (int row = 0; row < rows; ++row) {
-        size_t next = app_row_next(ed, start, (unsigned)columns), end = next;
+        size_t next = app_view_next(app, start), end = next;
         if (end > start && ed->text[end - 1] == '\n')
             --end;
         size_t logical_start = editor_line_start(ed, start),
@@ -191,6 +250,19 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
             if (!label(app, pixels, width, height, stride, number, padding, y + ascender, cell))
                 return false;
+        }
+        const struct media_entry *image = media_at(app, start);
+        if (image && image->width > 0) {
+            int span = app_view_rows(app, start);
+            bool image_selected = ed->cursor >= image->start && ed->cursor <= image->end;
+            draw_image(app, image, pixels, width, height, stride, padding + gutter, y + 2,
+                       width - 2 * padding - gutter, (span - 1) * line_height - 4,
+                       image_selected || (selected && start >= selection_a && start < selection_b));
+            row += span - 1;
+            if (next <= start || next == ed->length)
+                break;
+            start = next;
+            continue;
         }
         size_t offset = start;
         unsigned column = 0;
@@ -265,10 +337,15 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                        : ed->mode == VISUAL      ? "VISUAL"
                        : ed->mode == VISUAL_LINE ? "VISUAL LINE"
                                                  : "NORMAL";
-    snprintf(status, sizeof(status), "%s  %s%s  |  %zu:%zu  %s", mode,
-             ed->filename ? ed->filename : "[No Name]", ed->modified ? " [+]" : "",
-             editor_line_number(ed, ed->cursor) + 1, editor_column(ed, ed->cursor) + 1,
-             ed->pending);
+    const char *filename = ed->filename ? ed->filename : "[No Name]",
+               *slash = strrchr(filename, '/'), *back = strrchr(filename, '\\');
+    if (back && (!slash || back > slash))
+        slash = back;
+    if (slash)
+        filename = slash + 1;
+    snprintf(status, sizeof(status), "%s  %s%s  |  %zu:%zu  %s", mode, filename,
+             ed->modified ? " [+]" : "", editor_line_number(ed, ed->cursor) + 1,
+             editor_column(ed, ed->cursor) + 1, ed->pending);
     if (!label(app, pixels, width, height, stride, status, padding, status_y + ascender, cell))
         return false;
     char prompt[1100];
@@ -278,8 +355,23 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     else
         snprintf(prompt, sizeof(prompt), "%s",
                  ed->message[0] ? ed->message : "i insert  v visual  / search  :w :q");
-    return label(app, pixels, width, height, stride, prompt, padding,
-                 status_y + line_height + ascender, cell);
+    if (!label(app, pixels, width, height, stride, prompt, padding,
+               status_y + line_height + ascender, cell))
+        return false;
+    if (app->context_menu) {
+        rectangle(pixels, width, height, stride, app->context_x, app->context_y, 26 * cell,
+                  2 * line_height, 0xff34485b);
+        rectangle(pixels, width, height, stride, app->context_x,
+                  app->context_y + app->context_choice * line_height, 26 * cell, line_height,
+                  0xff4b6680);
+        if (!label(app, pixels, width, height, stride, " Copy Text from Image", app->context_x,
+                   app->context_y + ascender, cell))
+            return false;
+        if (!label(app, pixels, width, height, stride, " Open Image", app->context_x,
+                   app->context_y + line_height + ascender, cell))
+            return false;
+    }
+    return true;
 }
 size_t app_hit_test(struct app *app, int logical_x, int logical_y)
 {
@@ -292,13 +384,17 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
         row = app->editor.viewport_rows - 1;
     struct editor *ed = &app->editor;
     size_t p = ed->top;
-    while (row--) {
-        size_t next = app_row_next(ed, p, ed->viewport_columns);
+    while (row) {
+        unsigned span = (unsigned)app_view_rows(app, p);
+        if (row < span)
+            return p;
+        row -= span;
+        size_t next = app_view_next(app, p);
         if (next == p)
             break;
         p = next;
     }
-    size_t end = app_row_next(ed, p, ed->viewport_columns);
+    size_t end = app_view_next(app, p);
     unsigned col = 0, target = x > 0 ? (unsigned)(x / app->cell) : 0;
     while (p < end && ed->text[p] != '\n') {
         unsigned step = ed->text[p] == '\t' ? 4 - col % 4 : 1;

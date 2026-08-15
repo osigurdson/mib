@@ -79,6 +79,7 @@ void editor_put(struct editor *ed, const char *text, size_t length, bool linewis
         return;
     size_t p = ed->cursor;
     bool insert_mode = ed->mode == INSERT;
+    bool own = !editor_change_active(ed);
     editor_change_begin(ed);
     if (!insert_mode) {
         if (linewise) {
@@ -99,15 +100,15 @@ void editor_put(struct editor *ed, const char *text, size_t length, bool linewis
         p += length;
     }
     ed->cursor = insert_mode ? p : linewise ? first_nonblank(ed, start) : editor_previous(ed, p);
-    editor_change_end(ed);
+    if (own)
+        editor_change_end(ed);
     editor_clamp(ed);
-    if (insert_mode)
-        editor_change_begin(ed);
 }
 void editor_indent(struct editor *ed, size_t a, size_t b, bool right)
 {
     a = editor_line_start(ed, a);
     b = editor_line_end(ed, b);
+    bool own = !editor_change_active(ed);
     editor_change_begin(ed);
     size_t p = a;
     while (p <= b && p <= ed->length) {
@@ -135,12 +136,14 @@ void editor_indent(struct editor *ed, size_t a, size_t b, bool right)
         p = end + 1;
     }
     ed->cursor = first_nonblank(ed, a);
-    editor_change_end(ed);
+    if (own)
+        editor_change_end(ed);
 }
 void editor_join(struct editor *ed, size_t a, size_t b)
 {
     a = editor_line_start(ed, a);
     b = editor_line_end(ed, b);
+    bool own = !editor_change_active(ed);
     editor_change_begin(ed);
     size_t p = editor_line_end(ed, a), cursor = p;
     while (p < b && p < ed->length) {
@@ -156,7 +159,8 @@ void editor_join(struct editor *ed, size_t a, size_t b)
     }
     ed->cursor = cursor;
     editor_clamp(ed);
-    editor_change_end(ed);
+    if (own)
+        editor_change_end(ed);
 }
 static void case_range(struct editor *ed, size_t a, size_t b, char how)
 {
@@ -197,14 +201,29 @@ void editor_search(struct editor *ed, bool forward, unsigned count)
         return;
     size_t p = ed->cursor;
     while (count--) {
+        size_t origin = p;
+        size_t extra = ed->extra_search
+                           ? ed->extra_search(ed, origin, forward, ed->extra_search_data)
+                           : SIZE_MAX;
         bool found = false;
         for (size_t steps = 0; steps <= ed->length; ++steps) {
-            p = forward ? p == ed->length ? 0 : editor_next(ed, p)
-                : p     ? editor_previous(ed, p)
-                        : ed->length;
+            p = forward ? (p == ed->length ? 0 : editor_next(ed, p))
+                        : (p ? editor_previous(ed, p) : ed->length);
             if (match_at(ed, p)) {
                 found = true;
                 break;
+            }
+        }
+        if (extra != SIZE_MAX) {
+            size_t distance =
+                forward ? (extra > origin ? extra - origin : ed->length - origin + extra + 1)
+                        : (extra < origin ? origin - extra : origin + ed->length - extra + 1);
+            size_t text_distance = forward
+                                       ? (p > origin ? p - origin : ed->length - origin + p + 1)
+                                       : (p < origin ? origin - p : origin + ed->length - p + 1);
+            if (!found || distance < text_distance) {
+                p = extra;
+                found = true;
             }
         }
         if (!found) {
@@ -309,7 +328,12 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
             *valid = false;
             return p;
         }
-        return motion(ed, seq, count, false, linewise, inclusive, valid);
+        char kind = ed->find_kind;
+        uint32_t original = ed->find_char;
+        size_t result = motion(ed, seq, count, false, linewise, inclusive, valid);
+        ed->find_kind = kind;
+        ed->find_char = original;
+        return result;
     }
     if (strchr("fFtT", c) && m[1]) {
         size_t offset = 1;
@@ -551,6 +575,7 @@ static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewis
         ed->cursor = a;
     } else if (op == 'd' || op == 'c') {
         editor_yank(ed, a, b, linewise);
+        bool own = !editor_change_active(ed);
         editor_change_begin(ed);
         if (linewise && op == 'c') {
             if (b && ed->text[b - 1] == '\n')
@@ -561,7 +586,7 @@ static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewis
         ed->cursor = a;
         if (op == 'c')
             ed->mode = INSERT;
-        else
+        else if (own)
             editor_change_end(ed);
     } else if (op == '>' || op == '<')
         editor_indent(ed, a, b > a ? editor_previous(ed, b) : b, op == '>');
@@ -810,7 +835,7 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
         while (isdigit((unsigned char)*p) && (*p != '0' || inner))
             inner = min(100000, inner * 10 + (unsigned)(*p++ - '0'));
         if (inner)
-            count = min(100000, count * inner);
+            count = count > 100000 / inner ? 100000 : count * inner;
         if (!*p)
             return;
     }
@@ -882,11 +907,13 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
             bool lines = ed->register_linewise;
             if (copy)
                 memcpy(copy, ed->register_text, bytes);
+            editor_change_begin(ed);
             operate(ed, 'd', a, b, linewise);
             if (copy) {
                 editor_put(ed, copy, bytes, lines, false, count);
                 free(copy);
             }
+            editor_change_end(ed);
             return;
         }
         operate(ed, *p == 'x' ? 'd' : *p == 's' ? 'c' : *p, a, b, linewise);

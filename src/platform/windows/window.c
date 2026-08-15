@@ -16,6 +16,8 @@ struct windows_window {
     bool dragging;
 };
 
+#include "clipboard.inc"
+
 static void update_geometry(struct windows_window *window)
 {
     RECT client;
@@ -28,8 +30,10 @@ static void update_geometry(struct windows_window *window)
 
 static void changed(struct windows_window *window)
 {
-    if (window->app->save_at) {
-        uint64_t now=session_now(), remaining=window->app->save_at>now?window->app->save_at-now:1;
+    uint64_t deadline=window->app->save_at;
+    if(window->app->work_at && (!deadline || window->app->work_at<deadline))deadline=window->app->work_at;
+    if (deadline) {
+        uint64_t now=session_now(), remaining=deadline>now?deadline-now:1;
         SetTimer(window->handle,1,(UINT)remaining,NULL);
     }
     if (!window->app->running) DestroyWindow(window->handle);
@@ -134,6 +138,7 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         update_geometry(window);
         return 0;
     case WM_SIZE:
+        window->app->maximized=wparam==SIZE_MAXIMIZED;
         if (wparam != SIZE_MINIMIZED) { update_geometry(window); InvalidateRect(handle, NULL, FALSE); }
         return 0;
     case WM_DPICHANGED: {
@@ -161,11 +166,19 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         }
         return 0;
     }
+    case WM_RBUTTONDOWN:
+        app_context(window->app,MulDiv((short)LOWORD(lparam),96,(int)window->dpi),MulDiv((short)HIWORD(lparam),96,(int)window->dpi));changed(window);return 0;
+    case WM_LBUTTONDBLCLK:
+        app_pointer(window->app,MulDiv((short)LOWORD(lparam),96,(int)window->dpi),MulDiv((short)HIWORD(lparam),96,(int)window->dpi),false);
+        windows_service(window->app,ED_OPEN,window);changed(window);return 0;
+    case WM_DROPFILES:
+        import_drop(window->app,(HGLOBAL)wparam);GlobalFree((HGLOBAL)wparam);changed(window);return 0;
     case WM_MOUSEWHEEL:
         app_scroll(window->app, (short)HIWORD(wparam) > 0 ? -3 : 3); changed(window); return 0;
     case WM_LBUTTONDOWN:
         window->dragging = true; SetCapture(handle);
         app_pointer(window->app, MulDiv((short)LOWORD(lparam),96,(int)window->dpi), MulDiv((short)HIWORD(lparam),96,(int)window->dpi), (wparam & MK_SHIFT) != 0);
+        if(GetKeyState(VK_CONTROL)<0){windows_service(window->app,ED_OPEN,window);window->dragging=false;ReleaseCapture();}
         changed(window); return 0;
     case WM_MOUSEMOVE:
         if(window->dragging) { app_pointer(window->app, MulDiv((short)LOWORD(lparam),96,(int)window->dpi), MulDiv((short)HIWORD(lparam),96,(int)window->dpi), true); changed(window); }
@@ -208,7 +221,7 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
     case WM_TIMER:
         if (wparam==1) { KillTimer(handle,1);session_tick(window->app);changed(window); } return 0;
     case WM_SETFOCUS:
-        session_focus(window->app,true);changed(window);return 0;
+        session_focus(window->app,true);session_tick(window->app);changed(window);return 0;
     case WM_KILLFOCUS:
         session_focus(window->app,false);
         window->high_surrogate = 0;
@@ -232,11 +245,13 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
 static bool open_window(struct windows_window *window, struct app *app, int show)
 {
     *window = (struct windows_window){.app = app, .dpi = 96};
+    app->service=windows_service;app->service_data=window;
     /* Windows 10+; Wine may fall back to system DPI awareness. */
     if (!SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
         SetProcessDPIAware();
     HINSTANCE instance = GetModuleHandleW(NULL);
     WNDCLASSW klass = {0};
+    klass.style=CS_DBLCLKS;
     klass.lpfnWndProc = window_proc;
     klass.hInstance = instance;
     klass.hCursor = LoadCursorW(NULL, IDC_IBEAM);
@@ -245,12 +260,12 @@ static bool open_window(struct windows_window *window, struct app *app, int show
     UINT dpi = GetDpiForSystem(); if (!dpi) dpi = 96;
     RECT size = {0, 0, MulDiv(app->width, (int)dpi, 96), MulDiv(app->height, (int)dpi, 96)};
     if (!AdjustWindowRectExForDpi(&size, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi)) return false;
-    HWND handle = CreateWindowExW(0, window_class, L"Tiny vi - Windows / CPU", WS_OVERLAPPEDWINDOW,
+    HWND handle = CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Tiny vi - Windows / CPU", WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left, size.bottom - size.top,
         NULL, NULL, instance, window);
     if (!handle) return false;
     if (app->scratch) { wchar_t name[64]; swprintf(name,64,L"Local\\TinyViPage-%016llx",(unsigned long long)app->page_id); SetWindowTextW(handle,name); }
-    ShowWindow(handle, show);
+    ShowWindow(handle, app->maximized?SW_SHOWMAXIMIZED:show);
     UpdateWindow(handle);
     return window->handle != NULL;
 }
@@ -263,6 +278,7 @@ int platform_run(struct app *app)
         fprintf(stderr, "%s\n", error);
         return EXIT_FAILURE;
     }
+    session_tick(app);changed(&window);
     MSG message;
     int result;
     while ((result = (int)GetMessageW(&message, NULL, 0, 0)) > 0) {

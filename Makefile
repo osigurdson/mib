@@ -4,8 +4,8 @@ PYTHON ?= python3
 PKG_CONFIG ?= pkg-config
 WAYLAND_SCANNER ?= wayland-scanner
 CFLAGS ?= -Os -g
-CFLAGS += -std=c11 -Wall -Wextra -Wpedantic
-LDFLAGS += -Wl,--as-needed
+CFLAGS += -ffunction-sections -fdata-sections -std=c11 -Wall -Wextra -Wpedantic
+LDFLAGS += -Wl,--as-needed -Wl,--gc-sections
 GEN := .build/generated
 INCLUDES := -Isrc -I$(GEN)
 WAYLAND_CFLAGS := $(shell $(PKG_CONFIG) --cflags wayland-client xkbcommon)
@@ -14,8 +14,8 @@ PROTOCOLS_DIR := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
 PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-activation-v1
 PROTOCOL_HEADERS := $(addprefix $(GEN)/,$(addsuffix -client-protocol.h,$(PROTOCOL_NAMES)))
 PROTOCOL_SOURCES := $(addprefix $(GEN)/,$(addsuffix -protocol.c,$(PROTOCOL_NAMES)))
-CORE := src/app.c src/session.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c
-HEADERS := $(wildcard src/*.h)
+CORE := src/app.c src/session.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c
+HEADERS := $(wildcard src/*.h src/platform/*/*.inc)
 MEMORY := src/platform/linux/memory.c
 FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
@@ -72,13 +72,20 @@ modal-test: tests/modal-test.c src/editor.c src/keys.c src/ex.c src/history.c sr
 session-test: tests/session-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/session-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
-test: editor-test client-test font-test app-test modal-test session-test
+media-test: tests/media-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/media-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+
+test: editor-test client-test font-test app-test modal-test session-test media-test
+	./media-test
 	./session-test
 	./modal-test
 	./editor-test
 	./client-test
 	./font-test
 	./app-test
+
+page-preview: tools/page-preview.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/page-preview.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
 font-preview: tools/font-preview.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/font-preview.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/tiny-font.c $(MEMORY) $(FILES) $(LDLIBS)

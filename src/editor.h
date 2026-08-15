@@ -71,6 +71,8 @@ struct editor {
     uint32_t find_char;
     char find_kind, command_kind;
     uint64_t revision, saved_hash;
+    size_t (*extra_search)(const struct editor *, size_t, bool, void *);
+    void *extra_search_data;
     struct edit_history *history;
     char *command_history[32];
     unsigned history_count, history_position;

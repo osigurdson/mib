@@ -40,7 +40,15 @@ struct wayland_client {
     struct wl_pointer *pointer;
     int pointer_x, pointer_y;
     bool dragging;
-    uint32_t serial;
+    uint32_t serial, last_click;
+    int last_click_x,last_click_y;
+    struct wl_data_device_manager *data_manager;
+    struct wl_data_device *data_device;
+    struct clipboard_offer *pending_offer,*selection_offer,*drag_offer,*receive_offer;
+    struct clipboard_source *sources;
+    int receive_fd,receive_kind;
+    char *receive_data;
+    size_t receive_length,receive_capacity;
     struct xkb_context *xkb_context;
     struct xkb_keymap *xkb_keymap;
     struct xkb_state *xkb_state;
@@ -50,6 +58,8 @@ struct wayland_client {
     unsigned pending_buffers;
     bool configured;
 };
+
+#include "clipboard.inc"
 
 static void buffer_release(void *data, struct wl_buffer *buffer)
 {
@@ -385,7 +395,17 @@ static void pointer_motion(void *data,struct wl_pointer *pointer,uint32_t time,w
 static void pointer_button(void *data,struct wl_pointer *pointer,uint32_t serial,uint32_t time,uint32_t button,uint32_t state)
 {
     (void)pointer;(void)time;struct wayland_client *c=data;c->serial=serial;
-    if(button==0x110){c->dragging=state==WL_POINTER_BUTTON_STATE_PRESSED;if(c->dragging)app_pointer(c->app,c->pointer_x,c->pointer_y,false);}
+    if(button==0x111 && state==WL_POINTER_BUTTON_STATE_PRESSED){app_context(c->app,c->pointer_x,c->pointer_y);return;}
+    if(button==0x110){
+        c->dragging=state==WL_POINTER_BUTTON_STATE_PRESSED;
+        if(c->dragging){
+            bool menu=c->app->context_menu;app_pointer(c->app,c->pointer_x,c->pointer_y,false);if(menu)c->dragging=false;
+            bool control=c->xkb_state && xkb_state_mod_name_is_active(c->xkb_state,XKB_MOD_NAME_CTRL,XKB_STATE_MODS_EFFECTIVE)>0;
+            bool twice=c->last_click && time-c->last_click<400 && abs(c->pointer_x-c->last_click_x)<4 && abs(c->pointer_y-c->last_click_y)<4;
+            if(!menu && (control || twice)){linux_service(c->app,ED_OPEN,c);c->dragging=false;}
+            c->last_click=twice?0:time;c->last_click_x=c->pointer_x;c->last_click_y=c->pointer_y;
+        }
+    }
 }
 static void pointer_axis(void *data,struct wl_pointer *pointer,uint32_t time,uint32_t axis,wl_fixed_t value)
 { (void)pointer;(void)time;if(axis==WL_POINTER_AXIS_VERTICAL_SCROLL)app_scroll(((struct wayland_client *)data)->app,value>0?3:-3); }
@@ -430,6 +450,8 @@ static void registry_global(void *data, struct wl_registry *registry,
     }
     else if (strcmp(interface, xdg_activation_v1_interface.name) == 0)
         client->activation = wl_registry_bind(registry, name, &xdg_activation_v1_interface, 1);
+    else if (strcmp(interface, wl_data_device_manager_interface.name) == 0)
+        client->data_manager = wl_registry_bind(registry,name,&wl_data_device_manager_interface,version<3?version:3);
     else if (strcmp(interface, wl_shm_interface.name) == 0)
         client->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
     else if (strcmp(interface, wp_viewporter_interface.name) == 0)
@@ -456,7 +478,9 @@ static const struct wl_registry_listener registry_listener = {
 
 int platform_run(struct app *app)
 {
-    struct wayland_client state = {.app = app};
+    struct wayland_client state = {.app = app,.receive_fd=-1};
+    app->service=linux_service;app->service_data=&state;
+    signal(SIGPIPE,SIG_IGN);
     struct wayland_client *client = &state;
     int status = EXIT_FAILURE;
     client->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
@@ -473,6 +497,7 @@ int platform_run(struct app *app)
         fprintf(stderr, "Compositor must provide wl_compositor, wl_shm, and xdg_wm_base\n");
         goto cleanup;
     }
+    if(client->seat && client->data_manager){client->data_device=wl_data_device_manager_get_data_device(client->data_manager,client->seat);wl_data_device_add_listener(client->data_device,&data_listener,client);}
     client->surface = wl_compositor_create_surface(client->compositor);
     wl_surface_add_listener(client->surface, &wl_surface_listener, client);
     if (client->viewporter && client->scale_manager) {
@@ -514,8 +539,16 @@ int platform_run(struct app *app)
             uint64_t now = session_now(); int remaining = app->save_at <= now ? 0 : (int)(app->save_at - now);
             if (timeout < 0 || remaining < timeout) timeout = remaining;
         }
-        struct pollfd sockets[2] = {socket, {.fd=app->activation_fd,.events=POLLIN}};
-        int ready = poll(sockets, 2, timeout);
+        if (app->work_at) {
+            uint64_t now=session_now();int remaining=app->work_at<=now?0:(int)(app->work_at-now);
+            if(timeout<0 || remaining<timeout)timeout=remaining;
+        }
+        struct pollfd sockets[20] = {socket, {.fd=app->activation_fd,.events=POLLIN},{.fd=client->receive_fd,.events=POLLIN}};
+        struct clipboard_source *send_sources[16];unsigned send_slots[16],count=3;
+        for(struct clipboard_source *p=client->sources;p;p=p->next)for(unsigned i=0;i<4;++i)if(p->sends[i].fd>=0){send_sources[count-3]=p;send_slots[count-3]=i;sockets[count++]=(struct pollfd){.fd=p->sends[i].fd,.events=POLLOUT};}
+        int ready = poll(sockets,count,timeout);
+        for(unsigned i=3;i<count;++i)if(sockets[i].revents)send_ready(send_sources[i-3],send_slots[i-3]);
+        if(sockets[2].revents)receive_ready(client);
         socket = sockets[0];
         if (sockets[1].revents & POLLIN) {
             char token[1024]; ssize_t n = recv(app->activation_fd, token, sizeof(token)-1, 0);
@@ -532,6 +565,12 @@ int platform_run(struct app *app)
     status = client->app->failed ? EXIT_FAILURE : EXIT_SUCCESS;
 
 cleanup:
+    receive_end(client,false);
+    offer_unref(client->pending_offer);offer_unref(client->selection_offer);offer_unref(client->drag_offer);
+    while(client->sources)source_free(client->sources);
+    if(client->data_device)wl_data_device_destroy(client->data_device);
+    if(client->data_manager)wl_data_device_manager_destroy(client->data_manager);
+    app->service=NULL;app->service_data=NULL;
     if (client->activation) xdg_activation_v1_destroy(client->activation);
     if (client->pointer) wl_pointer_destroy(client->pointer);
     if (client->keyboard) wl_keyboard_destroy(client->keyboard);

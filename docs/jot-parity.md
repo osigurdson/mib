@@ -64,3 +64,41 @@ Interim modal/UI build: stripped Linux 93,248 bytes; Windows 127,488 bytes.
 Empty-file PSS 697 KiB and RSS 2,796 KiB (two samples). These figures precede
 scratch-page and image/clipboard additions. Native tests cover modal operations,
 captures/ranges, large grouped insertion, page ownership/reload and permissions.
+
+## Images and native clipboard checkpoint
+
+Implemented nonblocking Wayland data-device transfers (text, PNG, URI lists and
+file drops), Win32 Unicode/PNG/DIB/file clipboard formats, image imports,
+standalone inline image blocks, image/link opening, and image context actions.
+Image pixels are decoded for painting and released afterward. No decoded image
+cache is retained at idle. stb is pinned and vendored under `third_party/stb/`;
+PNG/JPEG decoding and PNG writing introduce no new runtime library dependency.
+
+Bounds: 256 image references per page, 8 megapixels per decoded image, 32 MiB
+encoded image/clipboard transfer, 16 MiB pasted text, 64 MiB total concurrent
+codec allocations, 2 MiB per OCR sidecar read. Images larger than the viewport
+fit within it. Additional image references remain editable Markdown text. OCR
+runs one optional Tesseract child at a time; its memory is separate from the
+editor. `TINYVI_OCR=0` disables jobs. Existing `.txt`/`.tsv` sidecars are usable
+without Tesseract. Search currently visits each matching image as one result,
+with matching words highlighted using TSV coordinates.
+
+Checkpoint measurements: stripped Linux executable 155,192 bytes (baseline
+60,416 bytes), Windows release executable 239,616 bytes. Empty-file idle samples
+measured 785 KiB PSS / 2,928 KiB RSS versus baseline 669–688 KiB PSS /
+2,768–2,832 KiB RSS. These are editor-process idle figures, not compositor/OCR
+memory or transient image decode peaks. Both executables remain below 1 MiB.
+
+Validation so far: Linux tests, eight Wine tests, ASan/UBSan media and modal
+checks, and a 30,000-action randomized modal stress run passed. Rendered previews
+were inspected at multiple sizes/scales; text wrapping, Markdown colors and
+inline image sizing looked correct. `tools/page-preview.c` reproduces file
+previews without launching a window.
+
+Still to finish before calling this a complete port:
+- Isolated end-to-end clipboard/data-device and drag/drop checks (without
+  replacing the user's real clipboard), including image copy after deletion.
+- Actual Tesseract subprocess/TSV round-trip and image idle memory measurement.
+- Final comparison against the upstream key tests and correction of edge cases.
+- Persist/restore maximized state and refine page activation/window titles.
+- Final clean build, dependency/size measurements and documentation audit.

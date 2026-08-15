@@ -14,7 +14,7 @@ struct edit_history {
     struct delta *deltas;
     unsigned count, position, capacity;
     uint32_t group;
-    bool active, pending;
+    bool active, pending, overflow;
     size_t bytes;
 };
 
@@ -39,6 +39,15 @@ void editor_history_clear(struct editor *ed)
     ed->history = NULL;
 }
 
+bool editor_change_active(const struct editor *ed) { return ed->history && ed->history->active; }
+static void clear_records(struct edit_history *h)
+{
+    for (unsigned i = 0; i < h->count; ++i)
+        free(h->deltas[i].bytes);
+    h->count = h->position = 0;
+    h->bytes = 0;
+    h->pending = true;
+}
 void editor_change_begin(struct editor *ed)
 {
     if (!ed->history)
@@ -47,6 +56,7 @@ void editor_change_begin(struct editor *ed)
         ++ed->history->group;
         ed->history->active = true;
         ed->history->pending = true;
+        ed->history->overflow = false;
     }
 }
 
@@ -119,11 +129,16 @@ bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text,
     }
     discard_tail(h);
     size_t bytes = to - from + length;
-    if (bytes > UNDO_BYTES) {
-        editor_history_clear(ed);
+    if (h->overflow || bytes > UNDO_BYTES) {
+        if (!h->overflow) {
+            clear_records(h);
+            h->overflow = true;
+            snprintf(ed->message, sizeof(ed->message),
+                     "Large change: undo history cleared (2 MiB budget)");
+        }
         bool ok = editor_raw_replace(ed, from, to, text, length);
-        snprintf(ed->message, sizeof(ed->message),
-                 "Large change: undo history cleared (2 MiB budget)");
+        if (own)
+            editor_change_end(ed);
         return ok;
     }
     struct delta *last = h->count ? &h->deltas[h->count - 1] : NULL;
@@ -152,8 +167,19 @@ bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text,
         return ok;
     }
 new_record:
-    while (h->count && (h->bytes + bytes > UNDO_BYTES || h->count == UNDO_RECORDS))
+    while (h->count && (h->bytes + bytes > UNDO_BYTES || h->count == UNDO_RECORDS)) {
+        if (h->deltas[0].group == h->group) {
+            clear_records(h);
+            h->overflow = true;
+            bool ok = editor_raw_replace(ed, from, to, text, length);
+            snprintf(ed->message, sizeof(ed->message),
+                     "Insert session exceeds undo budget; history cleared");
+            if (own)
+                editor_change_end(ed);
+            return ok;
+        }
         evict(h);
+    }
     if (h->count == h->capacity) {
         unsigned n = h->capacity ? h->capacity * 2 : 16;
         struct delta *p = realloc(h->deltas, n * sizeof(*p));
