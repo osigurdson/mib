@@ -1,19 +1,17 @@
-#define main application_main
-#include "../hello.c"
-#undef main
+#include "../src/platform/linux/wayland.c"
 #include <assert.h>
 
-static void press(struct app *app, xkb_keysym_t symbol)
+static void press(struct wayland_client *client, xkb_keysym_t symbol)
 {
-    for (xkb_keycode_t code = xkb_keymap_min_keycode(app->xkb_keymap);
-         code <= xkb_keymap_max_keycode(app->xkb_keymap); ++code) {
+    for (xkb_keycode_t code = xkb_keymap_min_keycode(client->xkb_keymap);
+         code <= xkb_keymap_max_keycode(client->xkb_keymap); ++code) {
         for (xkb_level_index_t level = 0; level < 2; ++level) {
             const xkb_keysym_t *symbols;
-            int count = xkb_keymap_key_get_syms_by_level(app->xkb_keymap, code, 0, level, &symbols);
+            int count = xkb_keymap_key_get_syms_by_level(client->xkb_keymap, code, 0, level, &symbols);
             if (count == 1 && symbols[0] == symbol) {
-                xkb_mod_index_t shift = xkb_keymap_mod_get_index(app->xkb_keymap, XKB_MOD_NAME_SHIFT);
-                xkb_state_update_mask(app->xkb_state, level ? 1u << shift : 0, 0, 0, 0, 0, 0);
-                handle_key(app, code - 8);
+                xkb_mod_index_t shift = xkb_keymap_mod_get_index(client->xkb_keymap, XKB_MOD_NAME_SHIFT);
+                xkb_state_update_mask(client->xkb_state, level ? 1u << shift : 0, 0, 0, 0, 0, 0);
+                handle_key(client, code - 8);
                 return;
             }
         }
@@ -27,26 +25,26 @@ int main(int argc, char **argv)
     char path[] = "/tmp/tiny-vi-integration-XXXXXX";
     int fd = mkstemp(path); assert(fd >= 0); close(fd);
     assert(editor_open(&app.editor, path));
-    assert(init_font(&app));
-    app.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(app.xkb_context);
+    struct wayland_client client = {.app = &app};
+    client.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(client.xkb_context);
     struct xkb_rule_names names = {.layout = "us"};
-    app.xkb_keymap = xkb_keymap_new_from_names(app.xkb_context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
-    assert(app.xkb_keymap);
-    app.xkb_state = xkb_state_new(app.xkb_keymap); assert(app.xkb_state);
-    press(&app, XKB_KEY_i);
+    client.xkb_keymap = xkb_keymap_new_from_names(client.xkb_context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+    assert(client.xkb_keymap);
+    client.xkb_state = xkb_state_new(client.xkb_keymap); assert(client.xkb_state);
+    press(&client, XKB_KEY_i);
     const char *text = "Tiny vi, directly on Wayland.\nCPU rendering with tiny-font.\n\n";
-    for (const char *p = text; *p; ++p) press(&app, *p == '\n' ? XKB_KEY_Return : (xkb_keysym_t)*p);
+    for (const char *p = text; *p; ++p) press(&client, *p == '\n' ? XKB_KEY_Return : (xkb_keysym_t)*p);
     assert(!strcmp(app.editor.text, text));
-    press(&app, XKB_KEY_Escape);
-    press(&app, XKB_KEY_k); press(&app, XKB_KEY_k);
-    press(&app, XKB_KEY_colon); press(&app, XKB_KEY_w); press(&app, XKB_KEY_Return);
+    press(&client, XKB_KEY_Escape);
+    press(&client, XKB_KEY_k); press(&client, XKB_KEY_k);
+    press(&client, XKB_KEY_colon); press(&client, XKB_KEY_w); press(&client, XKB_KEY_Return);
     assert(!app.editor.modified);
     FILE *file = fopen(path, "rb"); assert(file);
     char saved[256] = {0}; fread(saved, 1, sizeof(saved) - 1, file); fclose(file);
     assert(!strcmp(saved, text));
     int width = 1200, height = 840;
     uint32_t *pixels = calloc((size_t)width * height, sizeof(*pixels)); assert(pixels);
-    assert(paint(&app, pixels, width, height));
+    assert(app_paint(&app, pixels, width, height, width));
     if (argc == 2) {
         FILE *preview = fopen(argv[1], "wb"); assert(preview);
         fprintf(preview, "P6\n%d %d\n255\n", width, height);
@@ -61,31 +59,30 @@ int main(int argc, char **argv)
     uint32_t *reference = malloc(count * sizeof(*reference)); assert(reference);
     memcpy(reference, pixels, count * sizeof(*reference));
     for (int reload = 0; reload < 4; ++reload) {
-        close_font(&app);
-        assert(!app.font);
-        assert(init_font(&app));
-        assert(paint(&app, pixels, width, height));
+        tiny_font_close(app.font);
+        app.font = NULL;
+        assert(app_paint(&app, pixels, width, height, width));
         assert(!memcmp(reference, pixels, count * sizeof(*pixels)));
     }
     free(reference);
     free(pixels);
     /* Exercise scrolling and clipping after repeated input. */
-    press(&app, XKB_KEY_i);
-    for (int i = 0; i < 100; ++i) { press(&app, XKB_KEY_a); press(&app, XKB_KEY_Return); }
-    for (int i = 0; i < 150; ++i) press(&app, XKB_KEY_b);
+    press(&client, XKB_KEY_i);
+    for (int i = 0; i < 100; ++i) { press(&client, XKB_KEY_a); press(&client, XKB_KEY_Return); }
+    for (int i = 0; i < 150; ++i) press(&client, XKB_KEY_b);
     const int dimensions[][2] = {{1200,840},{1,1},{30,20},{800,560}};
     for (unsigned i = 0; i < sizeof(dimensions)/sizeof(dimensions[0]); ++i) {
         width = dimensions[i][0]; height = dimensions[i][1];
         pixels = calloc((size_t)width * height, sizeof(*pixels)); assert(pixels);
-        assert(paint(&app,pixels,width,height)); free(pixels);
+        assert(app_paint(&app,pixels,width,height,width)); free(pixels);
     }
     assert(app.editor.top > 0 && app.editor.left > 0);
-    press(&app, XKB_KEY_Escape);
-    press(&app, XKB_KEY_colon); press(&app, XKB_KEY_w); press(&app, XKB_KEY_q); press(&app, XKB_KEY_Return);
+    press(&client, XKB_KEY_Escape);
+    press(&client, XKB_KEY_colon); press(&client, XKB_KEY_w); press(&client, XKB_KEY_q); press(&client, XKB_KEY_Return);
     assert(app.editor.quit && !app.running);
     editor_destroy(&app.editor);
-    xkb_state_unref(app.xkb_state); xkb_keymap_unref(app.xkb_keymap); xkb_context_unref(app.xkb_context);
-    close_font(&app);
+    xkb_state_unref(client.xkb_state); xkb_keymap_unref(client.xkb_keymap); xkb_context_unref(client.xkb_context);
+    tiny_font_close(app.font);
     unlink(path);
     puts("Keyboard, rendering, scrolling, and save/quit integration passed");
 }

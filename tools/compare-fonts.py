@@ -14,8 +14,8 @@ with tempfile.TemporaryDirectory(prefix="tiny-font-comparison-") as temp:
     temp = Path(temp)
     cflags = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "freetype2"], text=True))
     libs = shlex.split(subprocess.check_output(["pkg-config", "--libs", "freetype2"], text=True))
-    subprocess.run(["cc", "-Os", "-std=c11", "-DFONT_REFERENCE_FREETYPE", *cflags, "-I.",
-                    "tools/font-preview.c", "editor.c", "-o", str(temp / "reference"), *libs],
+    subprocess.run(["cc", "-Os", "-std=c11", "-DFONT_REFERENCE_FREETYPE", *cflags, "-Isrc",
+                    "tools/font-preview.c", "src/editor.c", "src/platform/linux/files.c", "-o", str(temp / "reference"), *libs],
                    cwd=root, check=True)
     subprocess.run([str(temp / "reference"), str(temp / "reference.ppm")], cwd=root, check=True)
     subprocess.run([str(root / "font-preview"), str(temp / "custom.ppm")], cwd=root, check=True)

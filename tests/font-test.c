@@ -1,4 +1,4 @@
-#include "../tiny-font.c"
+#include "../src/tiny-font.c"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

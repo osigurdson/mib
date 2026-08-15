@@ -1,8 +1,7 @@
-#define _GNU_SOURCE
 #include "tiny-font.h"
 #include <stddef.h>
 #include <string.h>
-#include <sys/mman.h>
+#include "platform.h"
 #include "font-data.h"
 
 /* Deliberately fixed bounds: no per-glyph malloc, growing arrays, or font VM. */
@@ -82,15 +81,13 @@ static bool valid_font(const unsigned char *data, size_t size)
 struct tiny_font *tiny_font_open(void)
 {
     if (!valid_font(font_data, sizeof(font_data))) return NULL;
-    struct tiny_font *font = mmap(NULL, sizeof(*font), PROT_READ | PROT_WRITE,
-                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    return font == MAP_FAILED ? NULL : font;
+    return platform_allocate_zeroed(sizeof(struct tiny_font));
 }
 
 void tiny_font_end_frame(struct tiny_font *font)
 {
     if (font && font->workspace) {
-        munmap(font->workspace, sizeof(*font->workspace));
+        platform_release(font->workspace, sizeof(*font->workspace));
         font->workspace = NULL;
     }
 }
@@ -99,7 +96,7 @@ void tiny_font_close(struct tiny_font *font)
 {
     if (!font) return;
     tiny_font_end_frame(font);
-    munmap(font, sizeof(*font));
+    platform_release(font, sizeof(*font));
 }
 
 bool tiny_font_set_size(struct tiny_font *font, unsigned pixels64)
@@ -267,9 +264,8 @@ const struct tiny_glyph *tiny_font_glyph(struct tiny_font *font, uint32_t cp)
     uint8_t *alpha = font->cache + font->used;
     if (bytes) {
         if (!font->workspace) {
-            void *p = mmap(NULL, sizeof(*font->workspace), PROT_READ | PROT_WRITE,
-                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-            if (p == MAP_FAILED) return NULL;
+            void *p = platform_allocate_zeroed(sizeof(*font->workspace));
+            if (!p) return NULL;
             font->workspace = p;
         }
         if (!flatten(font->workspace, record, scale, left, top)) return NULL;

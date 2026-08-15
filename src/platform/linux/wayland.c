@@ -1,0 +1,480 @@
+#define _GNU_SOURCE
+#include "app.h"
+#include "platform.h"
+#include <errno.h>
+#include <limits.h>
+#include <poll.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <time.h>
+#include <unistd.h>
+#include <wayland-client.h>
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
+#include "xdg-shell-client-protocol.h"
+#include "viewporter-client-protocol.h"
+#include "fractional-scale-v1-client-protocol.h"
+
+struct wayland_client {
+    struct app *app;
+    struct wl_display *display;
+    struct wl_registry *registry;
+    struct wl_compositor *compositor;
+    struct wl_shm *shm;
+    struct xdg_wm_base *wm;
+    struct wl_surface *surface;
+    struct xdg_surface *xdg_surface;
+    struct xdg_toplevel *toplevel;
+    struct wp_viewporter *viewporter;
+    struct wp_viewport *viewport;
+    struct wp_fractional_scale_manager_v1 *scale_manager;
+    struct wp_fractional_scale_v1 *fractional_scale;
+    struct wl_seat *seat;
+    struct wl_keyboard *keyboard;
+    struct xkb_context *xkb_context;
+    struct xkb_keymap *xkb_keymap;
+    struct xkb_state *xkb_state;
+    uint32_t repeat_key;
+    int repeat_rate, repeat_delay;
+    int64_t repeat_at;
+    unsigned pending_buffers;
+    bool configured;
+};
+
+static void buffer_release(void *data, struct wl_buffer *buffer)
+{
+    struct wayland_client *client = data;
+    --client->pending_buffers;
+    wl_buffer_destroy(buffer);
+}
+
+static const struct wl_buffer_listener buffer_listener = {
+    .release = buffer_release,
+};
+
+static bool draw(struct wayland_client *client)
+{
+    /* Coalesce edits and bound memory while the compositor reads old frames. */
+    if (!client->app->dirty || client->pending_buffers >= 2) return true;
+    /* Surface dimensions are logical; buffers and font sizes use physical pixels. */
+    int64_t physical_width = ((int64_t)client->app->width * client->app->scale120 + 60) / 120;
+    int64_t physical_height = ((int64_t)client->app->height * client->app->scale120 + 60) / 120;
+    if (physical_width < 1) physical_width = 1;
+    if (physical_height < 1) physical_height = 1;
+    /* wl_shm uses signed 32-bit sizes and strides. */
+    if (physical_height > INT_MAX || physical_width > INT_MAX / 4 / physical_height) {
+        fprintf(stderr, "Window dimensions exceed the shared-memory limit\n");
+        return false;
+    }
+    int width = (int)physical_width, height = (int)physical_height;
+    int stride = width * 4;
+    int size = stride * height;
+    int fd = memfd_create("tiny-vi", MFD_CLOEXEC);
+    if (fd < 0) {
+        perror("memfd_create");
+        return false;
+    }
+    if (ftruncate(fd, size) < 0) {
+        perror("ftruncate");
+        close(fd);
+        return false;
+    }
+    uint32_t *pixels = mmap(NULL, (size_t)size, PROT_READ | PROT_WRITE,
+                            MAP_SHARED, fd, 0);
+    if (pixels == MAP_FAILED) {
+        perror("mmap");
+        close(fd);
+        return false;
+    }
+    bool painted = app_paint(client->app, pixels, width, height, width);
+    platform_trim_heap();
+    if (!painted) {
+        fprintf(stderr, "Could not rasterize the bundled font\n");
+        munmap(pixels, (size_t)size);
+        close(fd);
+        return false;
+    }
+    struct wl_shm_pool *pool = wl_shm_create_pool(client->shm, fd, size);
+    struct wl_buffer *buffer = pool ? wl_shm_pool_create_buffer(
+        pool, 0, width, height, stride, WL_SHM_FORMAT_XRGB8888) : NULL;
+    if (pool) wl_shm_pool_destroy(pool);
+    /* The compositor keeps its own mapping; our pixels are never reused. */
+    munmap(pixels, (size_t)size);
+    close(fd);
+    if (!buffer) {
+        fprintf(stderr, "Could not create a Wayland shared-memory buffer\n");
+        return false;
+    }
+    wl_buffer_add_listener(buffer, &buffer_listener, client);
+    ++client->pending_buffers;
+    if (client->viewport) {
+        wp_viewport_set_destination(client->viewport, client->app->width, client->app->height);
+    } else if (wl_surface_get_version(client->surface) >= 3) {
+        wl_surface_set_buffer_scale(client->surface, (int32_t)(client->app->scale120 / 120));
+    }
+    wl_surface_attach(client->surface, buffer, 0, 0);
+    wl_surface_damage(client->surface, 0, 0, client->app->width, client->app->height);
+    wl_surface_commit(client->surface);
+    client->app->dirty = false;
+    return true;
+}
+
+static void update_scale(struct wayland_client *client, uint32_t scale120)
+{
+    if (!scale120 || scale120 == client->app->scale120) return;
+    client->app->scale120 = scale120;
+    fprintf(stderr, "Render scale: %.2fx\n", scale120 / 120.0);
+    client->app->dirty = true;
+}
+
+static void fractional_preferred(void *data, struct wp_fractional_scale_v1 *scale,
+                                 uint32_t scale120)
+{
+    (void)scale;
+    update_scale(data, scale120);
+}
+
+static const struct wp_fractional_scale_v1_listener scale_listener = {
+    .preferred_scale = fractional_preferred,
+};
+
+static void surface_enter(void *data, struct wl_surface *surface, struct wl_output *output)
+{
+    (void)data; (void)surface; (void)output;
+}
+
+static void surface_leave(void *data, struct wl_surface *surface, struct wl_output *output)
+{
+    (void)data; (void)surface; (void)output;
+}
+
+static void surface_scale(void *data, struct wl_surface *surface, int32_t scale)
+{
+    (void)surface;
+    struct wayland_client *client = data;
+    if (!client->fractional_scale && scale > 0 && (uint32_t)scale <= UINT32_MAX / 120)
+        update_scale(client, (uint32_t)scale * 120);
+}
+
+static void surface_transform(void *data, struct wl_surface *surface, uint32_t transform)
+{
+    (void)data; (void)surface; (void)transform;
+}
+
+static const struct wl_surface_listener wl_surface_listener = {
+    .enter = surface_enter,
+    .leave = surface_leave,
+    .preferred_buffer_scale = surface_scale,
+    .preferred_buffer_transform = surface_transform,
+};
+
+static void surface_configure(void *data, struct xdg_surface *surface, uint32_t serial)
+{
+    struct wayland_client *client = data;
+    xdg_surface_ack_configure(surface, serial);
+    client->configured = true;
+    /* Paint once after the current batch of protocol events. */
+}
+
+static const struct xdg_surface_listener surface_listener = {
+    .configure = surface_configure,
+};
+
+static void toplevel_configure(void *data, struct xdg_toplevel *toplevel,
+                              int32_t width, int32_t height, struct wl_array *states)
+{
+    (void)toplevel;
+    (void)states;
+    struct wayland_client *client = data;
+    if (width > 0 && width != client->app->width) { client->app->width = width; client->app->dirty = true; }
+    if (height > 0 && height != client->app->height) { client->app->height = height; client->app->dirty = true; }
+}
+
+static void toplevel_close(void *data, struct xdg_toplevel *toplevel)
+{
+    (void)toplevel;
+    struct wayland_client *client = data;
+    app_request_close(client->app);
+}
+
+static const struct xdg_toplevel_listener toplevel_listener = {
+    .configure = toplevel_configure,
+    .close = toplevel_close,
+};
+
+static void wm_ping(void *data, struct xdg_wm_base *wm, uint32_t serial)
+{
+    (void)data;
+    xdg_wm_base_pong(wm, serial);
+}
+
+static const struct xdg_wm_base_listener wm_listener = {.ping = wm_ping};
+
+static void stop_repeat(struct wayland_client *client)
+{
+    client->repeat_key = 0;
+}
+
+static void handle_key(struct wayland_client *client, uint32_t key)
+{
+    if (!client->xkb_state) return;
+    xkb_keysym_t symbol = xkb_state_key_get_one_sym(client->xkb_state, key + 8);
+    enum editor_key action = KEY_TEXT;
+    switch (symbol) {
+    case XKB_KEY_Escape: action = KEY_ESCAPE; break;
+    case XKB_KEY_Return: case XKB_KEY_KP_Enter: action = KEY_ENTER; break;
+    case XKB_KEY_BackSpace: action = KEY_BACKSPACE; break;
+    case XKB_KEY_Delete: action = KEY_DELETE; break;
+    case XKB_KEY_Left: action = KEY_LEFT; break;
+    case XKB_KEY_Right: action = KEY_RIGHT; break;
+    case XKB_KEY_Up: action = KEY_UP; break;
+    case XKB_KEY_Down: action = KEY_DOWN; break;
+    case XKB_KEY_Tab: action = KEY_TAB; break;
+    default: break;
+    }
+    char text[64] = {0};
+    if (action == KEY_TEXT) {
+        int length = xkb_state_key_get_utf8(client->xkb_state, key + 8, text, sizeof(text));
+        if (length <= 0 || length >= (int)sizeof(text) || (unsigned char)text[0] < 32 ||
+            (unsigned char)text[0] == 127) return;
+    }
+    app_input(client->app, action, text);
+}
+
+static void keyboard_keymap(void *data, struct wl_keyboard *keyboard,
+                            uint32_t format, int32_t fd, uint32_t size)
+{
+    (void)keyboard;
+    struct wayland_client *client = data;
+    stop_repeat(client);
+    struct xkb_keymap *keymap = NULL;
+    if (format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1 && size) {
+        char *mapping = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (mapping != MAP_FAILED) {
+            if (mapping[size - 1] == '\0')
+                keymap = xkb_keymap_new_from_string(client->xkb_context, mapping,
+                    XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
+            munmap(mapping, size);
+        }
+    }
+    close(fd);
+    struct xkb_state *state = keymap ? xkb_state_new(keymap) : NULL;
+    if (!state) {
+        xkb_keymap_unref(keymap);
+        snprintf(client->app->editor.message, sizeof(client->app->editor.message), "Could not load keyboard mapping");
+        client->app->dirty = true;
+        return;
+    }
+    xkb_state_unref(client->xkb_state);
+    xkb_keymap_unref(client->xkb_keymap);
+    client->xkb_keymap = keymap;
+    client->xkb_state = state;
+    platform_trim_heap();
+}
+
+static void keyboard_enter(void *data, struct wl_keyboard *keyboard, uint32_t serial,
+                           struct wl_surface *surface, struct wl_array *keys)
+{
+    (void)keyboard; (void)serial; (void)surface; (void)keys;
+    stop_repeat(data);
+}
+
+static void keyboard_leave(void *data, struct wl_keyboard *keyboard, uint32_t serial,
+                           struct wl_surface *surface)
+{
+    (void)keyboard; (void)serial; (void)surface;
+    struct wayland_client *client = data;
+    stop_repeat(client);
+    if (client->xkb_state) xkb_state_update_mask(client->xkb_state, 0, 0, 0, 0, 0, 0);
+}
+
+static int64_t now_ms(void)
+{
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+static void keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial,
+                         uint32_t time, uint32_t key, uint32_t state)
+{
+    (void)keyboard; (void)serial; (void)time;
+    struct wayland_client *client = data;
+    if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+        if (client->repeat_key == key + 8) stop_repeat(client);
+        return;
+    }
+    handle_key(client, key);
+    if (client->xkb_keymap && client->repeat_rate > 0 &&
+        xkb_keymap_key_repeats(client->xkb_keymap, key + 8)) {
+        client->repeat_key = key + 8;
+        client->repeat_at = now_ms() + client->repeat_delay;
+    }
+}
+
+static void keyboard_modifiers(void *data, struct wl_keyboard *keyboard, uint32_t serial,
+                               uint32_t depressed, uint32_t latched, uint32_t locked, uint32_t group)
+{
+    (void)keyboard; (void)serial;
+    struct wayland_client *client = data;
+    if (client->xkb_state) xkb_state_update_mask(client->xkb_state, depressed, latched, locked, 0, 0, group);
+}
+
+static void keyboard_repeat(void *data, struct wl_keyboard *keyboard, int32_t rate, int32_t delay)
+{
+    (void)keyboard;
+    struct wayland_client *client = data;
+    client->repeat_rate = rate;
+    client->repeat_delay = delay;
+    stop_repeat(client);
+}
+
+static const struct wl_keyboard_listener keyboard_listener = {
+    .keymap = keyboard_keymap, .enter = keyboard_enter, .leave = keyboard_leave,
+    .key = keyboard_key, .modifiers = keyboard_modifiers, .repeat_info = keyboard_repeat,
+};
+
+static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities)
+{
+    struct wayland_client *client = data;
+    if ((capabilities & WL_SEAT_CAPABILITY_KEYBOARD) && !client->keyboard) {
+        client->keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(client->keyboard, &keyboard_listener, client);
+    } else if (!(capabilities & WL_SEAT_CAPABILITY_KEYBOARD) && client->keyboard) {
+        wl_keyboard_release(client->keyboard);
+        client->keyboard = NULL;
+        stop_repeat(client);
+    }
+}
+
+static void seat_name(void *data, struct wl_seat *seat, const char *name)
+{
+    (void)data; (void)seat; (void)name;
+}
+
+static const struct wl_seat_listener seat_listener = {
+    .capabilities = seat_capabilities, .name = seat_name,
+};
+
+static void registry_global(void *data, struct wl_registry *registry,
+                            uint32_t name, const char *interface, uint32_t version)
+{
+    struct wayland_client *client = data;
+    if (strcmp(interface, wl_compositor_interface.name) == 0)
+        client->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, version < 6 ? version : 6);
+    else if (strcmp(interface, wl_seat_interface.name) == 0 && !client->seat) {
+        client->seat = wl_registry_bind(registry, name, &wl_seat_interface, version < 5 ? version : 5);
+        wl_seat_add_listener(client->seat, &seat_listener, client);
+    }
+    else if (strcmp(interface, wl_shm_interface.name) == 0)
+        client->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+    else if (strcmp(interface, wp_viewporter_interface.name) == 0)
+        client->viewporter = wl_registry_bind(registry, name, &wp_viewporter_interface, 1);
+    else if (strcmp(interface, wp_fractional_scale_manager_v1_interface.name) == 0)
+        client->scale_manager = wl_registry_bind(registry, name, &wp_fractional_scale_manager_v1_interface, 1);
+    else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+        client->wm = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+        xdg_wm_base_add_listener(client->wm, &wm_listener, client);
+    }
+}
+
+static void registry_remove(void *data, struct wl_registry *registry, uint32_t name)
+{
+    (void)data;
+    (void)registry;
+    (void)name;
+}
+
+static const struct wl_registry_listener registry_listener = {
+    .global = registry_global,
+    .global_remove = registry_remove,
+};
+
+int platform_run(struct app *app)
+{
+    struct wayland_client state = {.app = app};
+    struct wayland_client *client = &state;
+    int status = EXIT_FAILURE;
+    client->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    if (!client->xkb_context) goto cleanup;
+    client->display = wl_display_connect(NULL);
+    if (!client->display) {
+        fprintf(stderr, "Cannot connect to Wayland: %s\n", strerror(errno));
+        goto cleanup;
+    }
+    client->registry = wl_display_get_registry(client->display);
+    wl_registry_add_listener(client->registry, &registry_listener, client);
+    if (wl_display_roundtrip(client->display) < 0) goto cleanup;
+    if (!client->compositor || !client->shm || !client->wm) {
+        fprintf(stderr, "Compositor must provide wl_compositor, wl_shm, and xdg_wm_base\n");
+        goto cleanup;
+    }
+    client->surface = wl_compositor_create_surface(client->compositor);
+    wl_surface_add_listener(client->surface, &wl_surface_listener, client);
+    if (client->viewporter && client->scale_manager) {
+        client->viewport = wp_viewporter_get_viewport(client->viewporter, client->surface);
+        client->fractional_scale = wp_fractional_scale_manager_v1_get_fractional_scale(
+            client->scale_manager, client->surface);
+        wp_fractional_scale_v1_add_listener(client->fractional_scale, &scale_listener, client);
+    }
+    client->xdg_surface = xdg_wm_base_get_xdg_surface(client->wm, client->surface);
+    xdg_surface_add_listener(client->xdg_surface, &surface_listener, client);
+    client->toplevel = xdg_surface_get_toplevel(client->xdg_surface);
+    xdg_toplevel_add_listener(client->toplevel, &toplevel_listener, client);
+    xdg_toplevel_set_title(client->toplevel, "Tiny vi — CPU / Wayland");
+    xdg_toplevel_set_app_id(client->toplevel, "tiny-vi");
+
+    /* Initial empty commit asks the compositor to configure the window. */
+    wl_surface_commit(client->surface);
+    while (client->app->running) {
+        if (wl_display_dispatch_pending(client->display) < 0) { client->app->failed = true; break; }
+        if (!client->app->running) break;
+        if (client->repeat_key && now_ms() >= client->repeat_at) {
+            handle_key(client, client->repeat_key - 8);
+            int interval = 1000 / client->repeat_rate;
+            client->repeat_at = now_ms() + (interval > 0 ? interval : 1);
+        }
+        if (!client->app->running) break;
+        if (client->configured && !draw(client)) { client->app->failed = true; break; }
+        int flush = wl_display_flush(client->display);
+        if (flush < 0 && errno != EAGAIN) { client->app->failed = true; break; }
+        struct pollfd socket = {.fd = wl_display_get_fd(client->display),
+                                .events = POLLIN | (flush < 0 ? POLLOUT : 0)};
+        int timeout = -1;
+        if (client->repeat_key) {
+            int64_t remaining = client->repeat_at - now_ms();
+            timeout = remaining <= 0 ? 0 : remaining > INT_MAX ? INT_MAX : (int)remaining;
+        }
+        int ready = poll(&socket, 1, timeout);
+        if (ready < 0 && errno == EINTR) continue;
+        if (ready < 0 || (socket.revents & (POLLERR | POLLHUP | POLLNVAL))) {
+            client->app->failed = true; break;
+        }
+        if ((socket.revents & POLLIN) && wl_display_dispatch(client->display) < 0) {
+            client->app->failed = true; break;
+        }
+    }
+    status = client->app->failed ? EXIT_FAILURE : EXIT_SUCCESS;
+
+cleanup:
+    if (client->keyboard) wl_keyboard_destroy(client->keyboard);
+    if (client->seat) wl_seat_destroy(client->seat);
+    xkb_state_unref(client->xkb_state);
+    xkb_keymap_unref(client->xkb_keymap);
+    xkb_context_unref(client->xkb_context);
+    if (client->toplevel) xdg_toplevel_destroy(client->toplevel);
+    if (client->xdg_surface) xdg_surface_destroy(client->xdg_surface);
+    if (client->fractional_scale) wp_fractional_scale_v1_destroy(client->fractional_scale);
+    if (client->viewport) wp_viewport_destroy(client->viewport);
+    if (client->surface) wl_surface_destroy(client->surface);
+    if (client->scale_manager) wp_fractional_scale_manager_v1_destroy(client->scale_manager);
+    if (client->viewporter) wp_viewporter_destroy(client->viewporter);
+    if (client->wm) xdg_wm_base_destroy(client->wm);
+    if (client->shm) wl_shm_destroy(client->shm);
+    if (client->compositor) wl_compositor_destroy(client->compositor);
+    if (client->registry) wl_registry_destroy(client->registry);
+    if (client->display) wl_display_disconnect(client->display);
+    return status;
+}

@@ -82,8 +82,9 @@ Allocations are bounded and independent of document length:
 
 - A 48 KiB alpha arena and 64 metadata entries; a full arena or table flushes
   the cache, without growing it. Only the current physical size is cached.
-- A temporary workspace of 2048 edges and 2048 crossings, about 48 KiB, mmap'd
-  on the first cache miss and unmapped after the frame.
+- A temporary workspace of 2048 edges and 2048 crossings, about 48 KiB, allocated
+  as dedicated pages on the first cache miss and released after the frame
+  (`mmap`/`munmap` on Linux, `VirtualAlloc`/`VirtualFree` on Windows).
 - At most 256×256 bitmap dimensions, additionally limited by the alpha arena.
   Every bundled glyph is tested through the maximum supported pixel size.
 - No per-glyph malloc, unbounded recursion, persistent raster scratch space,

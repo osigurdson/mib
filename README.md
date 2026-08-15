@@ -22,6 +22,23 @@ make
 
 Run inside a Wayland session. A missing file opens as a new, empty buffer.
 
+## Platforms and source organization
+
+Linux/Wayland remains the working platform. Shared editor, application, renderer,
+and font code now live under `src/`; OS window, file, and memory code lives under
+`src/platform/linux/` and `src/platform/windows/`. Windows has real page
+allocation and explicit file/window stubs, not a working editor yet.
+
+See [platform contracts, build commands, and the Windows port plan](docs/platforms.md).
+CMake selects the target backend without introducing Linux dependencies into a
+Windows build:
+
+```sh
+cmake -S . -B .build/cmake -DCMAKE_BUILD_TYPE=MinSizeRel
+cmake --build .build/cmake
+ctest --test-dir .build/cmake --output-on-failure
+```
+
 ## Keys
 
 The editor starts in normal mode.
@@ -58,10 +75,12 @@ implemented.
 
 ## Implementation and checks
 
-`editor.c` holds the text buffer, movement, modes, and file operations. `hello.c`
-contains the Wayland client and renderer integration; `tiny-font.c` implements
-the small font reader, contour flattener, scan converter, and glyph cache. The
-existing `paint`/glyph interface is retained. The UI uses bundled Nerd Font
+`src/editor.c` holds the portable text buffer, movement, modes, and commands.
+`src/app.c` handles shared input/lifetime/close policy, and `src/render.c` paints
+the UI through the pitch-aware `app_paint` interface. `src/tiny-font.c` implements
+the font reader, contour flattener, scan converter, and glyph cache. Native
+window, file, and page-allocation implementations are isolated under
+`src/platform/`. The UI uses bundled Nerd Font
 file, pencil, and modified-state icons.
 
 Only two submitted pixel buffers can be pending at once. Rendering is coalesced
@@ -86,9 +105,12 @@ failures, keyboard translation, and rendering/scrolling at small window sizes.
 - [Before/after size and RSS report](docs/font-pipeline-report.md).
 - [FreeType versus custom visual comparison](docs/font-comparison.png).
 
-The default executable is 149,896 bytes (60,384 stripped). Five interleaved
-empty-file runs measured median idle RSS of 2,828 KiB, versus 2,824 KiB before;
-this is essentially unchanged. The previous version already unloaded FreeType
+The original custom-font executable measured 149,896 bytes (60,384 stripped).
+After platform separation, the Make debug build measured 158,904 bytes and the
+CMake MinSizeRel build 70,040 bytes. Idle memory remains consistent with the
+custom-font version; see [platform verification](docs/platforms.md). Five
+interleaved font-pipeline runs measured median idle RSS of 2,828 KiB, versus
+2,824 KiB before; this was essentially unchanged. The previous version already unloaded FreeType
 at idle. The dependency and font-file removal matters for deployment and active
 rendering, rather than producing a large idle-RSS saving.
 

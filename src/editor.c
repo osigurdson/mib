@@ -1,13 +1,18 @@
-#define _GNU_SOURCE
 #include "editor.h"
+#include "platform.h"
 #include <errno.h>
-#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
+
+static char *copy_string(const char *value)
+{
+    size_t bytes = strlen(value) + 1;
+    char *copy = malloc(bytes);
+    if (copy) memcpy(copy, value, bytes);
+    return copy;
+}
 
 static bool reserve(struct editor *ed, size_t needed)
 {
@@ -29,20 +34,11 @@ bool editor_open(struct editor *ed, const char *filename)
     if (!reserve(ed, 1)) return false;
     ed->text[0] = '\0';
     if (!filename) return true;
-    ed->filename = strdup(filename);
+    ed->filename = copy_string(filename);
     if (!ed->filename) return false;
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        if (errno == ENOENT) return true;
-        snprintf(ed->message, sizeof(ed->message), "Open: %s", strerror(errno));
-        return false;
-    }
-    struct stat st;
-    if (fstat(fileno(file), &st) < 0 || !S_ISREG(st.st_mode)) {
-        snprintf(ed->message, sizeof(ed->message), "Only regular text files are supported");
-        fclose(file);
-        return false;
-    }
+    bool missing = false;
+    FILE *file = platform_file_open_read(filename, &missing, ed->message, sizeof(ed->message));
+    if (!file) return missing;
     char block[4096];
     size_t count;
     while ((count = fread(block, 1, sizeof(block), file))) {
@@ -182,52 +178,20 @@ static bool save(struct editor *ed, const char *filename)
         snprintf(ed->message, sizeof(ed->message), "No filename: use :w path");
         return false;
     }
-    char *new_name = strdup(filename);
-    char *target = realpath(filename, NULL);
-    if (!target) target = strdup(filename);
-    if (!new_name || !target) {
-        free(new_name); free(target);
+    char *new_name = copy_string(filename);
+    if (!new_name) {
         snprintf(ed->message, sizeof(ed->message), "Out of memory");
         return false;
     }
-    struct stat st;
-    bool exists = stat(target, &st) == 0;
-    if (exists && !S_ISREG(st.st_mode)) {
-        snprintf(ed->message, sizeof(ed->message), "Only regular text files are supported");
-        free(new_name); free(target);
+    if (!platform_file_write_atomic(filename, ed->text, ed->length, ed->message, sizeof(ed->message))) {
+        free(new_name);
         return false;
     }
-    char *temporary = NULL;
-    int fd = -1;
-    if (asprintf(&temporary, "%s.XXXXXX", target) < 0) { temporary = NULL; errno = ENOMEM; }
-    else fd = mkstemp(temporary);
-    bool ok = fd >= 0;
-    if (ok && exists) ok = fchmod(fd, st.st_mode & 0777) == 0;
-    size_t written = 0;
-    while (ok && written < ed->length) {
-        size_t count = ed->length - written;
-        if (count > 65536) count = 65536;
-        ssize_t n = write(fd, ed->text + written, count);
-        if (n < 0 && errno == EINTR) continue;
-        if (n <= 0) { if (!n) errno = EIO; ok = false; }
-        else written += (size_t)n;
-    }
-    if (ok) ok = fsync(fd) == 0;
-    int error = errno;
-    if (fd >= 0 && close(fd) < 0 && ok) { error = errno; ok = false; }
-    if (ok && rename(temporary, target) < 0) { error = errno; ok = false; }
-    if (!ok) {
-        if (temporary && fd >= 0) unlink(temporary);
-        snprintf(ed->message, sizeof(ed->message), "Write: %s", strerror(error));
-    } else {
-        free(ed->filename);
-        ed->filename = new_name;
-        new_name = NULL;
-        ed->modified = false;
-        snprintf(ed->message, sizeof(ed->message), "Written %zu bytes", ed->length);
-    }
-    free(new_name); free(target); free(temporary);
-    return ok;
+    free(ed->filename);
+    ed->filename = new_name;
+    ed->modified = false;
+    snprintf(ed->message, sizeof(ed->message), "Written %zu bytes", ed->length);
+    return true;
 }
 
 static void command(struct editor *ed)
