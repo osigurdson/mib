@@ -152,7 +152,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     struct tiny_font_metrics metrics = tiny_font_metrics(app->font);
     int cell = metrics.advance, ascender = metrics.ascender, line_height = metrics.line_height + 2;
     int padding = (int)((8 * (int64_t)app->scale120 + 60) / 120);
-    int status_y = height - 2 * line_height - padding, rows = (status_y - padding) / line_height;
+    int status_y = height - line_height - 2 * padding, rows = (status_y - padding) / line_height;
     size_t lines = editor_line_count(ed);
     int digits = 1;
     for (size_t n = lines; n >= 10; n /= 10)
@@ -325,25 +325,29 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         slash = back;
     if (slash)
         filename = slash + 1;
-    snprintf(status, sizeof(status), "%s  %s%s  |  %zu:%zu  %s", mode, filename,
-             ed->modified ? " [+]" : "", editor_line_number(ed, ed->cursor) + 1,
-             editor_column(ed, ed->cursor) + 1, ed->pending);
-    if (app->work_at) {
-        size_t n = strlen(status);
-        snprintf(status + n, sizeof(status) - n, "  indexing image");
-    }
-    if (!label(app, pixels, width, height, stride, status, padding, status_y + ascender, cell))
-        return false;
-    char prompt[1100];
-    if (ed->command_active)
+    int baseline = status_y + padding + ascender;
+    if (ed->command_active) {
+        char prompt[1100];
         snprintf(prompt, sizeof(prompt), "%c%s_", ed->command_kind ? ed->command_kind : ':',
                  ed->command);
-    else
-        snprintf(prompt, sizeof(prompt), "%s",
-                 ed->message[0] ? ed->message : "i insert  v visual  / search  :w :q");
-    if (!label(app, pixels, width, height, stride, prompt, padding,
-               status_y + line_height + ascender, cell))
-        return false;
+        if (!label(app, pixels, width, height, stride, prompt, padding, baseline, cell))
+            return false;
+    } else {
+        char position[64];
+        snprintf(position, sizeof(position), "%zu:%zu", editor_line_number(ed, ed->cursor) + 1,
+                 editor_column(ed, ed->cursor) + 1);
+        int position_x = width - padding - (int)strlen(position) * cell;
+        snprintf(status, sizeof(status), "%s  %s%s%s%s", mode, filename,
+                 ed->modified ? " [+]" : "", ed->pending[0] ? "  " : "", ed->pending);
+        if (app->work_at && !ed->message[0]) {
+            size_t n = strlen(status);
+            snprintf(status + n, sizeof(status) - n, "  indexing image");
+        }
+        if (!label(app, pixels, position_x - cell, height, stride,
+                   ed->message[0] ? ed->message : status, padding, baseline, cell) ||
+            !label(app, pixels, width, height, stride, position, position_x, baseline, cell))
+            return false;
+    }
     if (app->context_menu) {
         rectangle(pixels, width, height, stride, app->context_x, app->context_y, 26 * cell,
                   2 * line_height, 0xff34485b);

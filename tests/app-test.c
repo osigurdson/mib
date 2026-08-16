@@ -28,6 +28,24 @@ int main(void)
         for (int x = WIDTH; x < STRIDE; ++x)
             assert(padded[y * STRIDE + x] == 0x12345678);
     }
+    /* Commands replace the status row without changing the text viewport. */
+    app.editor.message[0] = 0;
+    assert(app_paint(&app, packed, WIDTH, HEIGHT, WIDTH));
+    int status_y = HEIGHT - app.line_height - 2 * app.padding;
+    assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
+    app_input(&app, KEY_TEXT, ":");
+    app_input(&app, KEY_TEXT, "set nu");
+    assert(app_paint(&app, padded, WIDTH, HEIGHT, STRIDE));
+    assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
+    bool status_changed = false;
+    for (int y = status_y; y < HEIGHT; ++y)
+        status_changed |= memcmp(packed + y * WIDTH, padded + y * STRIDE,
+                                 WIDTH * sizeof(*packed)) != 0;
+    assert(status_changed);
+    app_input(&app, KEY_ESCAPE, "");
+    assert(app_paint(&app, padded, WIDTH, HEIGHT, STRIDE));
+    for (int y = 0; y < HEIGHT; ++y)
+        assert(!memcmp(packed + y * WIDTH, padded + y * STRIDE, WIDTH * sizeof(*packed)));
     assert(!app_paint(&app, packed, WIDTH, HEIGHT, WIDTH - 1));
     free(packed);
     free(padded);

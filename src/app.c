@@ -213,7 +213,7 @@ void app_context(struct app *app, int x, int y)
     if (px + width > app->view_width)
         px = app->view_width - width;
     int bottom =
-        (int)((int64_t)app->height * app->scale120 / 120) - 2 * app->line_height - app->padding;
+        (int)((int64_t)app->height * app->scale120 / 120) - app->line_height - 2 * app->padding;
     if (py + height > bottom)
         py = bottom - height;
     app->context_x = px < 0 ? 0 : px;
