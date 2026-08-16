@@ -34,14 +34,13 @@ tools are in `.build/linux/tools/`, and generated headers/protocols are in
 `make clean` removes the Linux Make build, leaving Windows builds and Wine
 profiles intact.
 
-Install the Linux editor to `/usr/local/bin/tiny-vi` with `sudo make install`,
-or install for your user without root:
+Install the Linux editor to `~/.local/bin/tiny-vi` without sudo:
 
 ```sh
-make install PREFIX="$HOME/.local"
+make install
 ```
 
-`make install` builds the editor first. Override `PREFIX` (default `/usr/local`)
+`make install` builds the editor first. Override `PREFIX` (default `$(HOME)/.local`)
 or `BINDIR` (default `$(PREFIX)/bin`) to choose the destination. `DESTDIR` adds a
 staging root for packaging, for example `make install DESTDIR=/tmp/tinyvi-package`.
 The font is embedded; no additional runtime assets need installing.
