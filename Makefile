@@ -10,6 +10,10 @@ WINEPREFIX ?= $(abspath .build/wine-prefix)
 WINEARCH ?= win64
 WINEDEBUG ?= -all
 ARGS ?=
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
+DESTDIR ?=
+INSTALL ?= install
 CFLAGS ?= -Os -g
 CFLAGS += -ffunction-sections -fdata-sections -std=c11 -Wall -Wextra -Wpedantic
 LDFLAGS += -Wl,--as-needed -Wl,--gc-sections
@@ -31,7 +35,7 @@ FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
 FONT_DATA := $(GEN)/font-data.h
 
-.PHONY: all run windows run-windows test-windows clean test memory subset-font tiny-vi editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
+.PHONY: all run install windows run-windows test-windows clean test memory subset-font tiny-vi editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
 all: tiny-vi
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -65,6 +69,10 @@ $(LINUX_BUILD_DIR)/tiny-vi: src/main.c src/platform/linux/entry.c $(CORE) $(HEAD
 
 run: tiny-vi
 	"$(LINUX_BUILD_DIR)/tiny-vi" $(ARGS)
+
+install: tiny-vi
+	$(INSTALL) -d "$(DESTDIR)$(BINDIR)"
+	$(INSTALL) -m 755 "$(LINUX_BUILD_DIR)/tiny-vi" "$(DESTDIR)$(BINDIR)/tiny-vi"
 
 windows:
 	$(CMAKE) -S . -B "$(WINDOWS_BUILD_DIR)" -G Ninja \

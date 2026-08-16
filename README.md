@@ -34,6 +34,18 @@ tools are in `.build/linux/tools/`, and generated headers/protocols are in
 `make clean` removes the Linux Make build, leaving Windows builds and Wine
 profiles intact.
 
+Install the Linux editor to `/usr/local/bin/tiny-vi` with `sudo make install`,
+or install for your user without root:
+
+```sh
+make install PREFIX="$HOME/.local"
+```
+
+`make install` builds the editor first. Override `PREFIX` (default `/usr/local`)
+or `BINDIR` (default `$(PREFIX)/bin`) to choose the destination. `DESTDIR` adds a
+staging root for packaging, for example `make install DESTDIR=/tmp/tinyvi-package`.
+The font is embedded; no additional runtime assets need installing.
+
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.
 Other arguments follow jot's page conventions: no argument uses `$JOT_DIR` or
