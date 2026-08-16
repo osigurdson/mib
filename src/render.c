@@ -115,7 +115,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
     if (h < 1)
         h = 1;
     if (selected)
-        rectangle(pixels, width, height, stride, x - 2, y - 2, w + 4, h + 4, 0xff88c0d0);
+        rectangle(pixels, width, height, stride, x - 3, y - 3, w + 6, h + 6, 0xff88c0d0);
     for (int row = 0; row < h && row + y < height; ++row)
         for (int col = 0; col < w && col + x < width; ++col) {
             if (row + y < 0 || col + x < 0)
@@ -129,6 +129,13 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
             pixels[at] = blend(pixels[at], p[3], color);
         }
     media_highlight(app, entry, pixels, width, height, stride, x, y, w, h);
+    if (selected) {
+        /* Corner handles keep selection visible against light or busy images. */
+        for (int corner = 0; corner < 4; ++corner)
+            rectangle(pixels, width, height, stride,
+                      (corner & 1) ? x + w - 3 : x - 3,
+                      (corner & 2) ? y + h - 3 : y - 3, 6, 6, 0xffe5edf5);
+    }
     image_free(&image);
 }
 static bool highlight(const struct editor *ed, size_t offset)

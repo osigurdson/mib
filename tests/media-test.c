@@ -84,6 +84,9 @@ int main(int argc, char **argv)
         assert(pixels);
         assert(app_paint(&app, pixels, 800, 560, 800));
         assert(app_view_rows(&app, 0) > 1);
+        int image_x = app.padding + app.gutter, image_y = app.padding + 2;
+        assert(pixels[(size_t)(image_y - 3) * 800 + image_x - 3] == 0xffe5edf5);
+        assert(pixels[(size_t)(image_y - 3) * 800 + image_x + 10] == 0xff88c0d0);
         int px = app.padding + app.gutter + 115, py = app.padding + 2 + 20;
         uint32_t raw = 0xff000000u | ((115u * 255 / 320) << 16) | ((20u * 255 / 180) << 8) | 100;
         assert(pixels[(size_t)py * 800 + px] != raw); /* phrase spans the gap between words */
@@ -109,14 +112,37 @@ int main(int argc, char **argv)
     char *ocr = media_ocr_text(&app, &n);
     assert(ocr && strstr(ocr, "screenshot"));
     free(ocr);
+    /* Both delete keys remove the entire image and preserve the input mode. */
+    for (unsigned mode = 0; mode < 2; ++mode)
+        for (unsigned del = 0; del < 2; ++del) {
+            app.editor.cursor = 0;
+            app.editor.mode = mode ? INSERT : NORMAL;
+            enum editor_mode expected_mode = app.editor.mode;
+            app_input(&app, del ? KEY_DELETE : KEY_TEXT, del ? "" : "d");
+            assert(!strstr(app.editor.text, "![]"));
+            assert(app.editor.mode == expected_mode);
+            assert(app.editor.register_linewise && strstr(app.editor.register_text, "![]"));
+            editor_undo(&app.editor, false);
+            assert(strstr(app.editor.text, "![]"));
+        }
+    app.editor.mode = NORMAL;
+    /* A command's d remains command text even while an image is selected. */
+    app.editor.cursor = 0;
+    app_input(&app, KEY_TEXT, ":");
     app_input(&app, KEY_TEXT, "d");
-    app_input(&app, KEY_TEXT, "d");
-    assert(!strstr(app.editor.text, "![]"));
-    app_input(&app, KEY_TEXT, "u");
-    assert(strstr(app.editor.text, "![]"));
+    assert(strstr(app.editor.text, "![]") && !strcmp(app.editor.command, "d"));
+    app_input(&app, KEY_ESCAPE, "");
     /* Mixed notes retain their images when copied into a different page. */
     assert(editor_replace(&app.editor, 0, 0, "before\n", 7));
     assert(editor_replace(&app.editor, app.editor.length, app.editor.length, "after\n", 6));
+    /* Deleting an image between notes leaves both neighboring lines intact. */
+    char *image_ref = strstr(app.editor.text, "![](");
+    assert(image_ref);
+    app.editor.cursor = (size_t)(image_ref - app.editor.text);
+    app_input(&app, KEY_DELETE, "");
+    assert(!strcmp(app.editor.text, "before\nafter\n"));
+    app_input(&app, KEY_TEXT, "u");
+    assert(strstr(app.editor.text, "![]("));
     app.editor.cursor = 0;
     app_input(&app, KEY_TEXT, "V");
     app_input(&app, KEY_TEXT, "G");

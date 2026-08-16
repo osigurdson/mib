@@ -82,7 +82,7 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | `gx`, double-click | Open the image in your image viewer |
 | `gx`, `Ctrl`+click | Open the link under the cursor |
 | `yy` | Copy the image, ready to paste into other apps |
-| `dd` | Delete the image from the page |
+| `d`, `Delete` | Delete the selected image from the page in normal or insert mode |
 | `p`, `Ctrl+V` | Paste a screenshot from the clipboard |
 | `Ctrl+Shift+C` | Copy the image's text |
 

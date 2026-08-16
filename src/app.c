@@ -101,7 +101,22 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     app->editor.extra_search = media_search;
     app->editor.extra_search_data = app;
     uint64_t before = app->editor.revision;
-    editor_input(&app->editor, key, text);
+    bool delete_image = selected_image && !app->editor.command_active &&
+                        (app->editor.mode == NORMAL || app->editor.mode == INSERT) &&
+                        !app->editor.pending[0] &&
+                        (key == KEY_DELETE || (key == KEY_TEXT && text && !strcmp(text, "d")));
+    bool insert = app->editor.mode == INSERT;
+    if (delete_image) {
+        /* Reuse line deletion, including its register and clipboard behavior. */
+        editor_change_end(&app->editor);
+        editor_input(&app->editor, KEY_CUT, "");
+        editor_change_end(&app->editor);
+        if (insert) {
+            app->editor.mode = INSERT;
+            editor_change_begin(&app->editor);
+        }
+    } else
+        editor_input(&app->editor, key, text);
     if (app->editor.revision != before)
         session_changed(app);
     unsigned requests = app->editor.requests;
