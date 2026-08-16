@@ -157,7 +157,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     int digits = 1;
     for (size_t n = lines; n >= 10; n /= 10)
         ++digits;
-    int gutter = ed->line_numbers ? (digits + 2) * cell : 0;
+    if (digits < 5)
+        digits = 5;
+    int gutter = ed->line_numbers ? (digits + 1) * cell : 0;
     int columns = (width - 2 * padding - gutter) / cell;
     if (rows < 1)
         rows = 1;
@@ -230,8 +232,12 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         if (ed->line_numbers && start == logical_start) {
             char number[32];
             snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
-            if (!label(app, pixels, width, height, stride, number, padding, y + ascender, cell))
-                return false;
+            uint32_t color = logical_start == editor_line_start(ed, ed->cursor)
+                                 ? 0xffe5edf5 : 0xff697889;
+            for (int i = 0; number[i]; ++i)
+                if (!glyph(app, pixels, width, height, stride, (unsigned char)number[i],
+                           padding + i * cell, y + ascender, status_y, color))
+                    return false;
         }
         const struct media_entry *image = media_at(app, start);
         if (image && image->width > 0) {

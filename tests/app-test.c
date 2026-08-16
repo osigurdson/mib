@@ -4,8 +4,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void gutter_layout(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    uint32_t pixels[320 * 200];
+    char lines[101];
+    memset(lines, '\n', sizeof(lines));
+    const size_t counts[] = {9, 10, 99, 100};
+    for (size_t i = 0; i < sizeof(counts) / sizeof(counts[0]); ++i) {
+        assert(editor_replace(&app.editor, 0, app.editor.length, lines, counts[i] - 1));
+        app.editor.cursor = 0;
+        assert(app_paint(&app, pixels, 320, 200, 320));
+        assert(app.gutter == 6 * app.cell);
+        assert(app_hit_test(&app, app.padding + app.gutter, app.padding) == 0);
+    }
+    app.editor.line_numbers = false;
+    assert(app_paint(&app, pixels, 320, 200, 320));
+    assert(app.gutter == 0);
+    app_close(&app);
+}
+
 int main(void)
 {
+    gutter_layout();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");
