@@ -11,7 +11,7 @@ int app_main(int argc, char **argv)
     if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
         printf("Usage: %s [page-name | path/to/page | file.txt]\n       %s --page folder\n       "
                "%s --file file\nNo argument opens $JOT_DIR or ~/Documents/jot/default (~/jot "
-               "without Documents).\nPages autosave; explicit files use :w. Use --page for a "
+               "without Documents).\nSave with :w or Ctrl+S. Use --page for a "
                "folder containing a dot.\n",
                argv[0], argv[0], argv[0]);
         return EXIT_SUCCESS;

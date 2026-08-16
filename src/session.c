@@ -208,8 +208,8 @@ static const char agents[] =
     "- assets/name.png.txt is OCR text; read it before opening the image. OCR can be wrong.\n"
     "- assets/name.png.tsv contains OCR word positions used for highlighting.\n"
     "- Image names begin with the paste timestamp (YYYYMMDD-HHMMSS).\n\n"
-    "The editor autosaves. After an external edit, switch to its window to reload if there\n"
-    "are no pending local edits. Never edit this page concurrently with unsaved typing.\n";
+    "Save edits explicitly with :w or Ctrl+S. After an external edit, switch to the window\n"
+    "to reload if there are no local edits. Never edit concurrently with unsaved typing.\n";
 static char *resolve(const char *name)
 {
     const char *home = getenv(
@@ -429,7 +429,7 @@ int session_open(struct app *app, const char *name)
         }
         free(text);
     }
-    if (missing && !session_save(app))
+    if (missing && !editor_save(&app->editor, app->editor.filename))
         return -1;
     return 1;
 failed:
@@ -437,66 +437,15 @@ failed:
              strerror(errno));
     return -1;
 }
-bool session_save(struct app *app)
-{
-    /* Scratch pages follow jot's final-newline convention without modifying undo. */
-    struct editor *ed = &app->editor;
-    bool extra = app->scratch && ed->length && ed->text[ed->length - 1] != '\n';
-    if (extra) {
-        char *p = malloc(ed->length + 1);
-        if (!p)
-            return false;
-        memcpy(p, ed->text, ed->length);
-        p[ed->length] = '\n';
-        bool ok = platform_file_write_atomic(ed->filename, p, ed->length + 1, ed->message,
-                                             sizeof(ed->message));
-        free(p);
-        if (!ok)
-            return false;
-        ed->modified = false;
-        ed->saved_hash = 0; /* updated below */
-        uint64_t hash = 14695981039346656037ull;
-        for (size_t i = 0; i < ed->length; ++i)
-            hash = (hash ^ (unsigned char)ed->text[i]) * 1099511628211ull;
-        ed->saved_hash = hash;
-        snprintf(ed->message, sizeof(ed->message), "Saved");
-        return true;
-    }
-    return editor_save(ed, ed->filename);
-}
-void session_changed(struct app *app)
-{
-    if (app->scratch && app->editor.modified)
-        app->save_at = session_now() + 400;
-}
-void session_tick(struct app *app)
-{
-    media_tick(app);
-    if (app->save_at && session_now() >= app->save_at) {
-        app->save_at = 0;
-        if (!session_save(app))
-            app->save_at = session_now() + 2000;
-        app->dirty = true;
-    }
-}
 void session_focus(struct app *app, bool focused)
 {
     if (!app->scratch)
         return;
-    if (!focused) {
-        if (app->editor.modified)
-            session_save(app);
-        app->save_at = 0;
-        return;
-    }
-    if (app->editor.modified)
+    if (!focused || app->editor.modified)
         return;
     struct editor check = {0};
     if (editor_open(&check, app->editor.filename)) {
-        /* Saving adds a final newline; do not reload solely for that convention. */
         size_t n = check.length;
-        if (n && check.text[n - 1] == '\n' && app->editor.length + 1 == n)
-            --n;
         if (n != app->editor.length || memcmp(check.text, app->editor.text, n)) {
             editor_reload(&app->editor);
             app->dirty = true;
@@ -507,8 +456,6 @@ void session_focus(struct app *app, bool focused)
 void session_close(struct app *app)
 {
     if (app->scratch) {
-        if (app->editor.modified && !app->editor.quit)
-            session_save(app);
         char state[128], error[128];
         int n = snprintf(state, sizeof(state), "%d %d %u %u %u %u\n",
                          app->maximized ? app->restore_width : app->width,

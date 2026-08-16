@@ -73,20 +73,6 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         }
         app->context_menu = false;
     }
-    if (app->scratch &&
-        ((key == KEY_CTRL_Q) ||
-         (key == KEY_ENTER && app->editor.command_active && app->editor.command_kind == ':' &&
-          (!strcmp(app->editor.command, "q") || !strcmp(app->editor.command, "w") ||
-           !strcmp(app->editor.command, "wq") || !strcmp(app->editor.command, "x"))))) {
-        bool quit = key == KEY_CTRL_Q || strcmp(app->editor.command, "w");
-        app->editor.command_active = false;
-        if (session_save(app) && quit) {
-            app->editor.quit = true;
-            app->running = false;
-        }
-        app->dirty = true;
-        return;
-    }
     const struct media_entry *selected_image = media_at(app, app->editor.cursor);
     char image_name[256] = {0}, image_markup[280] = {0};
     if (selected_image) {
@@ -100,7 +86,6 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         snprintf(image_name, sizeof(image_name), "%s", selected_image->name);
     app->editor.extra_search = media_search;
     app->editor.extra_search_data = app;
-    uint64_t before = app->editor.revision;
     bool delete_image = selected_image && !app->editor.command_active &&
                         (app->editor.mode == NORMAL || app->editor.mode == INSERT) &&
                         !app->editor.pending[0] &&
@@ -117,8 +102,6 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         }
     } else
         editor_input(&app->editor, key, text);
-    if (app->editor.revision != before)
-        session_changed(app);
     unsigned requests = app->editor.requests;
     if (requests & ED_ZOOM_IN) {
         if (app->font_size < 48)
@@ -143,8 +126,6 @@ void app_input(struct app *app, enum editor_key key, const char *text)
                    app->editor.register_linewise, app->editor.put_after, app->editor.put_count);
     free(app->clipboard_image);
     app->clipboard_image = NULL;
-    if (app->editor.revision != before)
-        session_changed(app);
     app->follow_cursor = key != KEY_CTRL_E && key != KEY_CTRL_Y;
     app->dirty = true;
     if (app->editor.search_serial != search_serial) {
@@ -159,9 +140,7 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 
 void app_request_close(struct app *app)
 {
-    if (app->scratch && app->editor.modified && session_save(app))
-        app->running = false;
-    else if (app->editor.modified) {
+    if (app->editor.modified) {
         snprintf(app->editor.message, sizeof(app->editor.message),
                  "Unsaved changes (:w to save, :q! to discard)");
         app->dirty = true;

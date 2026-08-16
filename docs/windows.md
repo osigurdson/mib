@@ -70,7 +70,7 @@ is required. Wine's own process memory is not a native Windows memory benchmark.
   arrows/Delete, translated control keys, and `WM_CHAR`/`WM_UNICHAR` text.
   UTF-16 surrogate pairs become UTF-8; out-of-subset characters are stored
   correctly even when displayed as replacement glyphs. Alt+F4/window close
-  honors the same save/close policy as `:q` (autosaved pages save on close).
+  honors the same save/close policy as `:q` (unsaved changes require saving or explicit discard).
 - Per-monitor DPI awareness is requested before creating a window. DPI changes
   apply Windows' suggested rectangle, update logical geometry and `scale120`,
   and rerasterize glyphs at the physical size. Paint tests exercise 96, 120,

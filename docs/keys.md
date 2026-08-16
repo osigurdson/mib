@@ -104,7 +104,7 @@ Press `:` to open it. Up and Down browse your history.
 
 | Command | Action |
 |---|---|
-| `:w` | Save now (scratch pages also autosave) |
+| `:w` | Save now |
 | `:q`, `:wq`, `:x` | Close the window |
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
@@ -130,4 +130,5 @@ This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
 [parity report](jot-parity.md). Native presentation differs. Search selects an
 image containing OCR matches and highlights matching OCR words. The font subset,
 ASCII case handling and bounded regex subset are intentional limitations.
-Explicit file mode protects unsaved changes on quit; page mode saves on quit.
+Pages and explicit files both protect unsaved changes on quit. Use `:w` or
+`Ctrl+S` to save, `:wq` to save and quit, or `:q!` to discard edits.

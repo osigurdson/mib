@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "app.h"
+#include "media.h"
 #include "fractional-scale-v1-client-protocol.h"
 #include "platform.h"
 #include "session.h"
@@ -684,7 +685,7 @@ int platform_run(struct app *app)
     /* Initial empty commit asks the compositor to configure the window. */
     wl_surface_commit(client->surface);
     while (client->app->running) {
-        session_tick(client->app);
+        media_tick(client->app);
         if (wl_display_dispatch_pending(client->display) < 0) {
             client->app->failed = true;
             break;
@@ -713,12 +714,6 @@ int platform_run(struct app *app)
         if (client->repeat_key) {
             int64_t remaining = client->repeat_at - now_ms();
             timeout = remaining <= 0 ? 0 : remaining > INT_MAX ? INT_MAX : (int)remaining;
-        }
-        if (app->save_at) {
-            uint64_t now = session_now();
-            int remaining = app->save_at <= now ? 0 : (int)(app->save_at - now);
-            if (timeout < 0 || remaining < timeout)
-                timeout = remaining;
         }
         if (app->work_at) {
             uint64_t now = session_now();

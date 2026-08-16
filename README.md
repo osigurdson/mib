@@ -18,7 +18,7 @@ the Wayland server development package; Tesseract tests are optional. Normal bui
 ```sh
 make
 ./.build/linux/tiny-vi notes.txt
-# Open an autosaved scratch page:
+# Open a scratch page:
 ./.build/linux/tiny-vi
 ./.build/linux/tiny-vi work
 ./.build/linux/tiny-vi --page ./scratch
@@ -40,10 +40,10 @@ Other arguments follow jot's page conventions: no argument uses `$JOT_DIR` or
 `~/Documents/jot/default` (`~/jot/default` without Documents), a bare name chooses
 a sibling page, and a path chooses a page folder. `--page folder` forces page
 mode. Pages contain `jot.md`, private `assets/`, and agent instructions on first
-creation. They autosave after 400 ms without typing, save on focus loss, and
-reload external changes on focus when no local edits are pending. One process
-owns a page; a second launch requests activation of that window. Explicit files
-retain manual saves and unsaved-change protection.
+creation. Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external
+changes on focus when no local edits are pending. One process owns a page; a
+second launch requests activation of that window. Pages and explicit files both
+protect unsaved changes on quit.
 
 ## Platforms and source organization
 
@@ -121,7 +121,7 @@ make clean
 ```
 
 Tests cover modal editing, grouped undo, regex captures/ranges, UTF-8 boundaries,
-safe file saves, page ownership/autosave/reload, image round trips, OCR sidecar
+safe file saves, page ownership/manual saves/reload, image round trips, OCR sidecar
 search, input translation, DPI rendering and small-window wrapping. Private native clipboard integration tests avoid replacing the desktop clipboard;
 see the parity report for their coverage and limits.
 

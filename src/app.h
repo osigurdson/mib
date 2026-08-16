@@ -14,7 +14,7 @@ struct app {
     int context_x, context_y, context_choice;
     int owner_fd, activation_fd;
     void *owner_handle;
-    uint64_t page_id, save_at, work_at;
+    uint64_t page_id, work_at;
     void (*service)(struct app *, unsigned, void *);
     void *service_data;
     int width, height;

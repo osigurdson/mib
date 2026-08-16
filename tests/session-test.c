@@ -43,13 +43,27 @@ int main(void)
 #endif
     app_input(&app, KEY_TEXT, "i");
     app_input(&app, KEY_TEXT, "hello");
-    assert(app.save_at && app.editor.modified);
-    app.save_at = 1;
-    session_tick(&app);
-    assert(!app.editor.modified && !app.save_at);
+    assert(app.editor.modified);
+    session_focus(&app, false);
     text = session_read(page, 8192, &n);
-    assert(text && !strcmp(text, "hello\n"));
+    assert(text && !strcmp(text, ""));
     free(text);
+    assert(app.editor.modified);
+    app_input(&app, KEY_ESCAPE, "");
+    app_input(&app, KEY_TEXT, ":");
+    app_input(&app, KEY_TEXT, "q");
+    app_input(&app, KEY_ENTER, "");
+    assert(app.running && app.editor.modified && strstr(app.editor.message, "Unsaved"));
+    app_input(&app, KEY_CTRL_Q, "");
+    assert(app.running && app.editor.modified && strstr(app.editor.message, "Unsaved"));
+    app_request_close(&app);
+    assert(app.running && app.editor.modified && strstr(app.editor.message, "Unsaved"));
+    app_input(&app, KEY_CTRL_S, "");
+    assert(!app.editor.modified);
+    text = session_read(page, 8192, &n);
+    assert(text && !strcmp(text, "hello"));
+    free(text);
+    app_input(&app, KEY_TEXT, "i");
     assert(platform_file_write_atomic(page, "external\n", 9, app.editor.message,
                                       sizeof(app.editor.message)));
     session_focus(&app, true);
@@ -61,7 +75,10 @@ int main(void)
     session_focus(&app, true);
     assert(strstr(app.editor.text, "local"));
     session_focus(&app, false);
-    assert(!app.editor.modified);
+    assert(app.editor.modified);
+    text = session_read(page, 8192, &n);
+    assert(text && !strcmp(text, "another\n"));
+    free(text);
     app.font_size = 23;
     app.editor.line_numbers = false;
     app.width = 1400;
@@ -73,7 +90,28 @@ int main(void)
     assert(session_open(&app, directory) == 1);
     assert(app.font_size == 23 && !app.editor.line_numbers && app.width == 900 &&
            app.height == 600 && app.maximized);
+    assert(!strcmp(app.editor.text, "another\n")); /* close did not save local edits */
+    app_input(&app, KEY_TEXT, "i");
+    app_input(&app, KEY_TEXT, "saved");
+    app_input(&app, KEY_ESCAPE, "");
+    app_input(&app, KEY_TEXT, ":");
+    app_input(&app, KEY_TEXT, "w");
+    app_input(&app, KEY_ENTER, "");
+    assert(!app.editor.modified && app.running);
+    text = session_read(page, 8192, &n);
+    assert(text && strstr(text, "saved"));
+    free(text);
+    app_input(&app, KEY_TEXT, "i");
+    app_input(&app, KEY_TEXT, "discarded");
+    app_input(&app, KEY_ESCAPE, "");
+    app_input(&app, KEY_TEXT, ":");
+    app_input(&app, KEY_TEXT, "q!");
+    app_input(&app, KEY_ENTER, "");
+    assert(!app.running);
     app_close(&app);
+    text = session_read(page, 8192, &n);
+    assert(text && strstr(text, "saved") && !strstr(text, "discarded"));
+    free(text);
     free(page);
     free(agents);
     /* Remove only the known files in this unique test directory. */
@@ -99,5 +137,5 @@ int main(void)
 #else
     rmdir(directory);
 #endif
-    puts("Private pages, ownership, autosave, external reload and preferences passed");
+    puts("Private pages, ownership, manual saves/close protection, external reload and preferences passed");
 }

@@ -1,4 +1,5 @@
 #include "app.h"
+#include "media.h"
 #include "platform.h"
 #include "session.h"
 #include "win32.h"
@@ -31,9 +32,7 @@ static void update_geometry(struct windows_window *window)
 
 static void changed(struct windows_window *window)
 {
-    uint64_t deadline = window->app->save_at;
-    if (window->app->work_at && (!deadline || window->app->work_at < deadline))
-        deadline = window->app->work_at;
+    uint64_t deadline = window->app->work_at;
     if (deadline) {
         uint64_t now = session_now(), remaining = deadline > now ? deadline - now : 1;
         SetTimer(window->handle, 1, (UINT)remaining, NULL);
@@ -328,13 +327,13 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
     case WM_TIMER:
         if (wparam == 1) {
             KillTimer(handle, 1);
-            session_tick(window->app);
+            media_tick(window->app);
             changed(window);
         }
         return 0;
     case WM_SETFOCUS:
         session_focus(window->app, true);
-        session_tick(window->app);
+        media_tick(window->app);
         changed(window);
         return 0;
     case WM_KILLFOCUS:
@@ -418,7 +417,7 @@ int platform_run(struct app *app)
         fprintf(stderr, "%s\n", error);
         return EXIT_FAILURE;
     }
-    session_tick(app);
+    media_tick(app);
     changed(&window);
     MSG message;
     int result;

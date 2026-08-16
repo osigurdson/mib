@@ -410,7 +410,6 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
         editor_change_end(ed);
     app->dirty = true;
     app->follow_cursor = true;
-    session_changed(app);
     media_sync(app);
     media_tick(app);
     return true;
@@ -435,7 +434,6 @@ void media_paste_text(struct app *app, const char *text, size_t length)
     free(normal);
     app->dirty = true;
     app->follow_cursor = true;
-    session_changed(app);
 }
 
 static uint32_t fragment_u32(const unsigned char *p)

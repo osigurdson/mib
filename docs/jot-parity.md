@@ -16,7 +16,7 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
 - Ex ranges, capture substitutions, command history, save/reload/quit,
   line numbers, Markdown toggles, folder opening and zoom.
 - Default/named/path scratch pages, private Linux folders, agent instructions
-  created only for fresh pages, 400 ms debounced autosave, focus save/reload,
+  created only for fresh pages, explicit saves, focus reload,
   persisted dimensions/maximized/font/options and one owner per page.
 - Native text/image clipboard, cut/yank/put and visual replacement, PNG/JPEG
   file import, URI/file drops, inline images, image/link opening and image
@@ -35,7 +35,7 @@ compatibility; those remain outside this port too.
 
 Explicit files retain manual saves and unsaved-change protection. A filename
 extension selects file mode for compatibility; `--file path` forces file mode,
-`--file -` starts an unnamed buffer and `--page folder` forces an autosaved page.
+`--file -` starts an unnamed buffer and `--page folder` forces a scratch page.
 No argument uses `$JOT_DIR` or `~/Documents/jot/default` (`~/jot/default` without
 Documents). Other arguments follow jot's named/path page conventions.
 
@@ -134,7 +134,7 @@ python3 tools/measure-memory.py --binary /path/to/baseline
   search retry, open-prompt updates and cancellation after another key.
 - Tests cover cross-page mixed text/image copies, OCR phrase rectangle unions,
   headings skipping fenced code, word boundaries, UTF-8 find repeats, grouped
-  insert/visual-put undo, safe saves, autosave/reload and maximized preferences.
+  insert/visual-put undo, safe saves, manual saves/reload and maximized preferences.
 - CPU render previews were inspected at 12/16/18/22 logical pixel sizes and
   100/125/150/200% scales. Syntax stayed visible, conservative Markdown cases
   stayed plain, text wrapped correctly, and inline images fit the view.
