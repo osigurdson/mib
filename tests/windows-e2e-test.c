@@ -11,7 +11,7 @@ static BOOL CALLBACK find_window(HWND window, LPARAM param)
     struct launched *app=(void *)param;
     DWORD pid;GetWindowThreadProcessId(window,&pid);
     wchar_t klass[64];GetClassNameW(window,klass,64);
-    if(pid==app->process.dwProcessId && !wcscmp(klass,L"TinyViWindow"))app->window=window;
+    if(pid==app->process.dwProcessId && !wcscmp(klass,L"JotWindow"))app->window=window;
     return TRUE;
 }
 static struct launched launch(const wchar_t *exe,const wchar_t *file)
@@ -56,7 +56,7 @@ int main(void)
 {
     wchar_t exe[2048],temp[MAX_PATH],root[1024],path[2048],second[2048];
     assert(GetModuleFileNameW(NULL,exe,2048));
-    wcscpy(wcsrchr(exe,L'\\')+1,L"tiny-vi.exe");
+    wcscpy(wcsrchr(exe,L'\\')+1,L"jot.exe");
     assert(GetTempPathW(MAX_PATH,temp));
     swprintf(root,1024,L"%lstinyvi-e2e-%lu-%lu",temp,(unsigned long)GetCurrentProcessId(),(unsigned long)GetTickCount());
     assert(CreateDirectoryW(root,NULL));

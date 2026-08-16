@@ -14,7 +14,7 @@ Visual Studio developer terminal:
 cmake -S . -B build-windows
 cmake --build build-windows --config MinSizeRel
 ctest --test-dir build-windows -C MinSizeRel --output-on-failure
-.\build-windows\MinSizeRel\tiny-vi.exe "notes.txt"
+.\build-windows\MinSizeRel\jot.exe "notes.txt"
 ```
 
 With a single-configuration generator, the executable is directly in the build
@@ -32,7 +32,7 @@ CMake detects Wine as the cross-compiling emulator for tests.
 The Makefile wraps configuration, building and Wine launch:
 
 ```sh
-make windows                         # build .build/windows/tiny-vi.exe
+make windows                         # build .build/windows/jot.exe
 make run-windows                     # build and open the Windows editor
 make run-windows ARGS='--file notes.txt'
 make test-windows                    # build and run the Wine test suite
@@ -51,7 +51,7 @@ cmake -S . -B .build/windows -G Ninja \
   -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_TESTING=ON
 cmake --build .build/windows --parallel 4
 ./tools/test-wine.sh
-WINEPREFIX="$PWD/.build/wine-prefix" wine .build/windows/tiny-vi.exe notes.txt
+WINEPREFIX="$PWD/.build/wine-prefix" wine .build/windows/jot.exe notes.txt
 ```
 
 The test script creates/uses `.build/wine-prefix`, independently of an existing
@@ -107,7 +107,7 @@ Nine tests pass under Wine. The original platform checks cover:
    read-only/locked save failures, temporary-name collisions, and CRLF handling.
 4. Win32 window messages, key repeat, surrogate pairs, close protection, failed
    `:wq`, four DPI paint paths, and GDI rendering into a captured bitmap.
-5. The actual `tiny-vi.exe`, launched with `CreateProcessW`, driven through its
+5. The actual `jot.exe`, launched with `CreateProcessW`, driven through its
    real window: new/load/edit/`:w`/`:q`/`:wq`, filename spaces/BMP/non-BMP Unicode,
    UTF-8 text, close rejection for unsaved changes, and CRLF round-trip.
 

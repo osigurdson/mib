@@ -22,7 +22,7 @@ static void press(struct wayland_client *client, xkb_keysym_t symbol)
 int main(int argc, char **argv)
 {
     struct app app = {.width = 800, .height = 560, .scale120 = 180, .running = true};
-    char path[] = "/tmp/tiny-vi-integration-XXXXXX";
+    char path[] = "/tmp/jot-integration-XXXXXX";
     int fd = mkstemp(path); assert(fd >= 0); close(fd);
     assert(editor_open(&app.editor, path));
     struct wayland_client client = {.app = &app};
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     assert(client.xkb_keymap);
     client.xkb_state = xkb_state_new(client.xkb_keymap); assert(client.xkb_state);
     press(&client, XKB_KEY_i);
-    const char *text = "Tiny vi, directly on Wayland.\nCPU rendering with tiny-font.\n\n";
+    const char *text = "Jot, directly on Wayland.\nCPU rendering with tiny-font.\n\n";
     for (const char *p = text; *p; ++p) press(&client, *p == '\n' ? XKB_KEY_Return : (xkb_keysym_t)*p);
     assert(!strcmp(app.editor.text, text));
     press(&client, XKB_KEY_Escape);

@@ -1,7 +1,7 @@
-# Tiny vi
+# Jot
 
-A small C text editor with native Linux/Wayland and Windows backends, rendering
-on the CPU.
+A small C editor for notes and screenshots with native Linux/Wayland and Windows
+backends, rendering on the CPU.
 Its bundled monospace Nerd Font uses a small custom outline format, an 8×8
 supersampling rasterizer, and a bounded glyph cache. There are no runtime
 FreeType, HarfBuzz, Fontconfig, or system-font dependencies. Fractional scaling
@@ -17,24 +17,24 @@ the Wayland server development package; Tesseract tests are optional. Normal bui
 
 ```sh
 make
-./.build/linux/tiny-vi notes.txt
+./.build/linux/jot notes.txt
 # Open a scratch page:
-./.build/linux/tiny-vi
-./.build/linux/tiny-vi work
-./.build/linux/tiny-vi --page ./scratch
+./.build/linux/jot
+./.build/linux/jot work
+./.build/linux/jot --page ./scratch
 # Or start an unnamed, manually saved buffer:
-./.build/linux/tiny-vi --file -
+./.build/linux/jot --file -
 ```
 
 Make outputs stay under `.build/`: the Linux editor is
-`.build/linux/tiny-vi`, test executables are in `.build/linux/tests/`, preview
+`.build/linux/jot`, test executables are in `.build/linux/tests/`, preview
 tools are in `.build/linux/tools/`, and generated headers/protocols are in
 `.build/linux/generated/`. Windows builds remain in `.build/windows/`.
 `make run` and `make run-windows` build and launch the appropriate executable.
 `make clean` removes the Linux Make build, leaving Windows builds and Wine
 profiles intact.
 
-Install the Linux editor to `~/.local/bin/tiny-vi` without sudo:
+Install the Linux editor to `~/.local/bin/jot` without sudo:
 
 ```sh
 make install
@@ -42,8 +42,13 @@ make install
 
 `make install` builds the editor first. Override `PREFIX` (default `$(HOME)/.local`)
 or `BINDIR` (default `$(PREFIX)/bin`) to choose the destination. `DESTDIR` adds a
-staging root for packaging, for example `make install DESTDIR=/tmp/tinyvi-package`.
-The font is embedded; no additional runtime assets need installing.
+staging root for packaging, for example `make install DESTDIR=/tmp/jot-package`.
+Installation also adds a **Jot** launcher entry at
+`~/.local/share/applications/dev.jot.Jot.desktop`. Its executable path follows
+`BINDIR`; override `DATADIR` or `APPLICATIONSDIR` to choose where the desktop entry
+is installed. The font is embedded; no additional runtime assets are required.
+This replaces the previous Jot executable and launcher entry when installed to
+the same prefix. Existing pages and preferences remain compatible.
 
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.
@@ -127,7 +132,7 @@ fonts, glyphs, or sizes used.
 ```sh
 make test
 # Optional render preview, written as PPM:
-./.build/linux/tests/client-test /tmp/tiny-vi.ppm
+./.build/linux/tests/client-test /tmp/jot.ppm
 make clean
 ```
 

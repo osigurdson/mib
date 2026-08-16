@@ -1,4 +1,4 @@
-# Tiny vi key reference
+# Jot key reference
 
 Scratch pages open in normal mode with the cursor at the end; explicit files start at the beginning. The bottom line shows the current mode, any keys you've typed so far, and the line and column.
 

@@ -12,6 +12,8 @@ WINEDEBUG ?= -all
 ARGS ?=
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
+DATADIR ?= $(PREFIX)/share
+APPLICATIONSDIR ?= $(DATADIR)/applications
 DESTDIR ?=
 INSTALL ?= install
 CFLAGS ?= -Os -g
@@ -35,8 +37,8 @@ FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
 FONT_DATA := $(GEN)/font-data.h
 
-.PHONY: all run install windows run-windows test-windows clean test memory subset-font tiny-vi editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
-all: tiny-vi
+.PHONY: all run install windows run-windows test-windows clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
+all: jot
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
 	mkdir -p $@
@@ -62,17 +64,18 @@ $(GEN)/xdg-activation-v1-protocol.c: $(PROTOCOLS_DIR)/staging/xdg-activation/xdg
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)
 	$(PYTHON) tools/embed-font.py $< $@
 
-tiny-vi: $(LINUX_BUILD_DIR)/tiny-vi
+jot: $(LINUX_BUILD_DIR)/jot
 
-$(LINUX_BUILD_DIR)/tiny-vi: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
+$(LINUX_BUILD_DIR)/jot: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ src/main.c src/platform/linux/entry.c $(CORE) $(MEMORY) $(FILES) $(WINDOW) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
 
-run: tiny-vi
-	"$(LINUX_BUILD_DIR)/tiny-vi" $(ARGS)
+run: jot
+	"$(LINUX_BUILD_DIR)/jot" $(ARGS)
 
-install: tiny-vi
-	$(INSTALL) -d "$(DESTDIR)$(BINDIR)"
-	$(INSTALL) -m 755 "$(LINUX_BUILD_DIR)/tiny-vi" "$(DESTDIR)$(BINDIR)/tiny-vi"
+install: jot
+	$(INSTALL) -d "$(DESTDIR)$(BINDIR)" "$(DESTDIR)$(APPLICATIONSDIR)"
+	$(INSTALL) -m 755 "$(LINUX_BUILD_DIR)/jot" "$(DESTDIR)$(BINDIR)/jot"
+	$(PYTHON) tools/install-desktop.py "$(BINDIR)/jot" "$(DESTDIR)$(APPLICATIONSDIR)/dev.jot.Jot.desktop"
 
 windows:
 	$(CMAKE) -S . -B "$(WINDOWS_BUILD_DIR)" -G Ninja \
@@ -82,7 +85,7 @@ windows:
 
 run-windows: windows
 	WINEPREFIX="$(WINEPREFIX)" WINEARCH="$(WINEARCH)" WINEDEBUG="$(WINEDEBUG)" \
-		$(WINE) "$(WINDOWS_BUILD_DIR)/tiny-vi.exe" $(ARGS)
+		$(WINE) "$(WINDOWS_BUILD_DIR)/jot.exe" $(ARGS)
 
 test-windows: windows
 	WINEPREFIX="$(WINEPREFIX)" WINEARCH="$(WINEARCH)" WINEDEBUG="$(WINEDEBUG)" \
@@ -160,8 +163,8 @@ subset-font: | $(GEN)
 	$(PYTHON) tools/subset-font.py fonts/JetBrainsMonoNerdFontMono-Regular.ttf fonts/editor.tvf
 	$(PYTHON) tools/embed-font.py fonts/editor.tvf $(FONT_DATA)
 
-memory: tiny-vi
-	$(PYTHON) tools/measure-memory.py --binary "$(LINUX_BUILD_DIR)/tiny-vi"
+memory: jot
+	$(PYTHON) tools/measure-memory.py --binary "$(LINUX_BUILD_DIR)/jot"
 
 clean:
 	rm -rf "$(LINUX_BUILD_DIR)"

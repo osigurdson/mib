@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Jot
+Comment=Notes and screenshots in a small modal editor
+Exec=jot %f
+Icon=accessories-text-editor
+Terminal=false
+Categories=Utility;TextEditor;
+Keywords=notes;markdown;screenshots;vim;
+StartupWMClass=dev.jot.Jot

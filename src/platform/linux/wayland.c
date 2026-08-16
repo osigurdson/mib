@@ -93,7 +93,7 @@ static bool draw(struct wayland_client *client)
     int width = (int)physical_width, height = (int)physical_height;
     int stride = width * 4;
     int size = stride * height;
-    int fd = memfd_create("tiny-vi", MFD_CLOEXEC);
+    int fd = memfd_create("jot", MFD_CLOEXEC);
     if (fd < 0) {
         perror("memfd_create");
         return false;
@@ -677,8 +677,8 @@ int platform_run(struct app *app)
     xdg_surface_add_listener(client->xdg_surface, &surface_listener, client);
     client->toplevel = xdg_surface_get_toplevel(client->xdg_surface);
     xdg_toplevel_add_listener(client->toplevel, &toplevel_listener, client);
-    xdg_toplevel_set_title(client->toplevel, "Tiny vi — CPU / Wayland");
-    xdg_toplevel_set_app_id(client->toplevel, "tiny-vi");
+    xdg_toplevel_set_title(client->toplevel, "Jot");
+    xdg_toplevel_set_app_id(client->toplevel, "dev.jot.Jot");
     if (app->maximized)
         xdg_toplevel_set_maximized(client->toplevel);
 

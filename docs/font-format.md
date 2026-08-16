@@ -2,7 +2,7 @@
 
 TVF1 is a deliberately restricted, little-endian outline subset. The 19,164-byte
 bundled file contains 134 glyphs from one static JetBrains Mono Nerd Font Mono
-Regular TTF. It is embedded as read-only bytes in `tiny-vi`; the runtime never
+Regular TTF. It is embedded as read-only bytes in `jot`; the runtime never
 opens the TTF or any system font. The regenerated derivative is named **Tiny Vi
 Mono Subset**, with upstream copyright and licensing retained in `fonts/`.
 

@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static const wchar_t window_class[] = L"TinyViWindow";
+static const wchar_t window_class[] = L"JotWindow";
 struct windows_window {
     struct app *app;
     HWND handle;
@@ -388,7 +388,7 @@ static bool open_window(struct windows_window *window, struct app *app, int show
         return false;
     bool maximized = app->maximized;
     HWND handle =
-        CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Tiny vi - Windows / CPU",
+        CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Jot",
                         WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left,
                         size.bottom - size.top, NULL, NULL, instance, window);
     if (!handle)
