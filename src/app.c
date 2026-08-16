@@ -9,6 +9,8 @@ bool app_open(struct app *app, const char *filename)
 {
     *app = (struct app){.width = 800,
                         .height = 560,
+                        .restore_width = 800,
+                        .restore_height = 560,
                         .scale120 = 120,
                         .owner_fd = -1,
                         .activation_fd = -1,
@@ -47,6 +49,9 @@ void app_close(struct app *app)
 
 void app_input(struct app *app, enum editor_key key, const char *text)
 {
+    app->ocr_retry = false;
+    app->image_hit = false;
+    uint64_t search_serial = app->editor.search_serial;
     if (app->context_menu) {
         if (key == KEY_ESCAPE) {
             app->context_menu = false;
@@ -83,7 +88,14 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         return;
     }
     const struct media_entry *selected_image = media_at(app, app->editor.cursor);
-    char image_name[256] = {0};
+    char image_name[256] = {0}, image_markup[280] = {0};
+    if (selected_image) {
+        size_t n = selected_image->end - selected_image->start;
+        if (n < sizeof(image_markup) - 2) {
+            memcpy(image_markup, app->editor.text + selected_image->start, n);
+            image_markup[n] = '\n';
+        }
+    }
     if (selected_image)
         snprintf(image_name, sizeof(image_name), "%s", selected_image->name);
     app->editor.extra_search = media_search;
@@ -104,7 +116,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     if (requests & ED_ZOOM_RESET)
         app->font_size = 18;
     app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET);
-    if ((app->editor.requests & ED_COPY) && image_name[0])
+    if ((app->editor.requests & ED_COPY) && image_name[0] && app->editor.register_text &&
+        !strcmp(app->editor.register_text, image_markup))
         app->clipboard_image = session_path(app, image_name);
     unsigned service_requests = app->editor.requests;
     app->editor.requests = 0;
@@ -119,6 +132,11 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         session_changed(app);
     app->follow_cursor = key != KEY_CTRL_E && key != KEY_CTRL_Y;
     app->dirty = true;
+    if (app->editor.search_serial != search_serial) {
+        const struct media_entry *hit = media_at(app, app->editor.cursor);
+        app->image_hit = !app->editor.search_failed && hit && app->editor.match_start == hit->start;
+        app->ocr_retry = app->editor.search_failed && app->editor.search_pending;
+    }
     media_tick(app);
     if (app->editor.quit)
         app->running = false;
@@ -154,6 +172,8 @@ void app_scroll(struct app *app, int rows)
 }
 void app_pointer(struct app *app, int x, int y, bool extend)
 {
+    app->ocr_retry = false;
+    app->image_hit = false;
     struct editor *ed = &app->editor;
     if (app->context_menu && !extend) {
         int px = (int)((int64_t)x * app->scale120 / 120),

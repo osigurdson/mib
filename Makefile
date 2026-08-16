@@ -75,7 +75,17 @@ session-test: tests/session-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(F
 media-test: tests/media-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/media-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
-test: editor-test client-test font-test app-test modal-test session-test media-test
+ocr-test: tests/ocr-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/ocr-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+
+clipboard-test: tests/clipboard-test.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/clipboard-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(shell $(PKG_CONFIG) --libs wayland-server) $(LDLIBS)
+
+OPTIONAL_OCR_TEST := $(if $(shell command -v tesseract 2>/dev/null),ocr-test)
+
+test: editor-test client-test font-test app-test modal-test session-test media-test clipboard-test $(OPTIONAL_OCR_TEST)
+	$(if $(OPTIONAL_OCR_TEST),./ocr-test,true)
+	./clipboard-test
 	./media-test
 	./session-test
 	./modal-test
@@ -98,5 +108,5 @@ memory: tiny-vi
 	$(PYTHON) tools/measure-memory.py
 
 clean:
-	rm -f tiny-vi editor-test client-test font-test app-test font-preview
+	rm -f tiny-vi editor-test client-test font-test app-test font-preview modal-test session-test media-test clipboard-test ocr-test page-preview
 	rm -rf $(GEN)

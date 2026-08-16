@@ -7,18 +7,19 @@
 struct clipboard_offer {
     struct wl_data_offer *proxy;
     unsigned refs;
-    bool text, plain, png, uris, drag;
+    bool text, plain, png, uris, drag, fragment;
 };
 struct clipboard_send {
     int fd;
-    size_t offset;
+    size_t offset, length;
+    const char *data;
 };
 struct clipboard_source {
     struct clipboard_source *next;
     struct wayland_client *client;
     struct wl_data_source *proxy;
-    char *data;
-    size_t length;
+    char *data, *text, *fragment;
+    size_t length, text_length, fragment_length;
     bool png;
     struct clipboard_send sends[4];
 };
@@ -31,12 +32,13 @@ static void offer_unref(struct clipboard_offer *offer)
 }
 static const char *offer_mime(struct clipboard_offer *offer)
 {
-    return !offer         ? NULL
-           : offer->png   ? "image/png"
-           : offer->uris  ? "text/uri-list"
-           : offer->text  ? "text/plain;charset=utf-8"
-           : offer->plain ? "text/plain"
-                          : NULL;
+    return !offer            ? NULL
+           : offer->png      ? "image/png"
+           : offer->fragment ? "application/x-tinyvi-fragment"
+           : offer->uris     ? "text/uri-list"
+           : offer->text     ? "text/plain;charset=utf-8"
+           : offer->plain    ? "text/plain"
+                             : NULL;
 }
 static void offer_type(void *data, struct wl_data_offer *proxy, const char *mime)
 {
@@ -44,6 +46,8 @@ static void offer_type(void *data, struct wl_data_offer *proxy, const char *mime
     struct clipboard_offer *offer = data;
     if (!strcmp(mime, "image/png"))
         offer->png = true;
+    if (!strcmp(mime, "application/x-tinyvi-fragment"))
+        offer->fragment = true;
     if (!strcmp(mime, "text/uri-list"))
         offer->uris = true;
     if (!strcmp(mime, "text/plain;charset=utf-8"))
@@ -89,7 +93,9 @@ static void receive_end(struct wayland_client *c, bool apply)
         close(c->receive_fd);
     c->receive_fd = -1;
     if (apply && c->receive_length) {
-        if (c->receive_kind == 1)
+        if (c->receive_kind == 3)
+            media_paste_fragment(c->app, (unsigned char *)c->receive_data, c->receive_length);
+        else if (c->receive_kind == 1)
             media_paste_image(c->app, (unsigned char *)c->receive_data, c->receive_length);
         else if (c->receive_kind == 2)
             media_import_uris(c->app, c->receive_data, c->receive_length);
@@ -121,7 +127,7 @@ static bool receive_start(struct wayland_client *c, struct clipboard_offer *offe
     c->receive_fd = pipes[0];
     c->receive_offer = offer;
     ++offer->refs;
-    c->receive_kind = offer->png ? 1 : offer->uris ? 2 : 0;
+    c->receive_kind = offer->png ? 1 : offer->fragment ? 3 : offer->uris ? 2 : 0;
     return true;
 }
 static void receive_ready(struct wayland_client *c)
@@ -223,6 +229,8 @@ static void source_free(struct clipboard_source *source)
             close(source->sends[i].fd);
     wl_data_source_destroy(source->proxy);
     free(source->data);
+    free(source->text);
+    free(source->fragment);
     free(source);
 }
 static void source_target(void *data, struct wl_data_source *source, const char *mime)
@@ -240,15 +248,27 @@ static void source_send(void *data, struct wl_data_source *proxy, const char *mi
 {
     (void)proxy;
     struct clipboard_source *source = data;
-    if (source->png ? strcmp(mime, "image/png") != 0
-                    : strcmp(mime, "text/plain;charset=utf-8") && strcmp(mime, "text/plain")) {
+    const char *bytes = NULL;
+    size_t length = 0;
+    if (!strcmp(mime, "image/png") && source->png) {
+        bytes = source->data;
+        length = source->length;
+    } else if (!strcmp(mime, "application/x-tinyvi-fragment")) {
+        bytes = source->fragment;
+        length = source->fragment_length;
+    } else if (!strcmp(mime, "text/plain;charset=utf-8") || !strcmp(mime, "text/plain")) {
+        bytes = source->png ? source->text : source->data;
+        length = source->png ? source->text_length : source->length;
+    }
+    if (!bytes) {
         close(fd);
         return;
     }
     for (unsigned i = 0; i < 4; ++i)
         if (source->sends[i].fd < 0) {
             fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
-            source->sends[i] = (struct clipboard_send){fd, 0};
+            source->sends[i] =
+                (struct clipboard_send){.fd = fd, .offset = 0, .length = length, .data = bytes};
             return;
         }
     close(fd);
@@ -258,8 +278,8 @@ static const struct wl_data_source_listener source_listener = {
 static void send_ready(struct clipboard_source *s, unsigned i)
 {
     struct clipboard_send *send = &s->sends[i];
-    while (send->offset < s->length) {
-        ssize_t n = write(send->fd, s->data + send->offset, s->length - send->offset);
+    while (send->offset < send->length) {
+        ssize_t n = write(send->fd, send->data + send->offset, send->length - send->offset);
         if (n > 0)
             send->offset += (size_t)n;
         else if (n < 0 && errno == EINTR)
@@ -307,7 +327,7 @@ static void linux_service(struct app *app, unsigned requests, void *context)
         bool png = false;
         const char *image_path = requests & ED_COPY_OCR ? NULL : app->clipboard_image;
         if (image_path) {
-            data = session_read(image_path, 32 * 1024 * 1024, &n);
+            data = media_clipboard_image(app, &n);
             png = data != NULL;
         } else if (requests & ED_COPY_OCR)
             data = media_ocr_text(app, &n);
@@ -333,6 +353,14 @@ static void linux_service(struct app *app, unsigned requests, void *context)
                 s->data = data;
                 s->length = n;
                 s->png = png;
+                if (png && ed->register_text) {
+                    s->text_length = ed->register_length;
+                    s->text = malloc(s->text_length + 1);
+                    if (s->text)
+                        memcpy(s->text, ed->register_text, s->text_length + 1);
+                }
+                if (!(requests & ED_COPY_OCR))
+                    s->fragment = media_fragment(app, &s->fragment_length);
                 for (unsigned i = 0; i < 4; ++i)
                     s->sends[i].fd = -1;
                 s->proxy = wl_data_device_manager_create_data_source(c->data_manager);
@@ -340,8 +368,13 @@ static void linux_service(struct app *app, unsigned requests, void *context)
                 c->sources = s;
                 wl_data_source_add_listener(s->proxy, &source_listener, s);
                 wl_data_source_offer(s->proxy, png ? "image/png" : "text/plain;charset=utf-8");
-                if (!png)
+                if (!png || s->text) {
                     wl_data_source_offer(s->proxy, "text/plain");
+                    if (png)
+                        wl_data_source_offer(s->proxy, "text/plain;charset=utf-8");
+                }
+                if (s->fragment)
+                    wl_data_source_offer(s->proxy, "application/x-tinyvi-fragment");
                 wl_data_device_set_selection(c->data_device, s->proxy, c->serial);
                 data = NULL;
             }

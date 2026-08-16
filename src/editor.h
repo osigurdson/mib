@@ -59,7 +59,8 @@ struct editor {
     size_t length, capacity, cursor, top, left;
     enum editor_mode mode;
     bool modified, command_active, quit, crlf;
-    bool line_numbers, markdown, search_highlight, search_forward;
+    bool line_numbers, markdown, search_highlight, search_forward, search_word, search_failed,
+        search_pending;
     char command[1024], message[256], search[256], pending[40];
     size_t command_length, anchor, visual_first, visual_last, search_origin;
     size_t match_start, match_end, desired_column;
@@ -69,8 +70,8 @@ struct editor {
     char *register_text;
     size_t register_length;
     uint32_t find_char;
-    char find_kind, command_kind;
-    uint64_t revision, saved_hash;
+    char find_kind, command_kind, find_text[5];
+    uint64_t revision, saved_hash, search_serial;
     size_t (*extra_search)(const struct editor *, size_t, bool, void *);
     void *extra_search_data;
     struct edit_history *history;
@@ -83,6 +84,9 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text);
 bool editor_save(struct editor *ed, const char *filename);
 bool editor_reload(struct editor *ed);
 void editor_command(struct editor *ed, const char *command);
+bool editor_match_at(const struct editor *ed, size_t position);
+char editor_fence(const struct editor *ed, size_t position);
+bool editor_heading(const struct editor *ed, size_t position);
 void editor_search(struct editor *ed, bool forward, unsigned count);
 bool editor_selection(const struct editor *ed, size_t *from, size_t *to, bool *linewise);
 bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text, size_t length);

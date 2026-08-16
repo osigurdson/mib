@@ -264,3 +264,32 @@ bool editor_reload(struct editor *ed)
     editor_clamp(ed);
     return true;
 }
+
+char editor_fence(const struct editor *ed, size_t p)
+{
+    size_t start = p, end = editor_line_end(ed, p);
+    while (p < end && p - start < 3 && ed->text[p] == ' ')
+        ++p;
+    if (p + 3 > end || (ed->text[p] != '`' && ed->text[p] != '~'))
+        return 0;
+    return ed->text[p] == ed->text[p + 1] && ed->text[p] == ed->text[p + 2] ? ed->text[p] : 0;
+}
+bool editor_heading(const struct editor *ed, size_t p)
+{
+    size_t start = editor_line_start(ed, p), end = editor_line_end(ed, p);
+    char fenced = 0;
+    if (start == end || ed->text[start] != '#')
+        return false;
+    size_t at = start;
+    while (at < end && ed->text[at] == '#')
+        ++at;
+    if (at - start > 6 || at == end || ed->text[at] != ' ')
+        return false;
+    for (size_t line = 0; line < start;) {
+        char marker = editor_fence(ed, line);
+        if (marker)
+            fenced = fenced ? (fenced == marker ? 0 : fenced) : marker;
+        line = editor_line_end(ed, line) + 1;
+    }
+    return !fenced;
+}

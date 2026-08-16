@@ -64,11 +64,15 @@ int main(void)
     assert(!app.editor.modified);
     app.font_size = 23;
     app.editor.line_numbers = false;
-    app.width = 900;
+    app.width = 1400;
+    app.maximized = true;
+    app.restore_width = 900;
+    app.restore_height = 600;
     app_close(&app);
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
-    assert(app.font_size == 23 && !app.editor.line_numbers && app.width == 900);
+    assert(app.font_size == 23 && !app.editor.line_numbers && app.width == 900 &&
+           app.height == 600 && app.maximized);
     app_close(&app);
     free(page);
     free(agents);

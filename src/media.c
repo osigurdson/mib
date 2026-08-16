@@ -1,9 +1,11 @@
 #define _POSIX_C_SOURCE 200809L
 #include "media.h"
 #include "app.h"
+#include "edit-internal.h"
 #include "platform.h"
 #include "session.h"
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +15,7 @@
 #else
 #include <signal.h>
 #include <spawn.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 extern char **environ;
@@ -141,14 +144,14 @@ const struct media_entry *media_at(struct app *app, size_t p)
 int media_rows(struct app *app, size_t p, int width, int line_height, int max_rows)
 {
     const struct media_entry *e = media_at(app, p);
-    if (!e || e->width < 1 || e->height < 1)
+    if (!e || e->width < 1 || e->height < 1 || width < 1 || line_height < 1)
         return 1;
     int h = e->height;
     if (e->width > width)
         h = (int)((int64_t)h * width / e->width);
     int rows = (h + line_height - 1) / line_height + 1;
-    if (rows > max_rows)
-        rows = max_rows;
+    int maximum=max_rows>1?max_rows-1:1;
+    if(rows>maximum)rows=maximum;
     return rows > 1 ? rows : 1;
 }
 bool media_pixels(struct app *app, const struct media_entry *e, struct image *image)
@@ -196,6 +199,7 @@ size_t media_search(const struct editor *ed, size_t origin, bool forward, void *
 {
     struct app *app = context;
     media_sync(app);
+    app->editor.search_pending = app->work_at != 0;
     if (!app->media || !ed->search[0])
         return SIZE_MAX;
     size_t best = SIZE_MAX, distance = SIZE_MAX;
@@ -221,6 +225,25 @@ char *media_ocr_text(struct app *app, size_t *length)
 {
     const struct media_entry *e = media_at(app, app->editor.cursor);
     return e ? sidecar(app, e, ".txt", length) : NULL;
+}
+char *media_clipboard_image(struct app *app, size_t *length)
+{
+    if (!app->clipboard_image)
+        return NULL;
+    char *bytes = session_read(app->clipboard_image, FILE_LIMIT, length);
+    if (!bytes)
+        return NULL;
+    if (*length >= 8 && !memcmp(bytes, "\x89PNG\r\n\x1a\n", 8))
+        return bytes;
+    struct image image = {0};
+    if (!image_decode(&image, (unsigned char *)bytes, *length)) {
+        free(bytes);
+        return NULL;
+    }
+    free(bytes);
+    unsigned char *png = image_png(image.rgba, image.width, image.height, length);
+    image_free(&image);
+    return (char *)png;
 }
 char *media_target(struct app *app)
 {
@@ -295,7 +318,7 @@ static bool ensure_directory(struct app *app)
     free(assets);
     return ok;
 }
-bool media_paste_image(struct app *app, const unsigned char *data, size_t length)
+static bool store_image(struct app *app, const unsigned char *data, size_t length, char name[256])
 {
     int width, height;
     if (!image_info(data, length, &width, &height)) {
@@ -328,12 +351,12 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
 #else
     localtime_r(&now, &tm);
 #endif
-    char timestamp[32], name[256];
+    char timestamp[32];
     strftime(timestamp, sizeof(timestamp), "%Y%m%d-%H%M%S", &tm);
     static unsigned sequence;
     bool written = false;
     for (unsigned attempt = 0; attempt < 16 && !written; ++attempt) {
-        snprintf(name, sizeof(name), "assets/%s-%08x.png", timestamp,
+        snprintf(name, 256, "assets/%s-%08x.png", timestamp,
                  (unsigned)(session_now() ^ (++sequence * 2654435761u)));
         char *path = session_path(app, name);
         if (!path)
@@ -344,17 +367,31 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
         if (file)
             fclose(file);
         if (!file && missing)
-            written = session_write_new(path, (const char *)data, bytes);
+            written = session_write_exclusive(path, (const char *)data, bytes);
         free(path);
     }
     free(encoded);
     if (!written)
         return false;
+    return true;
+}
+bool media_paste_image(struct app *app, const unsigned char *data, size_t length)
+{
+    char name[256];
+    if (!store_image(app, data, length, name))
+        return false;
     char markup[280];
     snprintf(markup, sizeof(markup), "![](%s)\n", name);
     struct editor *ed = &app->editor;
-    size_t p = ed->cursor;
+    size_t p = ed->cursor, a, b;
+    bool lines;
+    bool visual = editor_selection(ed, &a, &b, &lines), own = !editor_change_active(ed);
     editor_change_begin(ed);
+    if (visual) {
+        editor_replace(ed, a, b, "", 0);
+        p = a;
+        ed->mode = INSERT;
+    }
     if (ed->mode != INSERT) {
         p = editor_line_end(ed, p);
         if (p < ed->length)
@@ -367,9 +404,10 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
     size_t at = p;
     editor_replace(ed, p, p, markup, strlen(markup));
     ed->cursor = at;
-    editor_change_end(ed);
-    if (ed->mode == INSERT)
-        editor_change_begin(ed);
+    if (visual)
+        ed->mode = NORMAL;
+    if (own)
+        editor_change_end(ed);
     app->dirty = true;
     app->follow_cursor = true;
     session_changed(app);
@@ -398,6 +436,131 @@ void media_paste_text(struct app *app, const char *text, size_t length)
     app->dirty = true;
     app->follow_cursor = true;
     session_changed(app);
+}
+
+static uint32_t fragment_u32(const unsigned char *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+static void fragment_write_u32(unsigned char *p, uint32_t n)
+{
+    for (unsigned i = 0; i < 4; ++i)
+        p[i] = (unsigned char)(n >> (i * 8));
+}
+char *media_fragment(struct app *app, size_t *length)
+{
+    struct editor *ed = &app->editor;
+    if (!app->directory || !ed->register_text || ed->register_length > 16 * 1024 * 1024)
+        return NULL;
+    struct editor snapshot = {.text = ed->register_text, .length = ed->register_length};
+    bool has_image = false;
+    for (size_t p = 0; p < snapshot.length;) {
+        size_t end = editor_line_end(&snapshot, p);
+        char name[256];
+        if (parse(&snapshot, p, end, name)) {
+            has_image = true;
+            break;
+        }
+        p = end < snapshot.length ? end + 1 : end;
+    }
+    if (!has_image)
+        return NULL;
+    char *directory = session_absolute(app->directory);
+    if (!directory)
+        return NULL;
+    size_t n = strlen(directory);
+    if (n > 65535) {
+        free(directory);
+        return NULL;
+    }
+    size_t total = 16 + n + ed->register_length;
+    unsigned char *bytes = malloc(total);
+    if (bytes) {
+        memcpy(bytes, "TVFRAG1", 8);
+        fragment_write_u32(bytes + 8, (uint32_t)n);
+        fragment_write_u32(bytes + 12, (uint32_t)ed->register_length);
+        memcpy(bytes + 16, directory, n);
+        memcpy(bytes + 16 + n, ed->register_text, ed->register_length);
+        *length = total;
+    }
+    free(directory);
+    return (char *)bytes;
+}
+bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t length)
+{
+    if (length < 16 || memcmp(bytes, "TVFRAG1", 8))
+        return false;
+    size_t directory_length = fragment_u32(bytes + 8), text_length = fragment_u32(bytes + 12);
+    if (!directory_length || directory_length > 65535 || text_length > 16 * 1024 * 1024 ||
+        directory_length > length - 16 || text_length > length - 16 - directory_length)
+        return false;
+    if (memchr(bytes + 16, 0, directory_length + text_length))
+        return false;
+    char *directory = malloc(directory_length + 1), *text = malloc(text_length + 1);
+    if (!directory || !text) {
+        free(directory);
+        free(text);
+        return false;
+    }
+    memcpy(directory, bytes + 16, directory_length);
+    directory[directory_length] = 0;
+    memcpy(text, bytes + 16 + directory_length, text_length);
+    text[text_length] = 0;
+    struct editor input = {.text = text, .length = text_length}, output = {0};
+    bool ok = true;
+    unsigned images = 0;
+    for (size_t p = 0; p < input.length;) {
+        size_t end = editor_line_end(&input, p), next = end < input.length ? end + 1 : end;
+        char name[256], new_name[256];
+        if (images < IMAGE_LIMIT && parse(&input, p, end, name)) {
+            size_t n = strlen(directory) + strlen(name) + 2;
+            char *path = malloc(n);
+            size_t file_length = 0;
+            char *data = NULL;
+            if (path) {
+                snprintf(path, n, "%s/%s", directory, name);
+                data = session_read(path, FILE_LIMIT, &file_length);
+                free(path);
+            }
+            if (data && store_image(app, (unsigned char *)data, file_length, new_name)) {
+                const char *close = memchr(input.text + p, ']', end - p);
+                size_t prefix = (size_t)(close + 2 - (input.text + p));
+                ok = editor_raw_replace(&output, output.length, output.length, input.text + p,
+                                        prefix) &&
+                     editor_raw_replace(&output, output.length, output.length, new_name,
+                                        strlen(new_name)) &&
+                     editor_raw_replace(&output, output.length, output.length, ")", 1);
+                if (ok && next > end)
+                    ok = editor_raw_replace(&output, output.length, output.length, "\n", 1);
+                free(data);
+                ++images;
+                if (output.length > 16 * 1024 * 1024)
+                    ok = false;
+                if (!ok)
+                    break;
+                p = next;
+                continue;
+            }
+            free(data);
+        }
+        if (!editor_raw_replace(&output, output.length, output.length, input.text + p, next - p)) {
+            ok = false;
+            break;
+        }
+        if (output.length > 16 * 1024 * 1024) {
+            ok = false;
+            break;
+        }
+        p = next;
+    }
+    if (ok)
+        media_paste_text(app, output.text ? output.text : "", output.length);
+    free(output.text);
+    free(text);
+    free(directory);
+    if (ok)
+        media_tick(app);
+    return ok;
 }
 void media_import_file(struct app *app, const char *path)
 {
@@ -497,7 +660,9 @@ static bool spawn_ocr(struct app *app, const struct media_entry *e)
     posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", 0, 0);
     posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", 1, 0);
     posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", 1, 0);
+    mode_t previous_umask = umask(0077);
     int error = posix_spawnp(&pid, "tesseract", &actions, NULL, arguments, environ);
+    umask(previous_umask);
     posix_spawn_file_actions_destroy(&actions);
     free(path);
     bool ok = error == 0;
@@ -526,7 +691,8 @@ void media_tick(struct app *app)
         }
 #else
         int status;
-        bool done = waitpid(m->job, &status, WNOHANG) != 0;
+        pid_t result = waitpid(m->job, &status, WNOHANG);
+        bool done = result > 0 || (result < 0 && errno != EINTR);
         if (done)
             m->job = 0;
 #endif
@@ -538,8 +704,17 @@ void media_tick(struct app *app)
             if (!strcmp(m->entries[i].name, m->job_name))
                 m->entries[i].ocr_done = true;
         app->dirty = true;
-        if (app->editor.search[0])
-            editor_search(&app->editor, app->editor.search_forward, 1);
+        if (app->ocr_retry && app->editor.search[0]) {
+            app->ocr_retry = false;
+            bool prompt = app->editor.command_active && app->editor.command_kind != ':';
+            if (prompt)
+                app->editor.cursor = app->editor.search_origin;
+            editor_search(&app->editor,
+                          prompt ? app->editor.command_kind == '/' : app->editor.search_forward, 1);
+            const struct media_entry *hit = media_at(app, app->editor.cursor);
+            app->image_hit =
+                !app->editor.search_failed && hit && app->editor.match_start == hit->start;
+        }
     }
     const char *enabled = getenv("TINYVI_OCR");
     if (m->ocr_unavailable || (enabled && !strcmp(enabled, "0")))
@@ -552,8 +727,12 @@ void media_tick(struct app *app)
         char *text = sidecar(app, e, ".txt", &n);
         if (text) {
             free(text);
-            e->ocr_done = true;
-            continue;
+            char *tsv = sidecar(app, e, ".tsv", &n);
+            if (tsv) {
+                free(tsv);
+                e->ocr_done = true;
+                continue;
+            }
         }
         e->ocr_done = true;
         if (spawn_ocr(app, e)) {
@@ -583,46 +762,132 @@ void media_close(struct app *app)
     free(m);
     app->media = NULL;
 }
+
+struct ocr_word {
+    size_t first, last;
+    int x, y, w, h;
+};
+static void highlight_rectangle(const struct media_entry *e, uint32_t *pixels, int width,
+                                int height, int stride, int x, int y, int draw_width,
+                                int draw_height, int left, int top, int right, int bottom)
+{
+    int x0 = x + (int)((int64_t)left * draw_width / e->width),
+        y0 = y + (int)((int64_t)top * draw_height / e->height);
+    int x1 = x + (int)((int64_t)right * draw_width / e->width),
+        y1 = y + (int)((int64_t)bottom * draw_height / e->height);
+    if (x0 < 0)
+        x0 = 0;
+    if (y0 < 0)
+        y0 = 0;
+    if (x1 > width)
+        x1 = width;
+    if (y1 > height)
+        y1 = height;
+    for (int py = y0; py < y1; ++py)
+        for (int px = x0; px < x1; ++px) {
+            uint32_t c = pixels[(size_t)py * stride + px];
+            pixels[(size_t)py * stride + px] = 0xff000000 | ((((c >> 16) & 255) + 255) / 2 << 16) |
+                                               ((((c >> 8) & 255) + 210) / 2 << 8) |
+                                               ((c & 255) / 2);
+        }
+}
+static void highlight_line(struct app *app, const struct media_entry *e, const char *text,
+                           size_t length, const struct ocr_word *words, unsigned count,
+                           uint32_t *pixels, int width, int height, int stride, int x, int y,
+                           int dw, int dh)
+{
+    const char *pattern = app->editor.search;
+    size_t n = strlen(pattern);
+    bool sensitive = false;
+    for (size_t i = 0; i < n; ++i)
+        if (isupper((unsigned char)pattern[i]))
+            sensitive = true;
+    for (size_t p = 0; n && p + n <= length; ++p) {
+        size_t i = 0;
+        for (; i < n; ++i) {
+            unsigned char a = (unsigned char)text[p + i], b = (unsigned char)pattern[i];
+            if (sensitive ? a != b : tolower(a) != tolower(b))
+                break;
+        }
+        if (i != n)
+            continue;
+        if (app->editor.search_word &&
+            ((p && (isalnum((unsigned char)text[p - 1]) || text[p - 1] == '_')) ||
+             (p + n < length && (isalnum((unsigned char)text[p + n]) || text[p + n] == '_'))))
+            continue;
+        int left = e->width, top = e->height, right = 0, bottom = 0;
+        for (unsigned w = 0; w < count; ++w)
+            if (words[w].last > p && words[w].first < p + n) {
+                if (words[w].x < left)
+                    left = words[w].x;
+                if (words[w].y < top)
+                    top = words[w].y;
+                if (words[w].x + words[w].w > right)
+                    right = words[w].x + words[w].w;
+                if (words[w].y + words[w].h > bottom)
+                    bottom = words[w].y + words[w].h;
+            }
+        if (right > left && bottom > top)
+            highlight_rectangle(e, pixels, width, height, stride, x, y, dw, dh, left, top, right,
+                                bottom);
+    }
+}
 void media_highlight(struct app *app, const struct media_entry *e, uint32_t *pixels, int width,
                      int height, int stride, int x, int y, int draw_width, int draw_height)
 {
-    if (!app->editor.search_highlight || !app->editor.search[0] || e->width < 1 || e->height < 1)
+    if (!app->image_hit || !app->editor.search_highlight || !app->editor.search[0] ||
+        app->editor.cursor != e->start || e->width < 1 || e->height < 1)
         return;
-    size_t n;
-    char *tsv = sidecar(app, e, ".tsv", &n);
+    size_t bytes;
+    char *tsv = sidecar(app, e, ".tsv", &bytes);
     if (!tsv)
         return;
-    char *p = tsv;
-    while (*p) {
+    struct ocr_word words[256];
+    unsigned count = 0;
+    char text[8192];
+    size_t length = 0;
+    int key[4] = {0};
+    for (char *p = tsv; *p;) {
         char *end = strchr(p, '\n');
         if (!end)
             end = p + strlen(p);
         char saved = *end;
         *end = 0;
-        int level, page, block, paragraph, line, word, left, top, w, h;
+        int level, page, block, paragraph, line, word, left, top, w, h, text_at = 0;
         float confidence;
-        int text_at = 0;
         if (sscanf(p, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%f\t%n", &level, &page, &block,
                    &paragraph, &line, &word, &left, &top, &w, &h, &confidence, &text_at) == 11 &&
-            text_at > 0 && level == 5 &&
-            contains(p + text_at, strlen(p + text_at), app->editor.search)) {
-            int x0 = x + (int)((int64_t)left * draw_width / e->width),
-                y0 = y + (int)((int64_t)top * draw_height / e->height),
-                x1 = x + (int)((int64_t)(left + w) * draw_width / e->width),
-                y1 = y + (int)((int64_t)(top + h) * draw_height / e->height);
-            for (int py = y0; py < y1; ++py)
-                for (int px = x0; px < x1; ++px)
-                    if (px >= 0 && py >= 0 && px < width && py < height) {
-                        uint32_t c = pixels[(size_t)py * stride + px];
-                        pixels[(size_t)py * stride + px] =
-                            0xff000000 | ((((c >> 16) & 255) + 255) / 2 << 16) |
-                            ((((c >> 8) & 255) + 210) / 2 << 8) | ((c & 255) / 2);
-                    }
+            text_at > 0 && level == 5 && left >= 0 && top >= 0 && w > 0 && h > 0 &&
+            left <= e->width && top <= e->height && w <= e->width - left && h <= e->height - top) {
+            size_t n = strlen(p + text_at);
+            bool changed =
+                key[0] != page || key[1] != block || key[2] != paragraph || key[3] != line;
+            if (count && (changed || count == 256 || length + n + 1 >= sizeof(text))) {
+                highlight_line(app, e, text, length, words, count, pixels, width, height, stride, x,
+                               y, draw_width, draw_height);
+                count = 0;
+                length = 0;
+            }
+            key[0] = page;
+            key[1] = block;
+            key[2] = paragraph;
+            key[3] = line;
+            if (n && n + 1 < sizeof(text)) {
+                if (length)
+                    text[length++] = ' ';
+                size_t first = length;
+                memcpy(text + length, p + text_at, n);
+                length += n;
+                words[count++] = (struct ocr_word){first, length, left, top, w, h};
+            }
         }
         *end = saved;
         if (!saved)
             break;
         p = end + 1;
     }
+    if (count)
+        highlight_line(app, e, text, length, words, count, pixels, width, height, stride, x, y,
+                       draw_width, draw_height);
     free(tsv);
 }

@@ -13,6 +13,8 @@ void session_changed(struct app *app);
 void session_tick(struct app *app);
 void session_focus(struct app *app, bool focused);
 bool session_save(struct app *app);
+char *session_absolute(const char *path);
+bool session_write_exclusive(const char *path, const char *data, size_t length);
 char *session_path(const struct app *app, const char *relative);
 bool session_mkdir(const char *path);
 char *session_read(const char *path, size_t maximum, size_t *length);

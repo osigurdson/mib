@@ -77,11 +77,23 @@ void editor_put(struct editor *ed, const char *text, size_t length, bool linewis
 {
     if (!length || !count)
         return;
+    if (length > 16 * 1024 * 1024 || count > 16 * 1024 * 1024 / length) {
+        snprintf(ed->message, sizeof(ed->message), "Paste exceeds 16 MiB limit");
+        return;
+    }
     size_t p = ed->cursor;
+    size_t selection_a, selection_b;
+    bool selection_lines;
+    bool visual = editor_selection(ed, &selection_a, &selection_b, &selection_lines);
     bool insert_mode = ed->mode == INSERT;
     bool own = !editor_change_active(ed);
     editor_change_begin(ed);
-    if (!insert_mode) {
+    if (visual) {
+        p = selection_a;
+        editor_replace(ed, selection_a, selection_b, "", 0);
+        ed->mode = NORMAL;
+    }
+    if (!insert_mode && !visual) {
         if (linewise) {
             p = after ? editor_line_end(ed, p) : editor_line_start(ed, p);
             if (after && p < ed->length)
@@ -179,7 +191,7 @@ static void case_range(struct editor *ed, size_t a, size_t b, char how)
     ed->cursor = a;
     editor_change_end(ed);
 }
-static bool match_at(const struct editor *ed, size_t p)
+bool editor_match_at(const struct editor *ed, size_t p)
 {
     size_t n = strlen(ed->search);
     if (!n || n > ed->length - p)
@@ -193,12 +205,20 @@ static bool match_at(const struct editor *ed, size_t p)
         if (sensitive ? a != b : tolower(a) != tolower(b))
             return false;
     }
+    if (ed->search_word) {
+        if (p && word((unsigned char)ed->text[p - 1], false) == 1)
+            return false;
+        if (p + n < ed->length && word((unsigned char)ed->text[p + n], false) == 1)
+            return false;
+    }
     return true;
 }
 void editor_search(struct editor *ed, bool forward, unsigned count)
 {
     if (!ed->search[0] || !ed->length)
         return;
+    ++ed->search_serial;
+    ed->search_failed = false;
     size_t p = ed->cursor;
     while (count--) {
         size_t origin = p;
@@ -209,7 +229,7 @@ void editor_search(struct editor *ed, bool forward, unsigned count)
         for (size_t steps = 0; steps <= ed->length; ++steps) {
             p = forward ? (p == ed->length ? 0 : editor_next(ed, p))
                         : (p ? editor_previous(ed, p) : ed->length);
-            if (match_at(ed, p)) {
+            if (editor_match_at(ed, p)) {
                 found = true;
                 break;
             }
@@ -227,7 +247,9 @@ void editor_search(struct editor *ed, bool forward, unsigned count)
             }
         }
         if (!found) {
-            snprintf(ed->message, sizeof(ed->message), "Pattern not found: %.210s", ed->search);
+            ed->search_failed = true;
+            snprintf(ed->message, sizeof(ed->message), "Pattern not found: %.180s%s", ed->search,
+                     ed->search_pending ? " (still indexing image)" : "");
             return;
         }
     }
@@ -299,9 +321,6 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
                 *inclusive = true;
                 return p;
             }
-            /* Only decrement when the closing character matched. */
-            if (ed->text[p] != other) { /* no change */
-            }
         }
         *valid = false;
         return ed->cursor;
@@ -315,16 +334,11 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
     }
     if (c == ';' || c == ',') {
         char seq[8] = {ed->find_kind};
+        memcpy(seq + 1, ed->find_text, sizeof(ed->find_text));
         if (c == ',')
             seq[0] = seq[0] == 'f' ? 'F' : seq[0] == 'F' ? 'f' : seq[0] == 't' ? 'T' : 't';
         uint32_t cp = ed->find_char;
         if (!cp) {
-            *valid = false;
-            return p;
-        }
-        if (cp < 128)
-            seq[1] = (char)cp;
-        else {
             *valid = false;
             return p;
         }
@@ -339,6 +353,11 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
         size_t offset = 1;
         uint32_t cp = editor_codepoint(m, strlen(m), &offset);
         ed->find_char = cp;
+        size_t bytes = offset - 1;
+        if (bytes > 4)
+            bytes = 4;
+        memcpy(ed->find_text, m + 1, bytes);
+        ed->find_text[bytes] = 0;
         ed->find_kind = c;
         bool forward = c == 'f' || c == 't';
         size_t start = editor_line_start(ed, p);
@@ -437,7 +456,7 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
                     }
                     p = editor_line_start(ed, s - 1);
                 }
-            } while (p < ed->length && ed->text[p] != '#');
+            } while (p < ed->length && !editor_heading(ed, p));
         } else {
             *valid = false;
             break;
@@ -599,6 +618,8 @@ static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewis
 static void prompt(struct editor *ed, char kind)
 {
     ed->command_active = true;
+    if (kind != ':')
+        ed->search_word = false;
     ed->command_kind = kind;
     ed->command_length = 0;
     ed->command[0] = 0;
@@ -776,11 +797,12 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
         } else if (key == KEY_CTRL_U)
             editor_replace(ed, editor_line_start(ed, ed->cursor), ed->cursor, "", 0);
         else if (key == KEY_TAB) {
-            size_t n = 4 - editor_column(ed, ed->cursor) % 4;
-            editor_replace(ed, ed->cursor, ed->cursor, "    ", n);
+            editor_replace(ed, ed->cursor, ed->cursor, "    ", 4);
         } else if (key == KEY_SHIFT_TAB) {
-            size_t p = ed->cursor;
+            size_t p = ed->cursor, start = editor_line_start(ed, p), before = ed->length;
             editor_indent(ed, p, p, false);
+            size_t removed = before - ed->length;
+            ed->cursor = p - start > removed ? p - removed : start;
         } else if (key == KEY_ENTER) {
             size_t a = editor_line_start(ed, ed->cursor), b = first_nonblank(ed, ed->cursor),
                    n = min(b, ed->cursor) - a;
@@ -867,6 +889,7 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
         size_t bytes = min(b - a, sizeof(ed->search) - 1);
         memcpy(ed->search, ed->text + a, bytes);
         ed->search[bytes] = 0;
+        ed->search_word = true;
         ed->search_forward = *p == '*';
         editor_search(ed, ed->search_forward, count);
         return;
@@ -902,18 +925,9 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
     if (visual && strchr("dyc><JuU~xspP", *p)) {
         editor_selection(ed, &a, &b, &linewise);
         if (*p == 'p' || *p == 'P') {
-            char *copy = ed->register_length ? malloc(ed->register_length) : NULL;
-            size_t bytes = ed->register_length;
-            bool lines = ed->register_linewise;
-            if (copy)
-                memcpy(copy, ed->register_text, bytes);
-            editor_change_begin(ed);
-            operate(ed, 'd', a, b, linewise);
-            if (copy) {
-                editor_put(ed, copy, bytes, lines, false, count);
-                free(copy);
-            }
-            editor_change_end(ed);
+            ed->put_after = false;
+            ed->put_count = count;
+            ed->requests |= ED_PASTE;
             return;
         }
         operate(ed, *p == 'x' ? 'd' : *p == 's' ? 'c' : *p, a, b, linewise);

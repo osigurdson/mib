@@ -1,7 +1,7 @@
-#include "win32.h"
 #include "app.h"
-#include "session.h"
 #include "platform.h"
+#include "session.h"
+#include "win32.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +21,8 @@ struct windows_window {
 static void update_geometry(struct windows_window *window)
 {
     RECT client;
-    if (!GetClientRect(window->handle, &client)) return;
+    if (!GetClientRect(window->handle, &client))
+        return;
     window->app->scale120 = (uint32_t)MulDiv((int)window->dpi, 120, 96);
     window->app->width = MulDiv(client.right, 96, (int)window->dpi);
     window->app->height = MulDiv(client.bottom, 96, (int)window->dpi);
@@ -30,47 +31,73 @@ static void update_geometry(struct windows_window *window)
 
 static void changed(struct windows_window *window)
 {
-    uint64_t deadline=window->app->save_at;
-    if(window->app->work_at && (!deadline || window->app->work_at<deadline))deadline=window->app->work_at;
+    uint64_t deadline = window->app->save_at;
+    if (window->app->work_at && (!deadline || window->app->work_at < deadline))
+        deadline = window->app->work_at;
     if (deadline) {
-        uint64_t now=session_now(), remaining=deadline>now?deadline-now:1;
-        SetTimer(window->handle,1,(UINT)remaining,NULL);
+        uint64_t now = session_now(), remaining = deadline > now ? deadline - now : 1;
+        SetTimer(window->handle, 1, (UINT)remaining, NULL);
     }
-    if (!window->app->running) DestroyWindow(window->handle);
-    else if (window->app->dirty) InvalidateRect(window->handle, NULL, FALSE);
+    if (!window->app->running)
+        DestroyWindow(window->handle);
+    else if (window->app->dirty)
+        InvalidateRect(window->handle, NULL, FALSE);
 }
 
 static void codepoint(struct windows_window *window, uint32_t cp, unsigned repeat)
 {
     char text[5] = {0};
-    if (cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) cp = 0xfffd;
+    if (cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff))
+        cp = 0xfffd;
     enum editor_key key = KEY_TEXT;
-    if (cp == 27) key = KEY_ESCAPE;
-    else if (cp == 13) key = KEY_ENTER;
-    else if (cp == 8) key = KEY_BACKSPACE;
-    else if (cp == 9) key = GetKeyState(VK_SHIFT) < 0 ? KEY_SHIFT_TAB : KEY_TAB;
-    else if (cp == 2) key = KEY_CTRL_B;
-    else if (cp == 3) key = GetKeyState(VK_SHIFT) < 0 ? KEY_COPY_IMAGE_TEXT : KEY_CTRL_C;
-    else if (cp == 4) key = KEY_CTRL_D;
-    else if (cp == 5) key = KEY_CTRL_E;
-    else if (cp == 6) key = KEY_CTRL_F;
-    else if (cp == 17) key = KEY_CTRL_Q;
-    else if (cp == 18) key = KEY_CTRL_R;
-    else if (cp == 19) key = KEY_CTRL_S;
-    else if (cp == 21) key = KEY_CTRL_U;
-    else if (cp == 22) key = KEY_CTRL_V;
-    else if (cp == 23) key = KEY_CTRL_W;
-    else if (cp == 25) key = KEY_CTRL_Y;
-    else if (cp < 32 || cp == 127) return;
-    else if (cp < 0x80) text[0] = (char)cp;
+    if (cp == 27)
+        key = KEY_ESCAPE;
+    else if (cp == 13)
+        key = KEY_ENTER;
+    else if (cp == 8)
+        key = KEY_BACKSPACE;
+    else if (cp == 9)
+        key = GetKeyState(VK_SHIFT) < 0 ? KEY_SHIFT_TAB : KEY_TAB;
+    else if (cp == 2)
+        key = KEY_CTRL_B;
+    else if (cp == 3)
+        key = GetKeyState(VK_SHIFT) < 0 ? KEY_COPY_IMAGE_TEXT : KEY_CTRL_C;
+    else if (cp == 4)
+        key = KEY_CTRL_D;
+    else if (cp == 5)
+        key = KEY_CTRL_E;
+    else if (cp == 6)
+        key = KEY_CTRL_F;
+    else if (cp == 17)
+        key = KEY_CTRL_Q;
+    else if (cp == 18)
+        key = KEY_CTRL_R;
+    else if (cp == 19)
+        key = KEY_CTRL_S;
+    else if (cp == 21)
+        key = KEY_CTRL_U;
+    else if (cp == 22)
+        key = KEY_CTRL_V;
+    else if (cp == 23)
+        key = KEY_CTRL_W;
+    else if (cp == 25)
+        key = KEY_CTRL_Y;
+    else if (cp < 32 || cp == 127)
+        return;
+    else if (cp < 0x80)
+        text[0] = (char)cp;
     else if (cp < 0x800) {
-        text[0] = (char)(0xc0 | (cp >> 6)); text[1] = (char)(0x80 | (cp & 63));
+        text[0] = (char)(0xc0 | (cp >> 6));
+        text[1] = (char)(0x80 | (cp & 63));
     } else if (cp < 0x10000) {
-        text[0] = (char)(0xe0 | (cp >> 12)); text[1] = (char)(0x80 | ((cp >> 6) & 63));
+        text[0] = (char)(0xe0 | (cp >> 12));
+        text[1] = (char)(0x80 | ((cp >> 6) & 63));
         text[2] = (char)(0x80 | (cp & 63));
     } else {
-        text[0] = (char)(0xf0 | (cp >> 18)); text[1] = (char)(0x80 | ((cp >> 12) & 63));
-        text[2] = (char)(0x80 | ((cp >> 6) & 63)); text[3] = (char)(0x80 | (cp & 63));
+        text[0] = (char)(0xf0 | (cp >> 18));
+        text[1] = (char)(0x80 | ((cp >> 12) & 63));
+        text[2] = (char)(0x80 | ((cp >> 6) & 63));
+        text[3] = (char)(0x80 | (cp & 63));
     }
     for (unsigned i = 0; i < repeat && window->app->running; ++i)
         app_input(window->app, key, text);
@@ -89,20 +116,26 @@ static void character(struct windows_window *window, wchar_t unit, unsigned repe
         codepoint(window, 0xfffd, prior_repeat);
     }
     if (unit >= 0xd800 && unit <= 0xdbff) {
-        window->high_surrogate = unit; window->high_repeat = repeat;
-    } else codepoint(window, unit >= 0xdc00 && unit <= 0xdfff ? 0xfffd : unit, repeat);
+        window->high_surrogate = unit;
+        window->high_repeat = repeat;
+    } else
+        codepoint(window, unit >= 0xdc00 && unit <= 0xdfff ? 0xfffd : unit, repeat);
 }
 
 static bool paint_window(struct windows_window *window, HDC dc)
 {
     RECT rect;
-    if (!GetClientRect(window->handle, &rect)) return false;
+    if (!GetClientRect(window->handle, &rect))
+        return false;
     int width = rect.right, height = rect.bottom;
-    if (width <= 0 || height <= 0) return true;
-    if (width > INT_MAX / 4 / height) return false;
+    if (width <= 0 || height <= 0)
+        return true;
+    if (width > INT_MAX / 4 / height)
+        return false;
     size_t bytes = (size_t)width * (size_t)height * 4;
     uint32_t *pixels = platform_allocate_zeroed(bytes);
-    if (!pixels) return false;
+    if (!pixels)
+        return false;
     bool ok = app_paint(window->app, pixels, width, height, width);
     if (ok) {
         BITMAPINFO info = {0};
@@ -112,13 +145,15 @@ static bool paint_window(struct windows_window *window, HDC dc)
         info.bmiHeader.biPlanes = 1;
         info.bmiHeader.biBitCount = 32;
         info.bmiHeader.biCompression = BI_RGB;
-        int result = StretchDIBits(dc, 0, 0, width, height, 0, 0, width, height,
-                                  pixels, &info, DIB_RGB_COLORS, SRCCOPY);
+        int result = StretchDIBits(dc, 0, 0, width, height, 0, 0, width, height, pixels, &info,
+                                   DIB_RGB_COLORS, SRCCOPY);
         ok = result != (int)GDI_ERROR;
-        if (ok) ok = GdiFlush() != 0;
+        if (ok)
+            ok = GdiFlush() != 0;
     }
     platform_release(pixels, bytes);
-    if (ok) window->app->dirty = false;
+    if (ok)
+        window->app->dirty = false;
     return ok;
 }
 
@@ -130,20 +165,30 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         window->handle = handle;
         SetWindowLongPtrW(handle, GWLP_USERDATA, (LONG_PTR)window);
     }
-    if (!window) return DefWindowProcW(handle, message, wparam, lparam);
+    if (!window)
+        return DefWindowProcW(handle, message, wparam, lparam);
     switch (message) {
     case WM_CREATE:
         window->dpi = GetDpiForWindow(handle);
-        if (!window->dpi) window->dpi = 96;
+        if (!window->dpi)
+            window->dpi = 96;
         update_geometry(window);
         return 0;
     case WM_SIZE:
-        window->app->maximized=wparam==SIZE_MAXIMIZED;
-        if (wparam != SIZE_MINIMIZED) { update_geometry(window); InvalidateRect(handle, NULL, FALSE); }
+        if (wparam != SIZE_MINIMIZED) {
+            window->app->maximized = wparam == SIZE_MAXIMIZED;
+            update_geometry(window);
+            if (wparam != SIZE_MAXIMIZED) {
+                window->app->restore_width = window->app->width;
+                window->app->restore_height = window->app->height;
+            }
+            InvalidateRect(handle, NULL, FALSE);
+        }
         return 0;
     case WM_DPICHANGED: {
         UINT dpi = LOWORD(wparam);
-        if (!dpi) return 0;
+        if (!dpi)
+            return 0;
         window->dpi = dpi;
         RECT *suggested = (RECT *)lparam;
         SetWindowPos(handle, NULL, suggested->left, suggested->top,
@@ -153,7 +198,8 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         InvalidateRect(handle, NULL, FALSE);
         return 0;
     }
-    case WM_ERASEBKGND: return 1;
+    case WM_ERASEBKGND:
+        return 1;
     case WM_PAINT: {
         PAINTSTRUCT paint;
         HDC dc = BeginPaint(handle, &paint);
@@ -161,69 +207,138 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         EndPaint(handle, &paint);
         if (!ok) {
             fprintf(stderr, "Could not render Windows client area\n");
-            window->app->failed = true; window->app->running = false;
+            window->app->failed = true;
+            window->app->running = false;
             DestroyWindow(handle);
         }
         return 0;
     }
     case WM_RBUTTONDOWN:
-        app_context(window->app,MulDiv((short)LOWORD(lparam),96,(int)window->dpi),MulDiv((short)HIWORD(lparam),96,(int)window->dpi));changed(window);return 0;
+        app_context(window->app, MulDiv((short)LOWORD(lparam), 96, (int)window->dpi),
+                    MulDiv((short)HIWORD(lparam), 96, (int)window->dpi));
+        changed(window);
+        return 0;
     case WM_LBUTTONDBLCLK:
-        app_pointer(window->app,MulDiv((short)LOWORD(lparam),96,(int)window->dpi),MulDiv((short)HIWORD(lparam),96,(int)window->dpi),false);
-        windows_service(window->app,ED_OPEN,window);changed(window);return 0;
+        app_pointer(window->app, MulDiv((short)LOWORD(lparam), 96, (int)window->dpi),
+                    MulDiv((short)HIWORD(lparam), 96, (int)window->dpi), false);
+        windows_service(window->app, ED_OPEN, window);
+        changed(window);
+        return 0;
     case WM_DROPFILES:
-        import_drop(window->app,(HGLOBAL)wparam);GlobalFree((HGLOBAL)wparam);changed(window);return 0;
+        import_drop(window->app, (HGLOBAL)wparam);
+        GlobalFree((HGLOBAL)wparam);
+        changed(window);
+        return 0;
     case WM_MOUSEWHEEL:
-        app_scroll(window->app, (short)HIWORD(wparam) > 0 ? -3 : 3); changed(window); return 0;
-    case WM_LBUTTONDOWN:
-        window->dragging = true; SetCapture(handle);
-        app_pointer(window->app, MulDiv((short)LOWORD(lparam),96,(int)window->dpi), MulDiv((short)HIWORD(lparam),96,(int)window->dpi), (wparam & MK_SHIFT) != 0);
-        if(GetKeyState(VK_CONTROL)<0){windows_service(window->app,ED_OPEN,window);window->dragging=false;ReleaseCapture();}
-        changed(window); return 0;
+        app_scroll(window->app, (short)HIWORD(wparam) > 0 ? -3 : 3);
+        changed(window);
+        return 0;
+    case WM_LBUTTONDOWN: {
+        bool menu = window->app->context_menu;
+        window->dragging = true;
+        SetCapture(handle);
+        app_pointer(window->app, MulDiv((short)LOWORD(lparam), 96, (int)window->dpi),
+                    MulDiv((short)HIWORD(lparam), 96, (int)window->dpi), (wparam & MK_SHIFT) != 0);
+        if (menu || GetKeyState(VK_CONTROL) < 0) {
+            if (!menu)
+                windows_service(window->app, ED_OPEN, window);
+            window->dragging = false;
+            ReleaseCapture();
+        }
+        changed(window);
+        return 0;
+    }
     case WM_MOUSEMOVE:
-        if(window->dragging) { app_pointer(window->app, MulDiv((short)LOWORD(lparam),96,(int)window->dpi), MulDiv((short)HIWORD(lparam),96,(int)window->dpi), true); changed(window); }
+        if (window->dragging) {
+            app_pointer(window->app, MulDiv((short)LOWORD(lparam), 96, (int)window->dpi),
+                        MulDiv((short)HIWORD(lparam), 96, (int)window->dpi), true);
+            changed(window);
+        }
         return 0;
     case WM_LBUTTONUP:
-        window->dragging = false; ReleaseCapture(); return 0;
+        window->dragging = false;
+        ReleaseCapture();
+        return 0;
     case WM_KEYDOWN: {
         enum editor_key key;
-        if (GetKeyState(VK_CONTROL) < 0 && (wparam == VK_OEM_PLUS || wparam == VK_ADD || wparam == VK_OEM_MINUS || wparam == VK_SUBTRACT || wparam == '0')) {
-            app_input(window->app, wparam == '0' ? KEY_ZOOM_RESET : wparam == VK_OEM_MINUS || wparam == VK_SUBTRACT ? KEY_ZOOM_OUT : KEY_ZOOM_IN, ""); changed(window); return 0;
+        if (GetKeyState(VK_CONTROL) < 0 &&
+            (wparam == VK_OEM_PLUS || wparam == VK_ADD || wparam == VK_OEM_MINUS ||
+             wparam == VK_SUBTRACT || wparam == '0')) {
+            app_input(window->app,
+                      wparam == '0'                                     ? KEY_ZOOM_RESET
+                      : wparam == VK_OEM_MINUS || wparam == VK_SUBTRACT ? KEY_ZOOM_OUT
+                                                                        : KEY_ZOOM_IN,
+                      "");
+            changed(window);
+            return 0;
         }
         switch (wparam) {
-        case VK_LEFT: key = KEY_LEFT; break;
-        case VK_RIGHT: key = KEY_RIGHT; break;
-        case VK_UP: key = KEY_UP; break;
-        case VK_DOWN: key = KEY_DOWN; break;
-        case VK_HOME: key = KEY_HOME; break;
-        case VK_END: key = KEY_END; break;
-        case VK_PRIOR: key = KEY_PAGE_UP; break;
-        case VK_NEXT: key = KEY_PAGE_DOWN; break;
-        case VK_DELETE: key = KEY_DELETE; break;
-        default: return DefWindowProcW(handle, message, wparam, lparam);
+        case VK_LEFT:
+            key = KEY_LEFT;
+            break;
+        case VK_RIGHT:
+            key = KEY_RIGHT;
+            break;
+        case VK_UP:
+            key = KEY_UP;
+            break;
+        case VK_DOWN:
+            key = KEY_DOWN;
+            break;
+        case VK_HOME:
+            key = KEY_HOME;
+            break;
+        case VK_END:
+            key = KEY_END;
+            break;
+        case VK_PRIOR:
+            key = KEY_PAGE_UP;
+            break;
+        case VK_NEXT:
+            key = KEY_PAGE_DOWN;
+            break;
+        case VK_DELETE:
+            key = KEY_DELETE;
+            break;
+        default:
+            return DefWindowProcW(handle, message, wparam, lparam);
         }
-        unsigned repeat = LOWORD(lparam); if (!repeat) repeat = 1;
-        for (unsigned i = 0; i < repeat && window->app->running; ++i) app_input(window->app, key, "");
+        unsigned repeat = LOWORD(lparam);
+        if (!repeat)
+            repeat = 1;
+        for (unsigned i = 0; i < repeat && window->app->running; ++i)
+            app_input(window->app, key, "");
         changed(window);
         return 0;
     }
     case WM_CHAR: {
-        unsigned repeat = LOWORD(lparam); if (!repeat) repeat = 1;
+        unsigned repeat = LOWORD(lparam);
+        if (!repeat)
+            repeat = 1;
         character(window, (wchar_t)wparam, repeat);
         changed(window);
         return 0;
     }
     case WM_UNICHAR:
-        if (wparam == UNICODE_NOCHAR) return TRUE;
+        if (wparam == UNICODE_NOCHAR)
+            return TRUE;
         codepoint(window, (uint32_t)wparam, 1);
         changed(window);
         return 0;
     case WM_TIMER:
-        if (wparam==1) { KillTimer(handle,1);session_tick(window->app);changed(window); } return 0;
+        if (wparam == 1) {
+            KillTimer(handle, 1);
+            session_tick(window->app);
+            changed(window);
+        }
+        return 0;
     case WM_SETFOCUS:
-        session_focus(window->app,true);session_tick(window->app);changed(window);return 0;
+        session_focus(window->app, true);
+        session_tick(window->app);
+        changed(window);
+        return 0;
     case WM_KILLFOCUS:
-        session_focus(window->app,false);
+        session_focus(window->app, false);
         window->high_surrogate = 0;
         return 0;
     case WM_CLOSE:
@@ -235,9 +350,16 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         PostQuitMessage(0);
         return 0;
     case WM_NCDESTROY:
+        if (window->app->scratch) {
+            wchar_t name[64];
+            swprintf(name, 64, L"Local\\TinyViPage-%016llx",
+                     (unsigned long long)window->app->page_id);
+            RemovePropW(handle, name);
+        }
         SetWindowLongPtrW(handle, GWLP_USERDATA, 0);
         break;
-    default: break;
+    default:
+        break;
     }
     return DefWindowProcW(handle, message, wparam, lparam);
 }
@@ -245,27 +367,44 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
 static bool open_window(struct windows_window *window, struct app *app, int show)
 {
     *window = (struct windows_window){.app = app, .dpi = 96};
-    app->service=windows_service;app->service_data=window;
+    app->service = windows_service;
+    app->service_data = window;
     /* Windows 10+; Wine may fall back to system DPI awareness. */
     if (!SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
         SetProcessDPIAware();
     HINSTANCE instance = GetModuleHandleW(NULL);
     WNDCLASSW klass = {0};
-    klass.style=CS_DBLCLKS;
+    klass.style = CS_DBLCLKS;
     klass.lpfnWndProc = window_proc;
     klass.hInstance = instance;
     klass.hCursor = LoadCursorW(NULL, IDC_IBEAM);
     klass.lpszClassName = window_class;
-    if (!RegisterClassW(&klass) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return false;
-    UINT dpi = GetDpiForSystem(); if (!dpi) dpi = 96;
+    if (!RegisterClassW(&klass) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+        return false;
+    UINT dpi = GetDpiForSystem();
+    if (!dpi)
+        dpi = 96;
     RECT size = {0, 0, MulDiv(app->width, (int)dpi, 96), MulDiv(app->height, (int)dpi, 96)};
-    if (!AdjustWindowRectExForDpi(&size, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi)) return false;
-    HWND handle = CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Tiny vi - Windows / CPU", WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left, size.bottom - size.top,
-        NULL, NULL, instance, window);
-    if (!handle) return false;
-    if (app->scratch) { wchar_t name[64]; swprintf(name,64,L"Local\\TinyViPage-%016llx",(unsigned long long)app->page_id); SetWindowTextW(handle,name); }
-    ShowWindow(handle, app->maximized?SW_SHOWMAXIMIZED:show);
+    if (!AdjustWindowRectExForDpi(&size, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi))
+        return false;
+    bool maximized = app->maximized;
+    HWND handle =
+        CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Tiny vi - Windows / CPU",
+                        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left,
+                        size.bottom - size.top, NULL, NULL, instance, window);
+    if (!handle)
+        return false;
+    if (app->scratch) {
+        wchar_t name[64];
+        swprintf(name, 64, L"Local\\TinyViPage-%016llx", (unsigned long long)app->page_id);
+        SetPropW(handle, name, (HANDLE)1);
+        wchar_t *title = windows_utf16(app->directory);
+        if (title) {
+            SetWindowTextW(handle, title);
+            free(title);
+        }
+    }
+    ShowWindow(handle, maximized ? SW_SHOWMAXIMIZED : show);
     UpdateWindow(handle);
     return window->handle != NULL;
 }
@@ -274,19 +413,23 @@ int platform_run(struct app *app)
 {
     struct windows_window window;
     if (!open_window(&window, app, SW_SHOWNORMAL)) {
-        char error[512]; windows_error(error, sizeof(error), "Create window", GetLastError());
+        char error[512];
+        windows_error(error, sizeof(error), "Create window", GetLastError());
         fprintf(stderr, "%s\n", error);
         return EXIT_FAILURE;
     }
-    session_tick(app);changed(&window);
+    session_tick(app);
+    changed(&window);
     MSG message;
     int result;
     while ((result = (int)GetMessageW(&message, NULL, 0, 0)) > 0) {
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
-    if (result < 0) app->failed = true;
-    if (window.handle) DestroyWindow(window.handle);
+    if (result < 0)
+        app->failed = true;
+    if (window.handle)
+        DestroyWindow(window.handle);
     UnregisterClassW(window_class, GetModuleHandleW(NULL));
     return app->failed ? EXIT_FAILURE : EXIT_SUCCESS;
 }

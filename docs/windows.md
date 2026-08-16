@@ -43,7 +43,7 @@ The test script creates/uses `.build/wine-prefix`, independently of an existing
 for these tests). Set `ZIG` when the compiler is not named `zig` on PATH. A native
 MinGW toolchain can also be used with an appropriate CMake toolchain file.
 
-The measured x86-64 MinSizeRel executable is **98,304 bytes**. It imports Windows
+The measured x86-64 MinSizeRel executable is **246,272 bytes** (baseline: 98,304 bytes). It imports Windows
 system/User32/GDI/Universal CRT DLLs only. No separately shipped font DLL or TTF
 is required. Wine's own process memory is not a native Windows memory benchmark.
 
@@ -54,7 +54,7 @@ is required. Wine's own process memory is not a native Windows memory benchmark.
   arrows/Delete, translated control keys, and `WM_CHAR`/`WM_UNICHAR` text.
   UTF-16 surrogate pairs become UTF-8; out-of-subset characters are stored
   correctly even when displayed as replacement glyphs. Alt+F4/window close
-  honors the same unsaved-change policy as `:q`.
+  honors the same save/close policy as `:q` (autosaved pages save on close).
 - Per-monitor DPI awareness is requested before creating a window. DPI changes
   apply Windows' suggested rectangle, update logical geometry and `scale120`,
   and rerasterize glyphs at the physical size. Paint tests exercise 96, 120,
@@ -82,7 +82,7 @@ is required. Wine's own process memory is not a native Windows memory benchmark.
 
 ## Test results
 
-Five tests passed under Wine:
+Nine tests pass under Wine. The original platform checks cover:
 
 1. All subset glyphs, alpha rasterization, font format checks, and cache bounds
    using the Windows `VirtualAlloc`/`VirtualFree` backend.
@@ -96,9 +96,14 @@ Five tests passed under Wine:
    UTF-8 text, close rejection for unsaved changes, and CRLF round-trip.
 
 The GDI-rendered capture in `.build/windows/windows-editor.ppm` was inspected:
-text, cursor, status line, and Nerd Font icons render correctly. Test fixtures
+text, cursor, status line, and Markdown styling render correctly. Test fixtures
 and the capture are in the build/Wine directories, not the source tree.
-All four Linux tests also pass after the shared CRLF/entry-point changes.
+The expanded suite also checks modal editing/substitutions/undo, scratch pages
+and saved preferences, image codecs/inline rendering/OCR sidecars, and private
+clipboard Unicode/PNG/DIB/file/fragment serialization. The private clipboard
+store prevents the test from replacing the desktop clipboard. Native Linux
+checks additionally exercise a private Wayland data-device server and a real
+Tesseract child when installed. See [the feature/footprint report](jot-parity.md).
 
 ## Observed Wine limitation and remaining native testing
 

@@ -145,12 +145,12 @@ static void windows_service(struct app *app, unsigned requests, void *context)
         free(target);
     }
     if (requests & (ED_COPY | ED_COPY_OCR)) {
-        HGLOBAL text = NULL, png = NULL, dib = NULL;
+        HGLOBAL text = NULL, png = NULL, dib = NULL, fragment = NULL;
         size_t n = 0;
         char *ocr = NULL;
         const char *image_path = requests & ED_COPY_OCR ? NULL : app->clipboard_image;
         if (image_path) {
-            char *data = session_read(image_path, 32 * 1024 * 1024, &n);
+            char *data = media_clipboard_image(app, &n);
             if (data) {
                 png = clipboard_bytes(data, n);
                 struct image image = {0};
@@ -190,8 +190,21 @@ static void windows_service(struct app *app, unsigned requests, void *context)
             text = clipboard_text(ocr ? ocr : requests & ED_COPY_OCR ? "" : ed->register_text);
             free(ocr);
         }
-        if ((text || png || dib) && OpenClipboard(window->handle)) {
+        if (!(requests & ED_COPY_OCR)) {
+            if (!text)
+                text = clipboard_text(ed->register_text);
+            size_t fragment_length;
+            char *bytes = media_fragment(app, &fragment_length);
+            if (bytes) {
+                fragment = clipboard_bytes(bytes, fragment_length);
+                free(bytes);
+            }
+        }
+        if ((text || png || dib || fragment) && OpenClipboard(window->handle)) {
             EmptyClipboard();
+            if (fragment &&
+                SetClipboardData(RegisterClipboardFormatW(L"TinyVi.Fragment"), fragment))
+                fragment = NULL;
             if (text && SetClipboardData(CF_UNICODETEXT, text))
                 text = NULL;
             if (png && SetClipboardData(RegisterClipboardFormatW(L"PNG"), png))
@@ -200,6 +213,8 @@ static void windows_service(struct app *app, unsigned requests, void *context)
                 dib = NULL;
             CloseClipboard();
         }
+        if (fragment)
+            GlobalFree(fragment);
         if (text)
             GlobalFree(text);
         if (png)
@@ -221,6 +236,15 @@ static void windows_service(struct app *app, unsigned requests, void *context)
             }
             if (!pasted && (handle = GetClipboardData(CF_DIB)))
                 pasted = paste_dib(app, handle);
+            if (!pasted &&
+                (handle = GetClipboardData(RegisterClipboardFormatW(L"TinyVi.Fragment")))) {
+                SIZE_T length = GlobalSize(handle);
+                const unsigned char *bytes = GlobalLock(handle);
+                if (bytes && length <= 32 * 1024 * 1024)
+                    pasted = media_paste_fragment(app, bytes, length);
+                if (bytes)
+                    GlobalUnlock(handle);
+            }
             if (!pasted && (handle = GetClipboardData(CF_HDROP))) {
                 import_drop(app, handle);
                 pasted = true;

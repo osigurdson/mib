@@ -63,16 +63,17 @@ int main(int argc, char **argv)
     free(path);
     snprintf(relative, sizeof(relative), "%s.tsv", name);
     path = session_path(&app, relative);
-    const char *tsv =
-        "level\tpage_num\tblock_num\tpar_num\tline_num\tword_"
-        "num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t10\t100\t30\t90\tHello\n";
+    const char *tsv = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_"
+                      "num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t10\t10\t100\t30"
+                      "\t90\tHello\n5\t1\t1\t1\t1\t2\t120\t10\t100\t30\t90\tscreenshot\n";
     assert(session_write_new(path, tsv, strlen(tsv)));
     free(path);
     app_input(&app, KEY_TEXT, "G");
     app_input(&app, KEY_TEXT, "/");
-    app_input(&app, KEY_TEXT, "screenshot");
+    app_input(&app, KEY_TEXT, "Hello screenshot");
     app_input(&app, KEY_ENTER, "");
     assert(media_at(&app, app.editor.cursor));
+    assert(app.image_hit);
     const uint32_t scales[] = {120, 150, 180, 240};
     const unsigned sizes[] = {12, 16, 18, 22};
     for (unsigned i = 0; i < 4; ++i) {
@@ -83,6 +84,9 @@ int main(int argc, char **argv)
         assert(pixels);
         assert(app_paint(&app, pixels, 800, 560, 800));
         assert(app_view_rows(&app, 0) > 1);
+        int px = app.padding + app.gutter + 115, py = app.padding + 2 + 20;
+        uint32_t raw = 0xff000000u | ((115u * 255 / 320) << 16) | ((20u * 255 / 180) << 8) | 100;
+        assert(pixels[(size_t)py * 800 + px] != raw); /* phrase spans the gap between words */
         assert(app_hit_test(&app, 100 * 120 / scales[i], 60 * 120 / scales[i]) == 0);
         if (argc > 1) {
             char output[1024];
@@ -110,6 +114,51 @@ int main(int argc, char **argv)
     assert(!strstr(app.editor.text, "![]"));
     app_input(&app, KEY_TEXT, "u");
     assert(strstr(app.editor.text, "![]"));
+    /* Mixed notes retain their images when copied into a different page. */
+    assert(editor_replace(&app.editor, 0, 0, "before\n", 7));
+    assert(editor_replace(&app.editor, app.editor.length, app.editor.length, "after\n", 6));
+    app.editor.cursor = 0;
+    app_input(&app, KEY_TEXT, "V");
+    app_input(&app, KEY_TEXT, "G");
+    app_input(&app, KEY_TEXT, "y");
+    size_t fragment_length;
+    char *fragment = media_fragment(&app, &fragment_length);
+    assert(fragment);
+    struct app other;
+    assert(app_open(&other, NULL));
+    other.directory = session_path(&app, "other");
+    assert(other.directory && session_mkdir(other.directory));
+    assert(media_paste_fragment(&other, (unsigned char *)fragment, fragment_length));
+    free(fragment);
+    assert(strstr(other.editor.text, "before\n") && strstr(other.editor.text, "after\n"));
+    char *ref = strstr(other.editor.text, "![](");
+    assert(ref);
+    other.editor.cursor = (size_t)(ref - other.editor.text);
+    const struct media_entry *copied = media_at(&other, other.editor.cursor);
+    assert(copied && copied->width == 320 && copied->height == 180);
+    char *copied_path = media_target(&other), *other_assets = session_path(&other, "assets");
+    assert(copied_path && other_assets);
+    char *other_directory = malloc(strlen(other.directory) + 1);
+    assert(other_directory);
+    strcpy(other_directory, other.directory);
+    app_close(&other);
+#ifdef _WIN32
+    wchar_t *wc = windows_path(copied_path), *wa2 = windows_path(other_assets),
+            *wd2 = windows_path(other_directory);
+    assert(DeleteFileW(wc));
+    assert(RemoveDirectoryW(wa2));
+    assert(RemoveDirectoryW(wd2));
+    free(wc);
+    free(wa2);
+    free(wd2);
+#else
+    assert(!unlink(copied_path));
+    assert(!rmdir(other_assets));
+    assert(!rmdir(other_directory));
+#endif
+    free(copied_path);
+    free(other_assets);
+    free(other_directory);
     app_close(&app);
     const char *files[] = {"jot.md",        "AGENTS.md", "CLAUDE.md", ".tinyvi.lock",
                            ".tinyvi-state", name,        NULL};

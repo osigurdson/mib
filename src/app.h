@@ -9,7 +9,7 @@ struct app {
     struct media *media;
     char *directory, *clipboard_image;
     uint64_t media_revision;
-    bool media_scanned;
+    bool media_scanned, image_hit, ocr_retry;
     bool scratch, maximized, context_menu;
     int context_x, context_y, context_choice;
     int owner_fd, activation_fd;
@@ -17,8 +17,9 @@ struct app {
     uint64_t page_id, save_at, work_at;
     void (*service)(struct app *, unsigned, void *);
     void *service_data;
-    int width, height; /* Logical window dimensions. */
-    uint32_t scale120; /* Physical pixels per logical pixel × 120. */
+    int width, height;
+    int restore_width, restore_height; /* Logical window dimensions. */
+    uint32_t scale120;                 /* Physical pixels per logical pixel × 120. */
     bool dirty, running, failed, follow_cursor;
     unsigned font_size;
     int cell, line_height, padding, gutter, view_width;

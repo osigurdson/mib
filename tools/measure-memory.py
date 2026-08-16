@@ -1,35 +1,67 @@
-"""Measure the idle native client with a real empty file in a Wayland session."""
+"""Measure real Wayland idle memory; fixtures and clipboard are isolated."""
 import argparse
+import os
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 import time
+import zlib
 
+root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--binary", type=Path, default=root / "tiny-vi")
+parser.add_argument("--kind", choices=("file", "page", "image"), default="file")
 parser.add_argument("--samples", type=int, default=3)
 parser.add_argument("--delay", type=float, default=0.8)
 parser.add_argument("--max-pss", type=int, default=1024, help="exclusive PSS limit in KiB")
 args = parser.parse_args()
 if args.samples < 1 or args.delay <= 0:
     parser.error("samples and delay must be positive")
-root = Path(__file__).resolve().parent.parent
+
+def chunk(kind, data):
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+def screenshot():
+    # Standard-library PNG fixture: 2880x1800, a common HiDPI screenshot size.
+    width, height = 2880, 1800
+    compressor = zlib.compressobj()
+    row = b"\0" + b"\x33\x66\xaa" * width
+    encoded = b"".join(compressor.compress(row) for _ in range(height)) + compressor.flush()
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", encoded) + chunk(b"IEND", b""))
+
 failed = False
 with tempfile.TemporaryDirectory(prefix="tiny-vi-memory-") as directory:
-    empty = Path(directory) / "empty.txt"
-    empty.touch()
+    fixture = Path(directory)
+    if args.kind == "file":
+        empty = fixture / "empty.txt"
+        empty.touch()
+        command = [str(args.binary.resolve()), str(empty)]
+    else:
+        (fixture / "jot.md").write_text("![](assets/screenshot.png)\n" if args.kind == "image" else "")
+        if args.kind == "image":
+            (fixture / "assets").mkdir()
+            (fixture / "assets/screenshot.png").write_bytes(screenshot())
+        command = [str(args.binary.resolve()), "--page", directory]
+    environment = dict(os.environ, TINYVI_OCR="0")
     for sample in range(args.samples):
-        process = subprocess.Popen([str(root / "tiny-vi"), str(empty)],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=environment)
         try:
             time.sleep(args.delay)
             if process.poll() is not None:
                 raise SystemExit(process.stderr.read().decode())
             fields = {}
-            for line in Path(f"/proc/{process.pid}/smaps_rollup").read_text().splitlines()[1:]:
-                key, value = line.split(":", 1)
-                if value.strip().endswith("kB"):
-                    fields[key] = int(value.split()[0])
-            print(f"run {sample + 1}: PSS {fields['Pss']} KiB; RSS {fields['Rss']} KiB")
+            for name in ("smaps_rollup", "status"):
+                for line in Path(f"/proc/{process.pid}/{name}").read_text().splitlines():
+                    if ":" not in line:
+                        continue
+                    key, value = line.split(":", 1)
+                    if value.strip().endswith("kB"):
+                        fields[key] = int(value.split()[0])
+            private = fields["Private_Clean"] + fields["Private_Dirty"]
+            print(f"{args.kind} run {sample + 1}: PSS {fields['Pss']} KiB; RSS {fields['Rss']} KiB; "
+                  f"private {private} KiB; process RSS high-water {fields['VmHWM']} KiB")
             failed |= fields["Pss"] >= args.max_pss
         finally:
             if process.poll() is None:
@@ -42,4 +74,4 @@ with tempfile.TemporaryDirectory(prefix="tiny-vi-memory-") as directory:
             process.stderr.close()
 if failed:
     raise SystemExit(f"PSS exceeded the < {args.max_pss} KiB idle target")
-print(f"All idle samples below {args.max_pss} KiB PSS (not a startup peak or compositor-memory limit).")
+print(f"All idle samples below {args.max_pss} KiB PSS; excludes compositor and optional OCR process memory.")

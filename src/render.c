@@ -131,33 +131,14 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
     media_highlight(app, entry, pixels, width, height, stride, x, y, w, h);
     image_free(&image);
 }
-static bool fence(const struct editor *ed, size_t start)
-{
-    size_t end = editor_line_end(ed, start), p = start;
-    while (p < end && p - start < 3 && ed->text[p] == ' ')
-        ++p;
-    return p + 3 <= end && (!memcmp(ed->text + p, "```", 3) || !memcmp(ed->text + p, "~~~", 3));
-}
 static bool highlight(const struct editor *ed, size_t offset)
 {
     if (!ed->search_highlight || !ed->search[0])
         return false;
-    size_t n = strlen(ed->search);
-    bool sensitive = false;
-    for (size_t i = 0; i < n; ++i)
-        if (isupper((unsigned char)ed->search[i]))
-            sensitive = true;
-    size_t begin = offset >= n - 1 ? offset - n + 1 : 0;
-    for (size_t p = begin; p <= offset && p + n <= ed->length; ++p) {
-        size_t i = 0;
-        for (; i < n; ++i) {
-            unsigned char a = (unsigned char)ed->text[p + i], b = (unsigned char)ed->search[i];
-            if (sensitive ? a != b : tolower(a) != tolower(b))
-                break;
-        }
-        if (i == n)
+    size_t n = strlen(ed->search), begin = offset >= n - 1 ? offset - n + 1 : 0;
+    for (size_t p = begin; p <= offset && p + n <= ed->length; ++p)
+        if (editor_match_at(ed, p))
             return true;
-    }
     return false;
 }
 static bool paint(struct app *app, uint32_t *pixels, int width, int height, int stride)
@@ -219,10 +200,11 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     size_t selection_a = 0, selection_b = 0;
     bool linewise;
     bool selected = editor_selection(ed, &selection_a, &selection_b, &linewise);
-    bool fenced = false;
-    for (size_t p = 0; p < ed->top;) {
-        if (fence(ed, p))
-            fenced = !fenced;
+    char fenced = 0;
+    for (size_t p = 0; p < editor_line_start(ed, ed->top);) {
+        char marker = editor_fence(ed, p);
+        if (marker)
+            fenced = fenced ? (fenced == marker ? 0 : fenced) : marker;
         size_t end = editor_line_end(ed, p);
         if (end == ed->length)
             break;
@@ -236,9 +218,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             --end;
         size_t logical_start = editor_line_start(ed, start),
                logical_end = editor_line_end(ed, start);
-        bool is_fence = fence(ed, logical_start);
+        char is_fence = editor_fence(ed, logical_start);
         if (logical_start != last_line && is_fence)
-            fenced = !fenced;
+            fenced = fenced ? (fenced == is_fence ? 0 : fenced) : is_fence;
         last_line = logical_start;
         struct md_span spans[128];
         size_t span_count = ed->markdown ? markdown_line(ed->text, logical_start, logical_end,
@@ -346,6 +328,10 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     snprintf(status, sizeof(status), "%s  %s%s  |  %zu:%zu  %s", mode, filename,
              ed->modified ? " [+]" : "", editor_line_number(ed, ed->cursor) + 1,
              editor_column(ed, ed->cursor) + 1, ed->pending);
+    if (app->work_at) {
+        size_t n = strlen(status);
+        snprintf(status + n, sizeof(status) - n, "  indexing image");
+    }
     if (!label(app, pixels, width, height, stride, status, padding, status_y + ascender, cell))
         return false;
     char prompt[1100];

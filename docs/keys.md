@@ -71,7 +71,7 @@ Use these after an operator or in visual mode. `i` means inside and `a` includes
 | `n` `N` | Next or previous match |
 | `*` `#` | Search for the word under the cursor |
 
-Search is case-insensitive unless your search contains a capital letter. It also finds text inside screenshots if Tesseract is installed.
+Search is case-insensitive unless your search contains a capital letter. It also finds text inside screenshots using Tesseract-generated OCR sidecars.
 
 ## Images and links
 

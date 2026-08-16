@@ -140,7 +140,7 @@ char *session_read(const char *path, size_t maximum, size_t *length)
         *length = n;
     return text;
 }
-bool session_write_new(const char *path, const char *data, size_t length)
+static bool write_new(const char *path, const char *data, size_t length, bool existing_ok)
 {
 #ifdef _WIN32
     wchar_t *w = windows_path(path);
@@ -149,7 +149,8 @@ bool session_write_new(const char *path, const char *data, size_t length)
     HANDLE file = CreateFileW(w, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
     free(w);
     if (file == INVALID_HANDLE_VALUE)
-        return GetLastError() == ERROR_FILE_EXISTS || GetLastError() == ERROR_ALREADY_EXISTS;
+        return existing_ok &&
+               (GetLastError() == ERROR_FILE_EXISTS || GetLastError() == ERROR_ALREADY_EXISTS);
     DWORD written;
     bool ok = length <= MAXDWORD && WriteFile(file, data, (DWORD)length, &written, NULL) &&
               written == length;
@@ -158,7 +159,7 @@ bool session_write_new(const char *path, const char *data, size_t length)
 #else
     int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (fd < 0)
-        return errno == EEXIST;
+        return existing_ok && errno == EEXIST;
     bool ok = true;
     size_t pos = 0;
     while (pos < length) {
@@ -174,6 +175,27 @@ bool session_write_new(const char *path, const char *data, size_t length)
     if (close(fd) != 0)
         ok = false;
     return ok;
+#endif
+}
+bool session_write_new(const char *path, const char *data, size_t length)
+{
+    return write_new(path, data, length, true);
+}
+bool session_write_exclusive(const char *path, const char *data, size_t length)
+{
+    return write_new(path, data, length, false);
+}
+char *session_absolute(const char *path)
+{
+#ifdef _WIN32
+    wchar_t *wide = windows_path(path);
+    if (!wide)
+        return NULL;
+    char *text = windows_utf8(wide);
+    free(wide);
+    return text;
+#else
+    return realpath(path, NULL);
 #endif
 }
 static const char agents[] =
@@ -237,6 +259,21 @@ static char *resolve(const char *name)
 #endif
     return path;
 }
+#ifdef _WIN32
+struct owner_window {
+    const wchar_t *property;
+    HWND handle;
+};
+static BOOL CALLBACK find_owner(HWND window, LPARAM value)
+{
+    struct owner_window *owner = (void *)value;
+    if (GetPropW(window, owner->property)) {
+        owner->handle = window;
+        return FALSE;
+    }
+    return TRUE;
+}
+#endif
 static int ownership(struct app *app)
 {
 #ifdef _WIN32
@@ -255,7 +292,9 @@ static int ownership(struct app *app)
     if (!mutex)
         return -1;
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        HWND window = FindWindowW(NULL, name);
+        struct owner_window owner = {.property = name};
+        EnumWindows(find_owner, (LPARAM)&owner);
+        HWND window = owner.handle;
         if (window) {
             ShowWindow(window, SW_RESTORE);
             SetForegroundWindow(window);
@@ -374,8 +413,8 @@ int session_open(struct app *app, const char *name)
     char *text = state ? session_read(state, 256, &n) : NULL;
     free(state);
     if (text) {
-        unsigned w, h, font, nu, md;
-        if (sscanf(text, "%u %u %u %u %u", &w, &h, &font, &nu, &md) == 5) {
+        unsigned w, h, font, nu, md, maximized = 0;
+        if (sscanf(text, "%u %u %u %u %u %u", &w, &h, &font, &nu, &md, &maximized) >= 5) {
             if (w >= 200 && w <= 10000)
                 app->width = (int)w;
             if (h >= 100 && h <= 10000)
@@ -384,6 +423,9 @@ int session_open(struct app *app, const char *name)
                 app->font_size = font;
             app->editor.line_numbers = nu != 0;
             app->editor.markdown = md != 0;
+            app->maximized = maximized != 0;
+            app->restore_width = app->width;
+            app->restore_height = app->height;
         }
         free(text);
     }
@@ -468,8 +510,10 @@ void session_close(struct app *app)
         if (app->editor.modified && !app->editor.quit)
             session_save(app);
         char state[128], error[128];
-        int n = snprintf(state, sizeof(state), "%d %d %u %u %u\n", app->width, app->height,
-                         app->font_size, app->editor.line_numbers, app->editor.markdown);
+        int n = snprintf(state, sizeof(state), "%d %d %u %u %u %u\n",
+                         app->maximized ? app->restore_width : app->width,
+                         app->maximized ? app->restore_height : app->height, app->font_size,
+                         app->editor.line_numbers, app->editor.markdown, app->maximized);
         char *path = session_path(app, ".tinyvi-state");
         if (path) {
             platform_file_write_atomic(path, state, (size_t)n, error, sizeof(error));

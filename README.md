@@ -11,7 +11,8 @@ rasterizes fresh glyphs at the actual physical pixel size.
 
 Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
 libxkbcommon development files, `wayland-scanner`, and `wayland-protocols` with
-xdg-shell, viewporter, fractional-scale-v1, and xdg-activation-v1. Normal builds use the checked-in
+xdg-shell, viewporter, fractional-scale-v1, and xdg-activation-v1. Tests also use
+the Wayland server development package; Tesseract tests are optional. Normal builds use the checked-in
 19,164-byte subset; there are no downloads or font-library build steps.
 
 ```sh
@@ -109,10 +110,18 @@ make clean
 
 Tests cover modal editing, grouped undo, regex captures/ranges, UTF-8 boundaries,
 safe file saves, page ownership/autosave/reload, image round trips, OCR sidecar
-search, input translation, DPI rendering and small-window wrapping. Native
-clipboard integration verification is tracked separately in the parity report.
+search, input translation, DPI rendering and small-window wrapping. Private native clipboard integration tests avoid replacing the desktop clipboard;
+see the parity report for their coverage and limits.
 
-## Font assets and measurements
+## Current footprint
+
+The jot feature port is **159,320 bytes stripped on Linux** and **246,272 bytes
+on Windows**. An empty page measured **777–792 KiB PSS** (660–664 KiB private),
+while total RSS including shared libraries was 2,936–3,000 KiB. A large inline
+image returned to 805–824 KiB PSS after painting, with a transient decoding peak
+around 41 MiB. See [the feature scope, bounds, tests and before/after report](docs/jot-parity.md).
+
+## Font assets and historical measurements
 
 - [Font format, rasterizer bounds, supported Unicode, and limitations](docs/font-format.md).
 - [Before/after size and RSS report](docs/font-pipeline-report.md).

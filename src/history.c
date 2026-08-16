@@ -77,9 +77,10 @@ bool editor_raw_replace(struct editor *ed, size_t from, size_t to, const char *t
     size_t total = ed->length - (to - from) + length;
     if (!editor_reserve(ed, total + 1))
         return false;
-    memmove(ed->text + from + length, ed->text + to, ed->length - to + 1);
+    memmove(ed->text + from + length, ed->text + to, ed->length - to);
     if (length)
         memcpy(ed->text + from, text, length);
+    ed->text[total] = 0;
     ed->length = total;
     ed->cursor = from + length;
     ed->modified = true;

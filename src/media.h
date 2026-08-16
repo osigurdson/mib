@@ -16,9 +16,12 @@ const struct media_entry *media_at(struct app *app, size_t position);
 int media_rows(struct app *app, size_t position, int available_width, int line_height,
                int max_rows);
 bool media_pixels(struct app *app, const struct media_entry *entry, struct image *image);
+char *media_clipboard_image(struct app *app, size_t *length);
 char *media_target(struct app *app);
 char *media_ocr_text(struct app *app, size_t *length);
 bool media_paste_image(struct app *app, const unsigned char *data, size_t length);
+char *media_fragment(struct app *app, size_t *length);
+bool media_paste_fragment(struct app *app, const unsigned char *data, size_t length);
 void media_paste_text(struct app *app, const char *text, size_t length);
 void media_import_uris(struct app *app, const char *uris, size_t length);
 void media_import_file(struct app *app, const char *path);
