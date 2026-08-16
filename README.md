@@ -17,14 +17,22 @@ the Wayland server development package; Tesseract tests are optional. Normal bui
 
 ```sh
 make
-./tiny-vi notes.txt
+./.build/linux/tiny-vi notes.txt
 # Open an autosaved scratch page:
-./tiny-vi
-./tiny-vi work
-./tiny-vi --page ./scratch
+./.build/linux/tiny-vi
+./.build/linux/tiny-vi work
+./.build/linux/tiny-vi --page ./scratch
 # Or start an unnamed, manually saved buffer:
-./tiny-vi --file -
+./.build/linux/tiny-vi --file -
 ```
+
+Make outputs stay under `.build/`: the Linux editor is
+`.build/linux/tiny-vi`, test executables are in `.build/linux/tests/`, preview
+tools are in `.build/linux/tools/`, and generated headers/protocols are in
+`.build/linux/generated/`. Windows builds remain in `.build/windows/`.
+`make run` and `make run-windows` build and launch the appropriate executable.
+`make clean` removes the Linux Make build, leaving Windows builds and Wine
+profiles intact.
 
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.
@@ -44,6 +52,10 @@ font code under `src/`. Native window, file, and memory code lives under
 `src/platform/linux/` and `src/platform/windows/`. The Windows build uses Win32
 and GDI and is tested under Wine. See [Windows build/run instructions and tested
 limitations](docs/windows.md).
+
+From Linux, use `make windows` to cross-build, `make run-windows` to build and
+launch through Wine, or `make test-windows` to run the Windows tests. Pass editor
+arguments with, for example, `make run-windows ARGS='--file notes.txt'`.
 
 See [platform contracts, build commands, and platform implementation details](docs/platforms.md).
 CMake selects the target backend without introducing Linux dependencies into a
@@ -104,7 +116,7 @@ fonts, glyphs, or sizes used.
 ```sh
 make test
 # Optional render preview, written as PPM:
-./client-test /tmp/tiny-vi.ppm
+./.build/linux/tests/client-test /tmp/tiny-vi.ppm
 make clean
 ```
 
@@ -140,7 +152,7 @@ rendering, rather than producing a large idle-RSS saving.
 make memory           # Idle PSS/RSS for a real empty file in a Wayland session
 make subset-font      # Optional: rebuild the subset; requires Python fonttools
 make font-preview
-./font-preview /tmp/font-sizes.ppm
+./.build/linux/tools/font-preview /tmp/font-sizes.ppm
 ```
 
 The source font and subset are bundled under the SIL Open Font License;

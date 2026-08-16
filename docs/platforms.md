@@ -28,7 +28,7 @@ src/
       memory.c            VirtualAlloc/VirtualFree
 ```
 
-Generated font and Wayland protocol code lives in `.build/generated/` for Make,
+Generated font and Wayland protocol code lives in `.build/linux/generated/` for Make,
 or the CMake build directory's `generated/` subdirectory. Generated artifacts
 never belong in `src/` or the repository root.
 
@@ -74,7 +74,7 @@ Linux convenience build:
 ```sh
 make
 make test
-./tiny-vi notes.txt
+./.build/linux/tiny-vi notes.txt
 ```
 
 CMake, on Linux:

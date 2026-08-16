@@ -10,7 +10,7 @@ import zlib
 
 root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--binary", type=Path, default=root / "tiny-vi")
+parser.add_argument("--binary", type=Path, default=root / ".build/linux/tiny-vi")
 parser.add_argument("--kind", choices=("file", "page", "image"), default="file")
 parser.add_argument("--samples", type=int, default=3)
 parser.add_argument("--delay", type=float, default=0.8)

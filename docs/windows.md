@@ -29,6 +29,22 @@ Zig provides the mingw-w64 headers and Windows libraries; no separate MinGW
 installation is required. Verified with Zig 0.17.0 and Wine 11.21 on this host.
 CMake detects Wine as the cross-compiling emulator for tests.
 
+The Makefile wraps configuration, building and Wine launch:
+
+```sh
+make windows                         # build .build/windows/tiny-vi.exe
+make run-windows                     # build and open the Windows editor
+make run-windows ARGS='--file notes.txt'
+make test-windows                    # build and run the Wine test suite
+```
+
+These targets default to the isolated `.build/wine-prefix`. Override
+`WINEPREFIX`, `WINE`, or `WINDOWS_BUILD_DIR` when needed. `ARGS` supplies editor
+arguments. Each target configures the build automatically, so no separate setup
+command is required.
+
+The equivalent CMake commands are:
+
 ```sh
 cmake -S . -B .build/windows -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE=tools/cmake/zig-windows.cmake \
