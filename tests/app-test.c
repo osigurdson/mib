@@ -127,8 +127,8 @@ static void decoration_layout(void)
         app.client_decorated = true;
         assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
         int h = app.title_height, y = h / 2 * 120 / (int)scales[i];
-        assert(h == app.line_height + 2 * app.padding && app.editor.viewport_rows < rows);
-        assert(pixels[0] == (app.editor.light ? 0xffe5e8eb : 0xff283443));
+        assert(h == app.line_height + app.padding && app.editor.viewport_rows < rows);
+        assert(pixels[0] == (app.editor.light ? 0xfff2f1ee : 0xff1d2733));
         assert(app_title_hit(&app, 20, y) == TITLE_MOVE);
         assert(app_title_hit(&app, (WIDTH - 5 * h / 2) * 120 / (int)scales[i], y) == TITLE_MINIMIZE);
         assert(app_title_hit(&app, (WIDTH - 3 * h / 2) * 120 / (int)scales[i], y) == TITLE_MAXIMIZE);

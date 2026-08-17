@@ -8,18 +8,21 @@
 struct palette {
     uint32_t background, text, dim, link, heading, quote, done, italic;
     uint32_t code, search, selection, cursor, status, menu, menu_selected, handle;
+    uint32_t title, title_separator;
 };
 static const struct palette dark = {
     0xff18202b, 0xffe5edf5, 0xff697889, 0xff88c0d0,
     0xffebcb8b, 0xffa3be8c, 0xff77868a, 0xffb9a0cb,
     0xff242d3b, 0xff66502c, 0xff405c78, 0xff8fbcbb,
     0xff283443, 0xff34485b, 0xff4b6680, 0xffe5edf5,
+    0xff1d2733, 0xff303c4b,
 };
 static const struct palette light = {
     0xfffaf9f6, 0xff263342, 0xff697685, 0xff176778,
     0xff855a16, 0xff416b36, 0xff687567, 0xff755088,
     0xffeeede7, 0xfff5dc8e, 0xffc5dced, 0xff1d6972,
     0xffe5e8eb, 0xffe9edf1, 0xffcbdbe8, 0xff263342,
+    0xfff2f1ee, 0xffdeded8,
 };
 static const struct palette *colors(const struct app *app)
 {
@@ -95,8 +98,8 @@ static void title_bar(struct app *app, uint32_t *pixels, int width, int height, 
 {
     const struct palette *theme = colors(app);
     int h = app->title_height;
-    rectangle(pixels, width, height, stride, 0, 0, width, h, theme->status);
-    rectangle(pixels, width, height, stride, 0, h - 1, width, 1, theme->dim);
+    rectangle(pixels, width, height, stride, 0, 0, width, h, theme->title);
+    rectangle(pixels, width, height, stride, 0, h - 1, width, 1, theme->title_separator);
     int size = h / 4, stroke = (int)(app->scale120 / 120);
     if (size < 3)
         size = 3;
@@ -239,7 +242,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     struct tiny_font_metrics metrics = tiny_font_metrics(app->font);
     int cell = metrics.advance, ascender = metrics.ascender, line_height = metrics.line_height + 2;
     int padding = (int)((8 * (int64_t)app->scale120 + 60) / 120);
-    app->title_height = app->client_decorated ? line_height + 2 * padding : 0;
+    app->title_height = app->client_decorated ? line_height + padding : 0;
     int top = app->title_height + padding;
     int status_y = height - line_height - 2 * padding, rows = (status_y - top) / line_height;
     size_t lines = editor_line_count(ed);
