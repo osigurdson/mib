@@ -9,16 +9,33 @@ static void gutter_layout(void)
     struct app app;
     assert(app_open(&app, NULL));
     uint32_t pixels[320 * 200];
-    char lines[101];
-    memset(lines, '\n', sizeof(lines));
-    const size_t counts[] = {9, 10, 99, 100};
-    for (size_t i = 0; i < sizeof(counts) / sizeof(counts[0]); ++i) {
-        assert(editor_replace(&app.editor, 0, app.editor.length, lines, counts[i] - 1));
+    char *lines = malloc(100000);
+    assert(lines);
+    memset(lines, '\n', 100000);
+    const struct { size_t lines; int digits; } layouts[] = {
+        {9, 4}, {10, 4}, {99, 4}, {100, 4}, {999, 4}, {1000, 4},
+        {9999, 4}, {10000, 5}, {99999, 5}, {100000, 6},
+    };
+    for (size_t i = 0; i < sizeof(layouts) / sizeof(layouts[0]); ++i) {
+        assert(editor_replace(&app.editor, 0, app.editor.length, lines, layouts[i].lines - 1));
         app.editor.cursor = 0;
         assert(app_paint(&app, pixels, 320, 200, 320));
-        assert(app.gutter == 6 * app.cell);
+        assert(app.gutter == (layouts[i].digits + 2) * app.cell);
         assert(app_hit_test(&app, app.padding + app.gutter, app.padding) == 0);
+        bool number_ink = false;
+        int number_x = app.padding + (layouts[i].digits - 1) * app.cell;
+        int gap_x = number_x + app.cell;
+        for (int y = app.padding; y < app.padding + app.line_height; ++y) {
+            for (int x = number_x; x < gap_x; ++x)
+                number_ink |= pixels[y * 320 + x] != 0xff18202b;
+            for (int x = gap_x; x < app.padding + app.gutter; ++x)
+                assert(pixels[y * 320 + x] == 0xff18202b);
+        }
+        assert(number_ink); /* right-aligned number, then two clear text cells */
     }
+    free(lines);
+    assert(editor_replace(&app.editor, 0, app.editor.length, "\n", 1));
+    app.editor.cursor = 0;
     editor_command(&app.editor, "set nonu");
     assert(strstr(app.editor.message, "Unknown command"));
     assert(app_paint(&app, pixels, 320, 200, 320));

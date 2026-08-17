@@ -256,9 +256,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     int digits = 1;
     for (size_t n = lines; n >= 10; n /= 10)
         ++digits;
-    if (digits < 5)
-        digits = 5;
-    int gutter = (digits + 1) * cell;
+    if (digits < 4)
+        digits = 4;
+    int gutter = (digits + 2) * cell;
     int columns = (width - 2 * padding - gutter) / cell;
     if (rows < 1)
         rows = 1;
