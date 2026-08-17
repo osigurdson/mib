@@ -71,8 +71,8 @@ int main(void)
     assert(WaitForSingleObject(app.process.hProcess,150)==WAIT_TIMEOUT);
     type(&app,L":wq\r");exited(&app);expect(path,"Xhello\nworld");
 
-    swprintf(second,2048,L"%ls\\save as \U0001f4dd.txt",root);
-    app=launch(exe,NULL);type(&app,L"iUTF-8: \u00e9 \U0001f4dd\x1b:wq ");type(&app,second);type(&app,L"\r");exited(&app);
+    swprintf(second,2048,L"%ls\\unicode \U0001f4dd.txt",root);
+    app=launch(exe,second);type(&app,L"iUTF-8: \u00e9 \U0001f4dd\x1b:wq\r");exited(&app);
     expect(second,"UTF-8: \xc3\xa9 \xf0\x9f\x93\x9d");
     assert(DeleteFileW(second));
 

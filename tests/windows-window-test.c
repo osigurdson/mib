@@ -55,6 +55,10 @@ int main(void)
         InvalidateRect(handle,NULL,FALSE);UpdateWindow(handle);assert(!app.failed && !app.dirty);
     }
     text(handle,L":");text(handle,L"wq C:\\does-not-exist\\notes.txt\r");
+    assert(IsWindow(handle) && app.running && app.editor.modified && strstr(app.editor.message,"current page or file"));
+    app.editor.filename = windows_utf8(L"C:\\does-not-exist\\notes.txt");
+    assert(app.editor.filename);
+    text(handle,L":wq\r");
     assert(IsWindow(handle) && app.running && app.editor.modified && strstr(app.editor.message,"Write:"));
     snapshot(&window);
     text(handle,L":q!\r");assert(!IsWindow(handle) && !app.running);

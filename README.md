@@ -91,7 +91,8 @@ Ex ranges/substitutions, clipboard paste/yank, wrapping, and conservative
 Markdown styling. See the [complete key reference](docs/keys.md).
 
 `Ctrl+S` saves, `Ctrl+Q` quits, and `Ctrl+plus/minus/0` changes the font size.
-`:set nu/nonu` toggles line numbers, `:set md/nomd` toggles Markdown styling.
+Line numbers and search highlighting are always enabled. `:set md/nomd` toggles
+Markdown styling. Saves always use the current page or file.
 Screenshots can be pasted or imported by dropping image files. Images stay as
 standalone `![](assets/name.png)` lines. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.

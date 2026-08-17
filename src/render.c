@@ -140,7 +140,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
 }
 static bool highlight(const struct editor *ed, size_t offset)
 {
-    if (!ed->search_highlight || !ed->search[0])
+    if (!ed->search[0])
         return false;
     size_t n = strlen(ed->search), begin = offset >= n - 1 ? offset - n + 1 : 0;
     for (size_t p = begin; p <= offset && p + n <= ed->length; ++p)
@@ -166,7 +166,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         ++digits;
     if (digits < 5)
         digits = 5;
-    int gutter = ed->line_numbers ? (digits + 1) * cell : 0;
+    int gutter = (digits + 1) * cell;
     int columns = (width - 2 * padding - gutter) / cell;
     if (rows < 1)
         rows = 1;
@@ -236,7 +236,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                                                          spans, 128, fenced || is_fence)
                                          : 0;
         int y = padding + row * line_height;
-        if (ed->line_numbers && start == logical_start) {
+        if (start == logical_start) {
             char number[32];
             snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
             uint32_t color = logical_start == editor_line_start(ed, ed->cursor)

@@ -19,9 +19,21 @@ static void gutter_layout(void)
         assert(app.gutter == 6 * app.cell);
         assert(app_hit_test(&app, app.padding + app.gutter, app.padding) == 0);
     }
-    app.editor.line_numbers = false;
+    editor_command(&app.editor, "set nonu");
+    assert(strstr(app.editor.message, "Unknown command"));
     assert(app_paint(&app, pixels, 320, 200, 320));
-    assert(app.gutter == 0);
+    assert(app.gutter == 6 * app.cell);
+    assert(editor_replace(&app.editor, 0, app.editor.length, "one two one", 11));
+    app.editor.cursor = 0;
+    app_input(&app, KEY_TEXT, "/");
+    app_input(&app, KEY_TEXT, "one");
+    app_input(&app, KEY_ENTER, "");
+    editor_command(&app.editor, "noh");
+    assert(strstr(app.editor.message, "Unknown command"));
+    assert(app_paint(&app, pixels, 320, 200, 320));
+    int text_x = app.padding + app.gutter;
+    assert(pixels[app.padding * 320 + text_x] == 0xff66502c);
+    assert(pixels[app.padding * 320 + text_x + 8 * app.cell] == 0xff66502c);
     app_close(&app);
 }
 
@@ -56,7 +68,7 @@ int main(void)
     int status_y = HEIGHT - app.line_height - 2 * app.padding;
     assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
     app_input(&app, KEY_TEXT, ":");
-    app_input(&app, KEY_TEXT, "set nu");
+    app_input(&app, KEY_TEXT, "set md");
     assert(app_paint(&app, padded, WIDTH, HEIGHT, STRIDE));
     assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
     bool status_changed = false;

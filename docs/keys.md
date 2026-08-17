@@ -1,6 +1,6 @@
 # Jot key reference
 
-Scratch pages open in normal mode with the cursor at the end; explicit files start at the beginning. The bottom line shows the current mode, any keys you've typed so far, and the line and column.
+Line numbers are always visible. Scratch pages open in normal mode with the cursor at the end; explicit files start at the beginning. The bottom line shows the current mode, any keys you've typed so far, and the line and column.
 
 Counts work with motions and operators, such as `3w`, `5j`, `d3j` and `2dd`.
 
@@ -71,7 +71,8 @@ Use these after an operator or in visual mode. `i` means inside and `a` includes
 | `n` `N` | Next or previous match |
 | `*` `#` | Search for the word under the cursor |
 
-Search is case-insensitive unless your search contains a capital letter. It also finds text inside screenshots using Tesseract-generated OCR sidecars.
+Search matches stay highlighted. Search is case-insensitive unless your search
+contains a capital letter. It also finds text inside screenshots using Tesseract-generated OCR sidecars.
 
 ## Images and links
 
@@ -104,16 +105,14 @@ Press `:` to open it. Up and Down browse your history.
 
 | Command | Action |
 |---|---|
-| `:w` | Save now |
+| `:w` | Save the current page or file |
 | `:q`, `:wq`, `:x` | Close the window |
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
-| `:set nu`, `:set nonu` | Show or hide line numbers |
 | `:set md`, `:set nomd` | Turn Markdown styling on or off |
 | `:Ex` | Open the page's folder in your file manager |
 | `:e!` | Reload the page from disk |
-| `:noh` | Clear the search highlight |
 | `:u`, `:redo` | Undo, redo |
 
 Ranges can use `%`, `.`, `$`, line numbers, `'<,'>` and `+n` or `-n`.

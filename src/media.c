@@ -833,7 +833,7 @@ static void highlight_line(struct app *app, const struct media_entry *e, const c
 void media_highlight(struct app *app, const struct media_entry *e, uint32_t *pixels, int width,
                      int height, int stride, int x, int y, int draw_width, int draw_height)
 {
-    if (!app->image_hit || !app->editor.search_highlight || !app->editor.search[0] ||
+    if (!app->image_hit || !app->editor.search[0] ||
         app->editor.cursor != e->start || e->width < 1 || e->height < 1)
         return;
     size_t bytes;

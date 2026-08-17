@@ -22,7 +22,7 @@ int main(void)
     snprintf(path, sizeof(path), "%s/file.txt", directory);
     snprintf(alias, sizeof(alias), "%s/link.txt", directory);
     struct editor ed = {0};
-    assert(editor_open(&ed, NULL));
+    assert(editor_open(&ed, path));
     assert(ed.mode == NORMAL && ed.length == 0);
     type(&ed, "i");
     assert(ed.mode == INSERT && ed.length == 0);
@@ -35,10 +35,15 @@ int main(void)
     type(&ed, "j"); assert(ed.cursor == 9);
     type(&ed, "l"); type(&ed, "l"); assert(ed.cursor == 10);
     command(&ed, "q"); assert(!ed.quit && strstr(ed.message, "Unsaved"));
-    command(&ed, "w"); assert(ed.modified && strstr(ed.message, "No filename"));
     char save_command[600];
-    snprintf(save_command, sizeof(save_command), "w %s", path);
-    command(&ed, save_command);
+    const char *save_commands[] = {"w", "wq", "x"};
+    for (unsigned i = 0; i < 3; ++i) {
+        snprintf(save_command, sizeof(save_command), "%s %s", save_commands[i], alias);
+        command(&ed, save_command);
+        assert(ed.modified && !ed.quit && !strcmp(ed.filename, path));
+        assert(strstr(ed.message, "current page or file") && access(alias, F_OK) == -1);
+    }
+    command(&ed, "w");
     assert(!ed.modified && !strcmp(ed.filename, path));
     struct stat st; assert(stat(path, &st) == 0 && st.st_size == 11);
     assert(chmod(path, 0640) == 0);
@@ -52,7 +57,7 @@ int main(void)
     editor_input(&ed, KEY_DELETE, ""); assert(!strcmp(ed.text, "helloorld"));
     escape(&ed);
     command(&ed, "wq /does-not-exist/tiny-vi.txt");
-    assert(!ed.quit && ed.modified && strstr(ed.message, "Write:"));
+    assert(!ed.quit && ed.modified && strstr(ed.message, "current page or file"));
     command(&ed, "wq"); assert(ed.quit && !ed.modified);
     assert(stat(path, &st) == 0 && (st.st_mode & 0777) == 0640);
     editor_destroy(&ed);
@@ -73,7 +78,9 @@ int main(void)
     type(&ed, "j"); assert(ed.cursor == ed.length - 1);
     type(&ed, ":"); type(&ed, "é"); editor_input(&ed, KEY_BACKSPACE, "");
     assert(ed.command_length == 0 && ed.command[0] == '\0');
-    escape(&ed); command(&ed, "q!"); assert(ed.quit);
+    escape(&ed);
+    command(&ed, "w"); assert(ed.modified && strstr(ed.message, "No filename"));
+    command(&ed, "q!"); assert(ed.quit);
     editor_destroy(&ed);
 
     ed = (struct editor){0}; assert(!editor_open(&ed, directory)); editor_destroy(&ed);

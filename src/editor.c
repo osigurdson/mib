@@ -39,7 +39,7 @@ bool editor_reserve(struct editor *ed, size_t needed)
 
 bool editor_open(struct editor *ed, const char *filename)
 {
-    ed->line_numbers = ed->markdown = true;
+    ed->markdown = true;
     ed->viewport_rows = 24;
     ed->viewport_columns = 80;
     if (!editor_reserve(ed, 1))
@@ -168,7 +168,7 @@ uint32_t editor_codepoint(const char *text, size_t length, size_t *offset)
 bool editor_save(struct editor *ed, const char *filename)
 {
     if (!filename || !*filename) {
-        snprintf(ed->message, sizeof(ed->message), "No filename: use :w path");
+        snprintf(ed->message, sizeof(ed->message), "No filename: open a page or file to save");
         return false;
     }
     char *new_name = copy_string(filename);

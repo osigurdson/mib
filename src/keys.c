@@ -255,7 +255,6 @@ void editor_search(struct editor *ed, bool forward, unsigned count)
     }
     ed->cursor = ed->match_start = p;
     ed->match_end = p + strlen(ed->search);
-    ed->search_highlight = true;
 }
 static size_t motion(struct editor *ed, const char *m, unsigned count, bool explicit_count,
                      bool *linewise, bool *inclusive, bool *valid)

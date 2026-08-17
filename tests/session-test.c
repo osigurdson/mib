@@ -80,15 +80,24 @@ int main(void)
     assert(text && !strcmp(text, "another\n"));
     free(text);
     app.font_size = 23;
-    app.editor.line_numbers = false;
     app.width = 1400;
     app.maximized = true;
     app.restore_width = 900;
     app.restore_height = 600;
     app_close(&app);
+    /* A legacy preference disabling line numbers must no longer hide the gutter. */
+    char *state = session_path(&(struct app){.directory = directory}, ".tinyvi-state");
+    assert(state);
+    const char *legacy = "900 600 23 0 1 1\n";
+    char error[128];
+    assert(platform_file_write_atomic(state, legacy, strlen(legacy), error, sizeof(error)));
+    free(state);
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
-    assert(app.font_size == 23 && !app.editor.line_numbers && app.width == 900 &&
+    uint32_t pixels[320 * 200];
+    assert(app_paint(&app, pixels, 320, 200, 320));
+    assert(app.gutter == 6 * app.cell);
+    assert(app.font_size == 23 && app.width == 900 &&
            app.height == 600 && app.maximized);
     assert(!strcmp(app.editor.text, "another\n")); /* close did not save local edits */
     app_input(&app, KEY_TEXT, "i");

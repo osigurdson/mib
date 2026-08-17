@@ -59,7 +59,7 @@ struct editor {
     size_t length, capacity, cursor, top, left;
     enum editor_mode mode;
     bool modified, command_active, quit, crlf;
-    bool line_numbers, markdown, search_highlight, search_forward, search_word, search_failed,
+    bool markdown, search_forward, search_word, search_failed,
         search_pending;
     char command[1024], message[256], search[256], pending[40];
     size_t command_length, anchor, visual_first, visual_last, search_origin;

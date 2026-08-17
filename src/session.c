@@ -413,6 +413,7 @@ int session_open(struct app *app, const char *name)
     char *text = state ? session_read(state, 256, &n) : NULL;
     free(state);
     if (text) {
+        /* Keep the former line-number slot for existing preference files. */
         unsigned w, h, font, nu, md, maximized = 0;
         if (sscanf(text, "%u %u %u %u %u %u", &w, &h, &font, &nu, &md, &maximized) >= 5) {
             if (w >= 200 && w <= 10000)
@@ -421,7 +422,6 @@ int session_open(struct app *app, const char *name)
                 app->height = (int)h;
             if (font >= 8 && font <= 48)
                 app->font_size = font;
-            app->editor.line_numbers = nu != 0;
             app->editor.markdown = md != 0;
             app->maximized = maximized != 0;
             app->restore_width = app->width;
@@ -460,7 +460,7 @@ void session_close(struct app *app)
         int n = snprintf(state, sizeof(state), "%d %d %u %u %u %u\n",
                          app->maximized ? app->restore_width : app->width,
                          app->maximized ? app->restore_height : app->height, app->font_size,
-                         app->editor.line_numbers, app->editor.markdown, app->maximized);
+                         1u, app->editor.markdown, app->maximized);
         char *path = session_path(app, ".tinyvi-state");
         if (path) {
             platform_file_write_atomic(path, state, (size_t)n, error, sizeof(error));

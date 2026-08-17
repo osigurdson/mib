@@ -87,9 +87,12 @@ void editor_command(struct editor *ed, const char *command)
             ++argument;
     }
     if (!strcmp(p, "w") || !strcmp(p, "wq") || !strcmp(p, "x")) {
+        if (argument && *argument) {
+            snprintf(ed->message, sizeof(ed->message), "Save uses the current page or file");
+            return;
+        }
         bool quit = strcmp(p, "w") != 0;
-        if ((!strcmp(p, "x") && !ed->modified) ||
-            editor_save(ed, argument && *argument ? argument : ed->filename)) {
+        if ((!strcmp(p, "x") && !ed->modified) || editor_save(ed, ed->filename)) {
             if (quit)
                 ed->quit = true;
         }
@@ -107,16 +110,10 @@ void editor_command(struct editor *ed, const char *command)
         editor_undo(ed, false);
     else if (!strcmp(p, "redo"))
         editor_undo(ed, true);
-    else if (!strcmp(p, "noh") || !strcmp(p, "nohlsearch"))
-        ed->search_highlight = false;
     else if (!strcmp(p, "Ex"))
         ed->requests |= ED_OPEN_DIRECTORY;
     else if (!strcmp(p, "set") && argument) {
-        if (!strcmp(argument, "nu") || !strcmp(argument, "number"))
-            ed->line_numbers = true;
-        else if (!strcmp(argument, "nonu") || !strcmp(argument, "nonumber"))
-            ed->line_numbers = false;
-        else if (!strcmp(argument, "md"))
+        if (!strcmp(argument, "md"))
             ed->markdown = true;
         else if (!strcmp(argument, "nomd"))
             ed->markdown = false;

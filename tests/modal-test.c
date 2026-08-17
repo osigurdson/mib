@@ -29,6 +29,17 @@ static void expect(const char *s)
 }
 int main(void)
 {
+    reset("notes");
+    const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch"};
+    for (unsigned i = 0; i < sizeof(removed) / sizeof(removed[0]); ++i) {
+        editor_command(&ed, removed[i]);
+        assert(strstr(ed.message, "Unknown command"));
+        expect("notes");
+    }
+    editor_command(&ed, "set nomd");
+    assert(!ed.markdown);
+    editor_command(&ed, "set md");
+    assert(ed.markdown);
     reset("one two three\nfour five\nsix\n");
     keys("2dw");
     expect("three\nfour five\nsix\n");
