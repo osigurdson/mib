@@ -83,6 +83,72 @@ static bool label(struct app *app, uint32_t *pixels, int width, int height, int 
     return true;
 }
 
+static const char *leaf_name(const char *path)
+{
+    const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
+    if (back && (!slash || back > slash))
+        slash = back;
+    return slash ? slash + 1 : path;
+}
+
+static bool title_bar(struct app *app, uint32_t *pixels, int width, int height, int stride,
+                      int ascender)
+{
+    const struct palette *theme = colors(app);
+    int h = app->title_height;
+    rectangle(pixels, width, height, stride, 0, 0, width, h, theme->status);
+    rectangle(pixels, width, height, stride, 0, h - 1, width, 1, theme->dim);
+    const char *name = app->scratch && app->directory ? leaf_name(app->directory)
+                       : app->editor.filename ? leaf_name(app->editor.filename) : "";
+    char title[512];
+    snprintf(title, sizeof(title), "Jot%s%s%s", *name ? " — " : "", name,
+             app->editor.modified ? " [+]" : "");
+    if (!label(app, pixels, width - 3 * h, height, stride, title, app->padding,
+               app->padding + ascender, app->cell))
+        return false;
+    int size = h / 4, stroke = (int)(app->scale120 / 120);
+    if (size < 3)
+        size = 3;
+    if (stroke < 1)
+        stroke = 1;
+    for (int button = 0; button < 3; ++button) {
+        int x = width - (3 - button) * h + (h - size) / 2, y = (h - size) / 2;
+        if (button == 0)
+            rectangle(pixels, width, height, stride, x, y + size, size, stroke, theme->text);
+        else if (button == 1) {
+            int offset = app->maximized ? 3 * stroke : 0;
+            rectangle(pixels, width, height, stride, x + offset, y - offset, size, stroke, theme->text);
+            rectangle(pixels, width, height, stride, x + size + offset - stroke, y - offset,
+                      stroke, size, theme->text);
+            rectangle(pixels, width, height, stride, x, y, size, stroke, theme->text);
+            rectangle(pixels, width, height, stride, x, y, stroke, size, theme->text);
+            rectangle(pixels, width, height, stride, x + size - stroke, y, stroke, size, theme->text);
+            rectangle(pixels, width, height, stride, x, y + size - stroke, size, stroke, theme->text);
+        } else
+            for (int i = 0; i < size; ++i) {
+                rectangle(pixels, width, height, stride, x + i, y + i, stroke, stroke, theme->text);
+                rectangle(pixels, width, height, stride, x + size - i - 1, y + i,
+                          stroke, stroke, theme->text);
+            }
+    }
+    return true;
+}
+
+enum app_title_action app_title_hit(const struct app *app, int logical_x, int logical_y)
+{
+    int x = (int)((int64_t)logical_x * app->scale120 / 120),
+        y = (int)((int64_t)logical_y * app->scale120 / 120), h = app->title_height;
+    if (!app->client_decorated || h <= 0 || y < 0 || y >= h || x < 0 || x >= app->view_width)
+        return TITLE_NONE;
+    if (x >= app->view_width - h)
+        return TITLE_CLOSE;
+    if (x >= app->view_width - 2 * h)
+        return TITLE_MAXIMIZE;
+    if (x >= app->view_width - 3 * h)
+        return TITLE_MINIMIZE;
+    return TITLE_MOVE;
+}
+
 /* A view row ends at a word boundary where possible, otherwise at a character. */
 size_t app_row_next(const struct editor *ed, size_t start, unsigned columns)
 {
@@ -183,7 +249,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     struct tiny_font_metrics metrics = tiny_font_metrics(app->font);
     int cell = metrics.advance, ascender = metrics.ascender, line_height = metrics.line_height + 2;
     int padding = (int)((8 * (int64_t)app->scale120 + 60) / 120);
-    int status_y = height - line_height - 2 * padding, rows = (status_y - padding) / line_height;
+    app->title_height = app->client_decorated ? line_height + 2 * padding : 0;
+    int top = app->title_height + padding;
+    int status_y = height - line_height - 2 * padding, rows = (status_y - top) / line_height;
     size_t lines = editor_line_count(ed);
     int digits = 1;
     for (size_t n = lines; n >= 10; n /= 10)
@@ -230,6 +298,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     for (int y = 0; y < height; ++y)
         for (int x = 0; x < width; ++x)
             pixels[(size_t)y * stride + x] = theme->background;
+    if (app->client_decorated && !title_bar(app, pixels, width, height, stride, ascender))
+        return false;
     size_t selection_a = 0, selection_b = 0;
     bool linewise;
     bool selected = editor_selection(ed, &selection_a, &selection_b, &linewise);
@@ -259,7 +329,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         size_t span_count = ed->markdown ? markdown_line(ed->text, logical_start, logical_end,
                                                          spans, 128, fenced || is_fence)
                                          : 0;
-        int y = padding + row * line_height;
+        int y = top + row * line_height;
         if (start == logical_start) {
             char number[32];
             snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
@@ -356,12 +426,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                        : ed->mode == VISUAL      ? "VISUAL"
                        : ed->mode == VISUAL_LINE ? "VISUAL LINE"
                                                  : "NORMAL";
-    const char *filename = ed->filename ? ed->filename : "[No Name]",
-               *slash = strrchr(filename, '/'), *back = strrchr(filename, '\\');
-    if (back && (!slash || back > slash))
-        slash = back;
-    if (slash)
-        filename = slash + 1;
+    const char *filename = ed->filename ? leaf_name(ed->filename) : "[No Name]";
     int baseline = status_y + padding + ascender;
     if (ed->command_active) {
         char prompt[1100];
@@ -405,7 +470,7 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
     if (app->cell < 1 || app->line_height < 1)
         return app->editor.cursor;
     int x = (int)((int64_t)logical_x * app->scale120 / 120) - app->padding - app->gutter;
-    int y = (int)((int64_t)logical_y * app->scale120 / 120) - app->padding;
+    int y = (int)((int64_t)logical_y * app->scale120 / 120) - app->padding - app->title_height;
     unsigned row = y > 0 ? (unsigned)(y / app->line_height) : 0;
     if (row >= app->editor.viewport_rows)
         row = app->editor.viewport_rows - 1;

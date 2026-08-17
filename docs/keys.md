@@ -126,6 +126,11 @@ Ranges can use `%`, `.`, `$`, line numbers, `'<,'>` and `+n` or `-n`.
 | `Ctrl+Q` | Quit |
 | `Ctrl +`, `Ctrl -`, `Ctrl 0` | Zoom in, zoom out, reset |
 
+On Wayland, a title bar appears when the compositor needs client-side window
+controls. Drag it to move the window, double-click it to maximize/restore, or
+use its minimize, maximize and close buttons. Drag an edge or corner to resize;
+right-click the title for the compositor's window menu.
+
 This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
 [parity report](jot-parity.md). Native presentation differs. Search selects an
 image containing OCR matches and highlights matching OCR words. The font subset,

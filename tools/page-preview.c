@@ -18,6 +18,11 @@ int main(int argc, char **argv)
             return 2;
         app.editor.light = !strcmp(argv[5], "light");
     }
+    if (argc > 6) {
+        if (strcmp(argv[6], "decorated"))
+            return 2;
+        app.client_decorated = true;
+    }
     int width = (int)(800 * app.scale120 / 120), height = (int)(560 * app.scale120 / 120);
     uint32_t *pixels = malloc((size_t)width * height * 4);
     if (!pixels)

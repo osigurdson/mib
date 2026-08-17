@@ -41,9 +41,60 @@ static void frame_limit(void)
     assert(draw(&client) && app.dirty && app.redraw_at == deadline);
 }
 
+static void decorations(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    struct wayland_client client = {.app = &app, .pending_csd = true};
+    apply_decorations(&client); /* no decoration protocol: client supplies a title bar */
+    assert(app.client_decorated && app.dirty);
+    decoration_configure(&client, NULL, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    assert(app.client_decorated); /* mode is deferred until xdg_surface.configure */
+    apply_decorations(&client);
+    assert(!app.client_decorated);
+    decoration_configure(&client, NULL, ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE);
+    apply_decorations(&client);
+    assert(app.client_decorated);
+    assert(resize_edge(&client, 1, 1) == XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT);
+    assert(resize_edge(&client, 799, 559) == XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT);
+    assert(resize_edge(&client, 200, 20) == XDG_TOPLEVEL_RESIZE_EDGE_NONE);
+    app.maximized = true;
+    assert(resize_edge(&client, 1, 1) == XDG_TOPLEVEL_RESIZE_EDGE_NONE);
+    app.maximized = false;
+    client.fullscreen = true;
+    apply_decorations(&client);
+    assert(!app.client_decorated);
+    client.fullscreen = false;
+    apply_decorations(&client);
+    assert(app.client_decorated);
+    app.title_height = 40;
+    app.view_width = 800;
+    client.pointer_x = 780;
+    client.pointer_y = 20;
+    client.dragging = true;
+    pointer_button(&client, NULL, 0, 90, 0x110, WL_POINTER_BUTTON_STATE_RELEASED);
+    assert(!client.dragging); /* releasing a text selection over the header ends the drag */
+    assert(editor_replace(&app.editor, 0, 0, "notes", 5));
+    assert(decoration_button(&client, 1, 100, 0x110, WL_POINTER_BUTTON_STATE_PRESSED));
+    assert(app.running);
+    assert(decoration_button(&client, 2, 110, 0x110, WL_POINTER_BUTTON_STATE_RELEASED));
+    assert(app.running && app.editor.modified && strstr(app.editor.message, "Unsaved"));
+    assert(decoration_button(&client, 3, 120, 0x110, WL_POINTER_BUTTON_STATE_PRESSED));
+    client.pointer_y = 100;
+    assert(decoration_button(&client, 4, 130, 0x110, WL_POINTER_BUTTON_STATE_RELEASED));
+    assert(app.running && client.title_pressed == TITLE_NONE); /* release outside cancels */
+    client.pointer_y = 20;
+    app.editor.modified = false;
+    assert(decoration_button(&client, 5, 140, 0x110, WL_POINTER_BUTTON_STATE_PRESSED));
+    assert(decoration_button(&client, 6, 150, 0x110, WL_POINTER_BUTTON_STATE_RELEASED));
+    assert(!app.running);
+    app_close(&app);
+}
+
 int main(int argc, char **argv)
 {
     frame_limit();
+    decorations();
     struct app app = {.width = 800, .height = 560, .scale120 = 180, .running = true};
     char path[] = "/tmp/jot-integration-XXXXXX";
     int fd = mkstemp(path); assert(fd >= 0); close(fd);

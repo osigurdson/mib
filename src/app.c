@@ -211,7 +211,7 @@ void app_context(struct app *app, int x, int y)
     if (py + height > bottom)
         py = bottom - height;
     app->context_x = px < 0 ? 0 : px;
-    app->context_y = py < 0 ? 0 : py;
+    app->context_y = py < app->title_height ? app->title_height : py;
     app->context_choice = 0;
     app->context_menu = true;
     app->dirty = true;

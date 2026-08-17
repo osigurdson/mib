@@ -7,6 +7,7 @@
 #include "viewporter-client-protocol.h"
 #include "xdg-activation-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
+#include "xdg-decoration-unstable-v1-client-protocol.h"
 #include <errno.h>
 #include <limits.h>
 #include <poll.h>
@@ -31,6 +32,12 @@ struct wayland_client {
     struct wl_surface *surface;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *toplevel;
+    struct zxdg_decoration_manager_v1 *decoration_manager;
+    struct zxdg_toplevel_decoration_v1 *decoration;
+    bool pending_csd, fullscreen;
+    enum app_title_action title_pressed;
+    uint32_t title_click;
+    int title_click_x, title_click_y;
     struct wp_viewporter *viewporter;
     struct wp_viewport *viewport;
     struct wp_fractional_scale_manager_v1 *scale_manager;
@@ -213,10 +220,33 @@ static const struct wl_surface_listener wl_surface_listener = {
     .preferred_buffer_transform = surface_transform,
 };
 
+static void decoration_configure(void *data, struct zxdg_toplevel_decoration_v1 *decoration,
+                                  uint32_t mode)
+{
+    (void)decoration;
+    ((struct wayland_client *)data)->pending_csd =
+        mode == ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+}
+static const struct zxdg_toplevel_decoration_v1_listener decoration_listener = {
+    .configure = decoration_configure,
+};
+static void apply_decorations(struct wayland_client *client)
+{
+    bool decorated = client->pending_csd && !client->fullscreen;
+    if (client->app->client_decorated != decorated) {
+        client->app->client_decorated = decorated;
+        client->app->context_menu = false;
+        client->dragging = false;
+        client->title_pressed = TITLE_NONE;
+    }
+    client->app->dirty = true;
+}
+
 static void surface_configure(void *data, struct xdg_surface *surface, uint32_t serial)
 {
     struct wayland_client *client = data;
     xdg_surface_ack_configure(surface, serial);
+    apply_decorations(client);
     client->configured = true;
     /* Paint once after the current batch of protocol events. */
 }
@@ -231,8 +261,14 @@ static void toplevel_configure(void *data, struct xdg_toplevel *toplevel, int32_
     (void)toplevel;
     struct wayland_client *client = data;
     bool maximized = false;
+    client->fullscreen = false;
     uint32_t *state;
-    wl_array_for_each(state, states) if (*state == XDG_TOPLEVEL_STATE_MAXIMIZED) maximized = true;
+    wl_array_for_each(state, states) {
+        if (*state == XDG_TOPLEVEL_STATE_MAXIMIZED)
+            maximized = true;
+        if (*state == XDG_TOPLEVEL_STATE_FULLSCREEN)
+            client->fullscreen = true;
+    }
     if (maximized && !client->app->maximized) {
         client->app->restore_width = client->app->width;
         client->app->restore_height = client->app->height;
@@ -516,7 +552,9 @@ static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t seria
     (void)pointer;
     (void)serial;
     (void)surface;
-    ((struct wayland_client *)data)->dragging = false;
+    struct wayland_client *client = data;
+    client->dragging = false;
+    client->title_pressed = TITLE_NONE;
 }
 static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time, wl_fixed_t x,
                            wl_fixed_t y)
@@ -529,6 +567,88 @@ static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time
     if (c->dragging)
         app_pointer(c->app, c->pointer_x, c->pointer_y, true);
 }
+static uint32_t resize_edge(const struct wayland_client *client, int x, int y)
+{
+    if (!client->app->client_decorated || client->app->maximized || client->fullscreen)
+        return XDG_TOPLEVEL_RESIZE_EDGE_NONE;
+    uint32_t edge = XDG_TOPLEVEL_RESIZE_EDGE_NONE;
+    if (x < 5)
+        edge |= XDG_TOPLEVEL_RESIZE_EDGE_LEFT;
+    else if (x >= client->app->width - 5)
+        edge |= XDG_TOPLEVEL_RESIZE_EDGE_RIGHT;
+    if (y < 5)
+        edge |= XDG_TOPLEVEL_RESIZE_EDGE_TOP;
+    else if (y >= client->app->height - 5)
+        edge |= XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM;
+    return edge;
+}
+static void toggle_maximized(struct wayland_client *client)
+{
+    if (client->app->maximized)
+        xdg_toplevel_unset_maximized(client->toplevel);
+    else
+        xdg_toplevel_set_maximized(client->toplevel);
+}
+static bool decoration_button(struct wayland_client *client, uint32_t serial, uint32_t time,
+                               uint32_t button, uint32_t state)
+{
+    enum app_title_action hit = app_title_hit(client->app, client->pointer_x, client->pointer_y);
+    if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_RELEASED &&
+        client->title_pressed != TITLE_NONE) {
+        enum app_title_action pressed = client->title_pressed;
+        client->title_pressed = TITLE_NONE;
+        if (pressed == hit) {
+            if (hit == TITLE_CLOSE)
+                app_request_close(client->app);
+            else if (hit == TITLE_MAXIMIZE)
+                toggle_maximized(client);
+            else if (hit == TITLE_MINIMIZE)
+                xdg_toplevel_set_minimized(client->toplevel);
+        }
+        return true;
+    }
+    if (state != WL_POINTER_BUTTON_STATE_PRESSED)
+        return hit != TITLE_NONE;
+    uint32_t edge = resize_edge(client, client->pointer_x, client->pointer_y);
+    if (button == 0x110 && edge) {
+        client->title_click = 0;
+        client->dragging = false;
+        xdg_toplevel_resize(client->toplevel, client->seat, serial, edge);
+        return true;
+    }
+    if (hit == TITLE_NONE) {
+        client->title_click = 0;
+        return false;
+    }
+    client->dragging = false;
+    client->last_click = 0;
+    if (client->app->context_menu) {
+        client->app->context_menu = false;
+        client->app->dirty = true;
+    }
+    if (button == 0x111)
+        xdg_toplevel_show_window_menu(client->toplevel, client->seat, serial,
+                                      client->pointer_x, client->pointer_y);
+    else if (button == 0x110) {
+        if (hit == TITLE_MOVE) {
+            bool twice = client->title_click && time - client->title_click < 400 &&
+                         abs(client->pointer_x - client->title_click_x) < 4 &&
+                         abs(client->pointer_y - client->title_click_y) < 4;
+            if (twice)
+                toggle_maximized(client);
+            else
+                xdg_toplevel_move(client->toplevel, client->seat, serial);
+            client->title_click = twice ? 0 : time;
+            client->title_click_x = client->pointer_x;
+            client->title_click_y = client->pointer_y;
+        } else {
+            client->title_click = 0;
+            client->title_pressed = hit;
+        }
+    }
+    return true;
+}
+
 static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t serial, uint32_t time,
                            uint32_t button, uint32_t state)
 {
@@ -536,6 +656,10 @@ static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t seri
     (void)time;
     struct wayland_client *c = data;
     c->serial = serial;
+    if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_RELEASED)
+        c->dragging = false;
+    if (decoration_button(c, serial, time, button, state))
+        return;
     if (button == 0x111 && state == WL_POINTER_BUTTON_STATE_PRESSED) {
         app_context(c->app, c->pointer_x, c->pointer_y);
         return;
@@ -568,8 +692,10 @@ static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time, 
 {
     (void)pointer;
     (void)time;
-    if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
-        app_scroll(((struct wayland_client *)data)->app, value > 0 ? 3 : -3);
+    struct wayland_client *client = data;
+    if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL &&
+        app_title_hit(client->app, client->pointer_x, client->pointer_y) == TITLE_NONE)
+        app_scroll(client->app, value > 0 ? 3 : -3);
 }
 static const struct wl_pointer_listener pointer_listener = {.enter = pointer_enter,
                                                             .leave = pointer_leave,
@@ -631,6 +757,9 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
     else if (strcmp(interface, wp_fractional_scale_manager_v1_interface.name) == 0)
         client->scale_manager =
             wl_registry_bind(registry, name, &wp_fractional_scale_manager_v1_interface, 1);
+    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
+        client->decoration_manager =
+            wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
         client->wm = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
         xdg_wm_base_add_listener(client->wm, &wm_listener, client);
@@ -651,7 +780,7 @@ static const struct wl_registry_listener registry_listener = {
 
 int platform_run(struct app *app)
 {
-    struct wayland_client state = {.app = app, .receive_fd = -1};
+    struct wayland_client state = {.app = app, .pending_csd = true, .receive_fd = -1};
     app->service = linux_service;
     app->service_data = &state;
     signal(SIGPIPE, SIG_IGN);
@@ -690,6 +819,13 @@ int platform_run(struct app *app)
     xdg_surface_add_listener(client->xdg_surface, &surface_listener, client);
     client->toplevel = xdg_surface_get_toplevel(client->xdg_surface);
     xdg_toplevel_add_listener(client->toplevel, &toplevel_listener, client);
+    if (client->decoration_manager) {
+        client->decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
+            client->decoration_manager, client->toplevel);
+        zxdg_toplevel_decoration_v1_add_listener(client->decoration, &decoration_listener, client);
+        zxdg_toplevel_decoration_v1_set_mode(client->decoration,
+                                            ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    }
     xdg_toplevel_set_title(client->toplevel, "Jot");
     xdg_toplevel_set_app_id(client->toplevel, "dev.jot.Jot");
     if (app->maximized)
@@ -803,8 +939,12 @@ cleanup:
     xkb_state_unref(client->xkb_state);
     xkb_keymap_unref(client->xkb_keymap);
     xkb_context_unref(client->xkb_context);
+    if (client->decoration)
+        zxdg_toplevel_decoration_v1_destroy(client->decoration);
     if (client->toplevel)
         xdg_toplevel_destroy(client->toplevel);
+    if (client->decoration_manager)
+        zxdg_decoration_manager_v1_destroy(client->decoration_manager);
     if (client->xdg_surface)
         xdg_surface_destroy(client->xdg_surface);
     if (client->fractional_scale)

@@ -14,7 +14,7 @@ rasterizes fresh glyphs at the actual physical pixel size.
 
 Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
 libxkbcommon development files, `wayland-scanner`, and `wayland-protocols` with
-xdg-shell, viewporter, fractional-scale-v1, and xdg-activation-v1. Tests also use
+xdg-shell, viewporter, fractional-scale-v1, xdg-activation-v1, and xdg-decoration. Tests also use
 the Wayland server development package; Tesseract tests are optional. Normal builds use the checked-in
 19,164-byte subset; there are no downloads or font-library build steps.
 
@@ -56,6 +56,13 @@ the same prefix. Existing pages and preferences remain compatible.
 
 The logo is the unchanged [upstream Jot SVG](https://github.com/osigurdson/jot/blob/4cdc1ccb336dab9237f97394b70bd8704c1758b3/data/dev.jot.Jot.svg),
 covered by the bundled [MIT license](third_party/jot-LICENSE).
+
+Wayland window decorations are negotiated with the compositor. Jot requests
+server-side decorations, keeping tiling desktops such as Hyprland minimal.
+When the compositor requires client decorations or does not support negotiation
+(as on GNOME), Jot draws a compact title bar with drag, minimize, maximize, and
+close controls. Double-click the title to maximize/restore; drag an edge to
+resize. The title bar follows the light/dark palette and hides in fullscreen.
 
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.

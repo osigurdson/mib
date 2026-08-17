@@ -28,7 +28,7 @@ INCLUDES := -Isrc -I$(GEN)
 WAYLAND_CFLAGS := $(shell $(PKG_CONFIG) --cflags wayland-client xkbcommon)
 WAYLAND_LIBS := $(shell $(PKG_CONFIG) --libs wayland-client xkbcommon)
 PROTOCOLS_DIR := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
-PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-activation-v1
+PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-activation-v1 xdg-decoration-unstable-v1
 PROTOCOL_HEADERS := $(addprefix $(GEN)/,$(addsuffix -client-protocol.h,$(PROTOCOL_NAMES)))
 PROTOCOL_SOURCES := $(addprefix $(GEN)/,$(addsuffix -protocol.c,$(PROTOCOL_NAMES)))
 CORE := src/app.c src/session.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c
@@ -60,6 +60,11 @@ $(GEN)/fractional-scale-v1-protocol.c: $(PROTOCOLS_DIR)/staging/fractional-scale
 $(GEN)/xdg-activation-v1-client-protocol.h: $(PROTOCOLS_DIR)/staging/xdg-activation/xdg-activation-v1.xml | $(GEN)
 	$(WAYLAND_SCANNER) client-header $< $@
 $(GEN)/xdg-activation-v1-protocol.c: $(PROTOCOLS_DIR)/staging/xdg-activation/xdg-activation-v1.xml | $(GEN)
+	$(WAYLAND_SCANNER) private-code $< $@
+
+$(GEN)/xdg-decoration-unstable-v1-client-protocol.h: $(PROTOCOLS_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml | $(GEN)
+	$(WAYLAND_SCANNER) client-header $< $@
+$(GEN)/xdg-decoration-unstable-v1-protocol.c: $(PROTOCOLS_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml | $(GEN)
 	$(WAYLAND_SCANNER) private-code $< $@
 
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)

@@ -91,10 +91,51 @@ static void theme_layout(void)
     app_close(&app);
 }
 
+static void decoration_layout(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    assert(editor_replace(&app.editor, 0, 0, "first\nsecond\n", 13));
+    app.editor.cursor = 0;
+    enum { WIDTH = 640, HEIGHT = 400 };
+    uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
+    assert(pixels);
+    const unsigned scales[] = {120, 150, 180, 240};
+    for (unsigned i = 0; i < sizeof(scales) / sizeof(scales[0]); ++i) {
+        app.scale120 = scales[i];
+        app.editor.light = i % 2 != 0;
+        app.client_decorated = false;
+        assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+        unsigned rows = app.editor.viewport_rows;
+        app.client_decorated = true;
+        assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+        int h = app.title_height, y = h / 2 * 120 / (int)scales[i];
+        assert(h == app.line_height + 2 * app.padding && app.editor.viewport_rows < rows);
+        assert(pixels[0] == (app.editor.light ? 0xffe5e8eb : 0xff283443));
+        assert(app_title_hit(&app, 20, y) == TITLE_MOVE);
+        assert(app_title_hit(&app, (WIDTH - 5 * h / 2) * 120 / (int)scales[i], y) == TITLE_MINIMIZE);
+        assert(app_title_hit(&app, (WIDTH - 3 * h / 2) * 120 / (int)scales[i], y) == TITLE_MAXIMIZE);
+        assert(app_title_hit(&app, (WIDTH - h / 2) * 120 / (int)scales[i], y) == TITLE_CLOSE);
+        int x = (app.padding + app.gutter) * 120 / (int)scales[i];
+        int first = (h + app.padding + app.line_height / 2) * 120 / (int)scales[i];
+        int second = first + app.line_height * 120 / (int)scales[i];
+        assert(app_hit_test(&app, x, first) == 0);
+        assert(app_hit_test(&app, x, second) == 6);
+        assert(app_title_hit(&app, x, second) == TITLE_NONE);
+        app.client_decorated = false;
+        assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+        assert(app.title_height == 0 && app.editor.viewport_rows == rows);
+        assert(app_title_hit(&app, 20, y) == TITLE_NONE);
+    }
+    free(pixels);
+    app_close(&app);
+}
+
 int main(void)
 {
     gutter_layout();
     theme_layout();
+    decoration_layout();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

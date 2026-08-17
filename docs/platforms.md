@@ -17,7 +17,7 @@ src/
   platform/
     linux/
       entry.c             Linux main entry
-      wayland.c           window, xdg-shell, display scale, keyboard, event loop
+      wayland.c           window, xdg-shell/decorations, display scale, input, event loop
       files.c             regular-file reads and atomic saves
       memory.c            mmap/munmap and optional glibc heap trimming
     windows/
