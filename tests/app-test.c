@@ -37,9 +37,64 @@ static void gutter_layout(void)
     app_close(&app);
 }
 
+static void theme_layout(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    assert(!app.editor.light);
+    const char *note = "`code` match\n# Heading\n> Quote\n";
+    assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+    app.editor.cursor = 0;
+    strcpy(app.editor.search, "match");
+    enum { WIDTH = 320, HEIGHT = 200, STRIDE = 327 };
+    uint32_t *dark = malloc(WIDTH * HEIGHT * sizeof(*dark));
+    uint32_t *light = malloc(STRIDE * HEIGHT * sizeof(*light));
+    assert(dark && light);
+    assert(app_paint(&app, dark, WIDTH, HEIGHT, WIDTH));
+    unsigned columns = app.editor.viewport_columns, rows = app.editor.viewport_rows;
+    uint64_t revision = app.editor.revision;
+    app_input(&app, KEY_TEXT, ":");
+    app_input(&app, KEY_TEXT, "set light");
+    app_input(&app, KEY_ENTER, "");
+    assert(app.editor.light && app.editor.revision == revision);
+    for (int i = 0; i < STRIDE * HEIGHT; ++i)
+        light[i] = 0x12345678;
+    assert(app_paint(&app, light, WIDTH, HEIGHT, STRIDE));
+    assert(app.editor.viewport_columns == columns && app.editor.viewport_rows == rows);
+    assert(light[0] == 0xfffaf9f6 && light[(HEIGHT - 1) * STRIDE] == 0xffe5e8eb);
+    int x = app.padding + app.gutter, y = app.padding;
+    assert(light[y * STRIDE + x + app.cell] == 0xffeeede7); /* inline code */
+    assert(light[y * STRIDE + x + 7 * app.cell] == 0xfff5dc8e); /* search */
+    for (int row = 0; row < HEIGHT; ++row)
+        for (int col = WIDTH; col < STRIDE; ++col)
+            assert(light[row * STRIDE + col] == 0x12345678);
+    app.editor.mode = VISUAL;
+    app.editor.anchor = 0;
+    assert(app_paint(&app, light, WIDTH, HEIGHT, STRIDE));
+    assert(light[y * STRIDE + x] == 0xffc5dced);
+    app.editor.mode = NORMAL;
+    app.context_menu = true;
+    app.context_x = x;
+    app.context_y = y + app.line_height;
+    assert(app_paint(&app, light, WIDTH, HEIGHT, STRIDE));
+    assert(light[app.context_y * STRIDE + x] == 0xffcbdbe8);
+    assert(light[(app.context_y + app.line_height) * STRIDE + x] == 0xffe9edf1);
+    app.context_menu = false;
+    editor_command(&app.editor, "set dark");
+    assert(!app.editor.light);
+    assert(app_paint(&app, light, WIDTH, HEIGHT, STRIDE));
+    for (int row = 0; row < HEIGHT; ++row)
+        assert(!memcmp(dark + row * WIDTH, light + row * STRIDE, WIDTH * sizeof(*dark)));
+    assert(!strcmp(app.editor.text, note) && app.editor.revision == revision);
+    free(dark);
+    free(light);
+    app_close(&app);
+}
+
 int main(void)
 {
     gutter_layout();
+    theme_layout();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

@@ -111,6 +111,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
 | `:set md`, `:set nomd` | Turn Markdown styling on or off |
+| `:set light`, `:set dark` | Choose the light or dark palette (remembered per page) |
 | `:Ex` | Open the page's folder in your file manager |
 | `:e!` | Reload the page from disk |
 | `:u`, `:redo` | Undo, redo |

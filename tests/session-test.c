@@ -100,6 +100,14 @@ int main(void)
     assert(app.font_size == 23 && app.width == 900 &&
            app.height == 600 && app.maximized);
     assert(!strcmp(app.editor.text, "another\n")); /* close did not save local edits */
+    assert(!app.editor.light); /* legacy state defaults to dark */
+    editor_command(&app.editor, "set light");
+    assert(app.editor.light && !app.editor.modified);
+    app_close(&app);
+    assert(app_open(&app, NULL));
+    assert(session_open(&app, directory) == 1);
+    assert(app.editor.light);
+    assert(editor_reload(&app.editor) && app.editor.light);
     app_input(&app, KEY_TEXT, "i");
     app_input(&app, KEY_TEXT, "saved");
     app_input(&app, KEY_ESCAPE, "");
@@ -121,6 +129,13 @@ int main(void)
     text = session_read(page, 8192, &n);
     assert(text && strstr(text, "saved") && !strstr(text, "discarded"));
     free(text);
+    assert(app_open(&app, NULL));
+    assert(session_open(&app, directory) == 1 && app.editor.light);
+    editor_command(&app.editor, "set dark");
+    app_close(&app);
+    assert(app_open(&app, NULL));
+    assert(session_open(&app, directory) == 1 && !app.editor.light);
+    app_close(&app);
     free(page);
     free(agents);
     /* Remove only the known files in this unique test directory. */

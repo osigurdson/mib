@@ -117,6 +117,10 @@ void editor_command(struct editor *ed, const char *command)
             ed->markdown = true;
         else if (!strcmp(argument, "nomd"))
             ed->markdown = false;
+        else if (!strcmp(argument, "light"))
+            ed->light = true;
+        else if (!strcmp(argument, "dark"))
+            ed->light = false;
         else
             goto unknown;
     } else if (strlen(p) == 1 && strchr("dy><j", *p)) {

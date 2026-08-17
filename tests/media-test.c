@@ -77,6 +77,7 @@ int main(int argc, char **argv)
     const uint32_t scales[] = {120, 150, 180, 240};
     const unsigned sizes[] = {12, 16, 18, 22};
     for (unsigned i = 0; i < 4; ++i) {
+        app.editor.light = i % 2 != 0;
         app.scale120 = scales[i];
         app.font_size = sizes[i];
         app.editor.top = 0;
@@ -85,10 +86,19 @@ int main(int argc, char **argv)
         assert(app_paint(&app, pixels, 800, 560, 800));
         assert(app_view_rows(&app, 0) > 1);
         int image_x = app.padding + app.gutter, image_y = app.padding + 2;
-        assert(pixels[(size_t)(image_y - 3) * 800 + image_x - 3] == 0xffe5edf5);
-        assert(pixels[(size_t)(image_y - 3) * 800 + image_x + 10] == 0xff88c0d0);
+        assert(pixels[(size_t)(image_y - 3) * 800 + image_x - 3] ==
+               (app.editor.light ? 0xff263342 : 0xffe5edf5));
+        assert(pixels[(size_t)(image_y - 3) * 800 + image_x + 10] ==
+               (app.editor.light ? 0xff176778 : 0xff88c0d0));
         int px = app.padding + app.gutter + 115, py = app.padding + 2 + 20;
         uint32_t raw = 0xff000000u | ((115u * 255 / 320) << 16) | ((20u * 255 / 180) << 8) | 100;
+        int sample_x = image_x + 30, sample_y = image_y + 70;
+        uint32_t original = pixels[(size_t)sample_y * 800 + sample_x];
+        app.editor.light = !app.editor.light;
+        assert(app_paint(&app, pixels, 800, 560, 800));
+        assert(pixels[(size_t)sample_y * 800 + sample_x] == original);
+        app.editor.light = !app.editor.light;
+        assert(app_paint(&app, pixels, 800, 560, 800));
         assert(pixels[(size_t)py * 800 + px] != raw); /* phrase spans the gap between words */
         assert(app_hit_test(&app, 100 * 120 / scales[i], 60 * 120 / scales[i]) == 0);
         if (argc > 1) {

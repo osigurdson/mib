@@ -1,6 +1,7 @@
 #include "app.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 int main(int argc, char **argv)
 {
     if (argc < 3)
@@ -12,6 +13,11 @@ int main(int argc, char **argv)
         app.font_size = (unsigned)atoi(argv[3]);
     if (argc > 4)
         app.scale120 = (unsigned)atoi(argv[4]);
+    if (argc > 5) {
+        if (strcmp(argv[5], "light") && strcmp(argv[5], "dark"))
+            return 2;
+        app.editor.light = !strcmp(argv[5], "light");
+    }
     int width = (int)(800 * app.scale120 / 120), height = (int)(560 * app.scale120 / 120);
     uint32_t *pixels = malloc((size_t)width * height * 4);
     if (!pixels)

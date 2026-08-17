@@ -5,6 +5,27 @@
 #include <stdio.h>
 #include <string.h>
 
+struct palette {
+    uint32_t background, text, dim, link, heading, quote, done, italic;
+    uint32_t code, search, selection, cursor, status, menu, menu_selected, handle;
+};
+static const struct palette dark = {
+    0xff18202b, 0xffe5edf5, 0xff697889, 0xff88c0d0,
+    0xffebcb8b, 0xffa3be8c, 0xff77868a, 0xffb9a0cb,
+    0xff242d3b, 0xff66502c, 0xff405c78, 0xff8fbcbb,
+    0xff283443, 0xff34485b, 0xff4b6680, 0xffe5edf5,
+};
+static const struct palette light = {
+    0xfffaf9f6, 0xff263342, 0xff697685, 0xff176778,
+    0xff855a16, 0xff416b36, 0xff687567, 0xff755088,
+    0xffeeede7, 0xfff5dc8e, 0xffc5dced, 0xff1d6972,
+    0xffe5e8eb, 0xffe9edf1, 0xffcbdbe8, 0xff263342,
+};
+static const struct palette *colors(const struct app *app)
+{
+    return app->editor.light ? &light : &dark;
+}
+
 static uint32_t blend(uint32_t background, unsigned alpha, uint32_t foreground)
 {
     uint32_t pixel = 0xff000000;
@@ -49,12 +70,13 @@ static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int 
 static bool label(struct app *app, uint32_t *pixels, int width, int height, int stride,
                   const char *text, int x, int baseline, int cell)
 {
+    const struct palette *theme = colors(app);
     size_t length = strlen(text), offset = 0;
     while (offset < length && x < width - cell) {
         uint32_t cp = editor_codepoint(text, length, &offset);
         if (cp < 32 || cp == 127)
             cp = '?';
-        if (!glyph(app, pixels, width, height, stride, cp, x, baseline, height, 0xffe5edf5))
+        if (!glyph(app, pixels, width, height, stride, cp, x, baseline, height, theme->text))
             return false;
         x += cell;
     }
@@ -98,6 +120,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
                        int width, int height, int stride, int x, int y, int available_width,
                        int available_height, bool selected)
 {
+    const struct palette *theme = colors(app);
     struct image image = {0};
     if (available_width < 1 || available_height < 1 || !media_pixels(app, entry, &image))
         return;
@@ -115,7 +138,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
     if (h < 1)
         h = 1;
     if (selected)
-        rectangle(pixels, width, height, stride, x - 3, y - 3, w + 6, h + 6, 0xff88c0d0);
+        rectangle(pixels, width, height, stride, x - 3, y - 3, w + 6, h + 6, theme->link);
     for (int row = 0; row < h && row + y < height; ++row)
         for (int col = 0; col < w && col + x < width; ++col) {
             if (row + y < 0 || col + x < 0)
@@ -134,7 +157,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
         for (int corner = 0; corner < 4; ++corner)
             rectangle(pixels, width, height, stride,
                       (corner & 1) ? x + w - 3 : x - 3,
-                      (corner & 2) ? y + h - 3 : y - 3, 6, 6, 0xffe5edf5);
+                      (corner & 2) ? y + h - 3 : y - 3, 6, 6, theme->handle);
     }
     image_free(&image);
 }
@@ -151,6 +174,7 @@ static bool highlight(const struct editor *ed, size_t offset)
 static bool paint(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
     struct editor *ed = &app->editor;
+    const struct palette *theme = colors(app);
     unsigned size =
         (unsigned)(((app->font_size ? app->font_size : 18) * 64 * (int64_t)app->scale120 + 60) /
                    120);
@@ -205,7 +229,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     }
     for (int y = 0; y < height; ++y)
         for (int x = 0; x < width; ++x)
-            pixels[(size_t)y * stride + x] = 0xff18202b;
+            pixels[(size_t)y * stride + x] = theme->background;
     size_t selection_a = 0, selection_b = 0;
     bool linewise;
     bool selected = editor_selection(ed, &selection_a, &selection_b, &linewise);
@@ -240,7 +264,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             char number[32];
             snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
             uint32_t color = logical_start == editor_line_start(ed, ed->cursor)
-                                 ? 0xffe5edf5 : 0xff697889;
+                                 ? theme->text : theme->dim;
             for (int i = 0; number[i]; ++i)
                 if (!glyph(app, pixels, width, height, stride, (unsigned char)number[i],
                            padding + i * cell, y + ascender, status_y, color))
@@ -269,28 +293,28 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                 if (at >= spans[i].start && at < spans[i].end)
                     style |= spans[i].style;
             int x = padding + gutter + (int)column * cell;
-            uint32_t color = 0xffe5edf5;
+            uint32_t color = theme->text;
             if (style & MD_DIM)
-                color = 0xff697889;
+                color = theme->dim;
             else if (style & MD_LINK)
-                color = 0xff88c0d0;
+                color = theme->link;
             else if (style & MD_HEADING)
-                color = 0xffebcb8b;
+                color = theme->heading;
             else if (style & MD_QUOTE)
-                color = 0xffa3be8c;
+                color = theme->quote;
             else if (style & MD_DONE)
-                color = 0xff77868a;
+                color = theme->done;
             else if (style & MD_ITALIC)
-                color = 0xffb9a0cb;
+                color = theme->italic;
             if (style & MD_CODE)
                 rectangle(pixels, width, height, stride, x, y, cell * (int)advance, line_height,
-                          0xff242d3b);
+                          theme->code);
             if (highlight(ed, at))
                 rectangle(pixels, width, height, stride, x, y, cell * (int)advance, line_height,
-                          0xff66502c);
+                          theme->search);
             if (selected && at >= selection_a && at < selection_b)
                 rectangle(pixels, width, height, stride, x, y, cell * (int)advance, line_height,
-                          0xff405c78);
+                          theme->selection);
             if (at == ed->cursor) {
                 cursor_x = x;
                 cursor_y = y;
@@ -320,13 +344,13 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     if (!ed->command_active && cursor_x >= 0) {
         if (ed->mode == INSERT)
             rectangle(pixels, width, height, stride, cursor_x, cursor_y, 2, line_height,
-                      0xff8fbcbb);
+                      theme->cursor);
         else
             rectangle(pixels, width, height, stride, cursor_x, cursor_y + line_height - 3, cell, 3,
-                      0xff8fbcbb);
+                      theme->cursor);
     }
     rectangle(pixels, width, height, stride, 0, status_y, width, line_height + 2 * padding,
-              0xff283443);
+              theme->status);
     char status[512];
     const char *mode = ed->mode == INSERT        ? "INSERT"
                        : ed->mode == VISUAL      ? "VISUAL"
@@ -363,10 +387,10 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     }
     if (app->context_menu) {
         rectangle(pixels, width, height, stride, app->context_x, app->context_y, 26 * cell,
-                  2 * line_height, 0xff34485b);
+                  2 * line_height, theme->menu);
         rectangle(pixels, width, height, stride, app->context_x,
                   app->context_y + app->context_choice * line_height, 26 * cell, line_height,
-                  0xff4b6680);
+                  theme->menu_selected);
         if (!label(app, pixels, width, height, stride, " Copy Text from Image", app->context_x,
                    app->context_y + ascender, cell))
             return false;

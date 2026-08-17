@@ -140,6 +140,6 @@ python3 tools/measure-memory.py --binary /path/to/baseline
   stayed plain, text wrapped correctly, and inline images fit the view.
 
 `make page-preview` builds a reproducible, window-free preview utility:
-`./.build/linux/tools/page-preview notes.md preview.ppm 18 150` (font size and scale in 120ths).
+`./.build/linux/tools/page-preview notes.md preview.ppm 18 150` (font size and scale in 120ths). Append `light` or `dark` to preview a palette.
 Native Windows hardware testing and compositor-dependent activation behavior
 remain environmental validation limits; see [windows.md](windows.md).

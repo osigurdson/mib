@@ -98,7 +98,9 @@ Markdown styling. See the [complete key reference](docs/keys.md).
 
 `Ctrl+S` saves, `Ctrl+Q` quits, and `Ctrl+plus/minus/0` changes the font size.
 Line numbers and search highlighting are always enabled. `:set md/nomd` toggles
-Markdown styling. Saves always use the current page or file.
+Markdown styling. `:set light` and `:set dark` choose the color palette; scratch
+pages remember the choice when closed. Dark is the default. Saves always use
+the current page or file.
 Screenshots can be pasted or imported by dropping image files. Images stay as
 standalone `![](assets/name.png)` lines. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.
