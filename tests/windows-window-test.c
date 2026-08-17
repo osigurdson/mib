@@ -33,8 +33,20 @@ int main(void)
     struct app app;assert(app_open(&app,NULL));
     struct windows_window window;assert(open_window(&window,&app,SW_SHOWNORMAL));
     HWND handle=window.handle;
+    app.redraw_at = session_now() + 1000;
+    uint64_t deadline = app.redraw_at;
     text(handle,L"ihello\rworld");
-    assert(!strcmp(app.editor.text,"hello\nworld"));
+    assert(!strcmp(app.editor.text,"hello\nworld")); /* input is never throttled */
+    for (unsigned i = 0; i < 5; ++i) {
+        InvalidateRect(handle,NULL,FALSE);
+        UpdateWindow(handle);
+        assert(app.dirty && app.redraw_at == deadline);
+    }
+    app.redraw_at = 0;
+    uint64_t started = session_now();
+    SendMessageW(handle,WM_TIMER,1,0);
+    UpdateWindow(handle);
+    assert(!app.dirty && app.redraw_at >= started + APP_FRAME_INTERVAL_MS);
     text(handle,L"\x1b");text(handle,L"khjl");assert(app.editor.cursor==10);
     text(handle,L"i!");SendMessageW(handle,WM_KEYDOWN,VK_LEFT,1);
     SendMessageW(handle,WM_KEYDOWN,VK_DELETE,1);assert(!strcmp(app.editor.text,"hello\nworld"));
@@ -52,6 +64,7 @@ int main(void)
         RECT rect={40,40,840,600};
         SendMessageW(handle,WM_DPICHANGED,MAKELONG(dpis[i],dpis[i]),(LPARAM)&rect);
         assert(app.scale120==(uint32_t)MulDiv((int)dpis[i],120,96));
+        app.redraw_at = 0;
         InvalidateRect(handle,NULL,FALSE);UpdateWindow(handle);assert(!app.failed && !app.dirty);
     }
     text(handle,L":");text(handle,L"wq C:\\does-not-exist\\notes.txt\r");

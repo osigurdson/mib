@@ -73,10 +73,22 @@ static const struct wl_buffer_listener buffer_listener = {
     .release = buffer_release,
 };
 
+static int redraw_delay(const struct wayland_client *client, uint64_t now)
+{
+    if (!client->configured || !client->app->dirty || client->pending_buffers >= 2)
+        return -1;
+    uint64_t deadline = client->app->redraw_at;
+    if (now >= deadline)
+        return 0;
+    uint64_t remaining = deadline - now;
+    return remaining > INT_MAX ? INT_MAX : (int)remaining;
+}
+
 static bool draw(struct wayland_client *client)
 {
-    /* Coalesce edits and bound memory while the compositor reads old frames. */
-    if (!client->app->dirty || client->pending_buffers >= 2)
+    /* Coalesce edits, cap redraws, and bound outstanding compositor buffers. */
+    uint64_t started = session_now();
+    if (redraw_delay(client, started) != 0)
         return true;
     /* Surface dimensions are logical; buffers and font sizes use physical pixels. */
     int64_t physical_width = ((int64_t)client->app->width * client->app->scale120 + 60) / 120;
@@ -141,6 +153,7 @@ static bool draw(struct wayland_client *client)
     wl_surface_damage(client->surface, 0, 0, client->app->width, client->app->height);
     wl_surface_commit(client->surface);
     client->app->dirty = false;
+    client->app->redraw_at = started + APP_FRAME_INTERVAL_MS;
     return true;
 }
 
@@ -715,6 +728,9 @@ int platform_run(struct app *app)
             int64_t remaining = client->repeat_at - now_ms();
             timeout = remaining <= 0 ? 0 : remaining > INT_MAX ? INT_MAX : (int)remaining;
         }
+        int redraw = redraw_delay(client, session_now());
+        if (redraw >= 0 && (timeout < 0 || redraw < timeout))
+            timeout = redraw;
         if (app->work_at) {
             uint64_t now = session_now();
             int remaining = app->work_at <= now ? 0 : (int)(app->work_at - now);

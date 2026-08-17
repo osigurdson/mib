@@ -3,6 +3,9 @@
 #include "editor.h"
 #include "tiny-font.h"
 
+/* Round up to whole milliseconds so redraws never exceed 30 FPS. */
+enum { APP_FRAME_INTERVAL_MS = (1000 + 30 - 1) / 30 };
+
 struct app {
     struct editor editor;
     struct tiny_font *font;
@@ -14,7 +17,7 @@ struct app {
     int context_x, context_y, context_choice;
     int owner_fd, activation_fd;
     void *owner_handle;
-    uint64_t page_id, work_at;
+    uint64_t page_id, work_at, redraw_at;
     void (*service)(struct app *, unsigned, void *);
     void *service_data;
     int width, height;

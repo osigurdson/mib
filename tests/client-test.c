@@ -19,8 +19,31 @@ static void press(struct wayland_client *client, xkb_keysym_t symbol)
     assert(!"Could not map keysym");
 }
 
+static void frame_limit(void)
+{
+    struct app app = {.dirty = true, .redraw_at = 1034};
+    struct wayland_client client = {.app = &app, .configured = true};
+    assert(redraw_delay(&client, 1000) == APP_FRAME_INTERVAL_MS);
+    assert(redraw_delay(&client, 1033) == 1);
+    assert(redraw_delay(&client, 1034) == 0);
+    assert(redraw_delay(&client, 2000) == 0);
+    client.pending_buffers = 2;
+    assert(redraw_delay(&client, 2000) == -1); /* wait for a buffer, not a timer */
+    client.pending_buffers = 0;
+    app.dirty = false;
+    assert(redraw_delay(&client, 2000) == -1); /* no idle wakeups */
+    app.dirty = true;
+    client.configured = false;
+    assert(redraw_delay(&client, 2000) == -1);
+    client.configured = true;
+    app.redraw_at = session_now() + 1000;
+    uint64_t deadline = app.redraw_at;
+    assert(draw(&client) && app.dirty && app.redraw_at == deadline);
+}
+
 int main(int argc, char **argv)
 {
+    frame_limit();
     struct app app = {.width = 800, .height = 560, .scale120 = 180, .running = true};
     char path[] = "/tmp/jot-integration-XXXXXX";
     int fd = mkstemp(path); assert(fd >= 0); close(fd);

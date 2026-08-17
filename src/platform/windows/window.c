@@ -32,15 +32,22 @@ static void update_geometry(struct windows_window *window)
 
 static void changed(struct windows_window *window)
 {
-    uint64_t deadline = window->app->work_at;
-    if (deadline) {
-        uint64_t now = session_now(), remaining = deadline > now ? deadline - now : 1;
-        SetTimer(window->handle, 1, (UINT)remaining, NULL);
-    }
-    if (!window->app->running)
+    if (!window->app->running) {
         DestroyWindow(window->handle);
-    else if (window->app->dirty)
-        InvalidateRect(window->handle, NULL, FALSE);
+        return;
+    }
+    uint64_t now = session_now(), deadline = window->app->work_at;
+    if (window->app->dirty) {
+        if (now >= window->app->redraw_at)
+            InvalidateRect(window->handle, NULL, FALSE);
+        else if (!deadline || window->app->redraw_at < deadline)
+            deadline = window->app->redraw_at;
+    }
+    if (deadline) {
+        uint64_t remaining = deadline > now ? deadline - now : 1;
+        SetTimer(window->handle, 1, (UINT)remaining, NULL);
+    } else
+        KillTimer(window->handle, 1);
 }
 
 static void codepoint(struct windows_window *window, uint32_t cp, unsigned repeat)
@@ -202,14 +209,23 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
     case WM_PAINT: {
         PAINTSTRUCT paint;
         HDC dc = BeginPaint(handle, &paint);
-        bool ok = dc && paint_window(window, dc);
+        uint64_t started = session_now();
+        bool due = started >= window->app->redraw_at;
+        bool ok = dc != NULL;
+        if (ok && due) {
+            ok = paint_window(window, dc);
+            if (ok)
+                window->app->redraw_at = started + APP_FRAME_INTERVAL_MS;
+        } else if (!due)
+            window->app->dirty = true;
         EndPaint(handle, &paint);
         if (!ok) {
             fprintf(stderr, "Could not render Windows client area\n");
             window->app->failed = true;
             window->app->running = false;
             DestroyWindow(handle);
-        }
+        } else
+            changed(window);
         return 0;
     }
     case WM_RBUTTONDOWN:

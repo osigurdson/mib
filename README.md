@@ -3,7 +3,8 @@
 <img src="packaging/dev.jot.Jot.svg" width="96" height="96" alt="Jot logo">
 
 A small C editor for notes and screenshots with native Linux/Wayland and Windows
-backends, rendering on the CPU.
+backends, rendering on the CPU. Redraws are capped at 30 FPS and stop when idle;
+input continues to be processed immediately.
 Its bundled monospace Nerd Font uses a small custom outline format, an 8×8
 supersampling rasterizer, and a bounded glyph cache. There are no runtime
 FreeType, HarfBuzz, Fontconfig, or system-font dependencies. Fractional scaling
