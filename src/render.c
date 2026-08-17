@@ -450,6 +450,16 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             !label(app, pixels, width, height, stride, position, position_x, baseline, cell))
             return false;
     }
+    if (app->client_decorated && !app->maximized) {
+        /* A small grip also exposes the resize corner without cursor-shape support. */
+        int stroke = (int)((app->scale120 + 119) / 120);
+        for (int stripe = 1; stripe <= 3; ++stripe) {
+            int length = stripe * padding / 3;
+            for (int i = 0; i < length; ++i)
+                rectangle(pixels, width, height, stride, width - 3 * stroke - i,
+                          height - 3 * stroke - length + 1 + i, stroke, stroke, theme->dim);
+        }
+    }
     if (app->context_menu) {
         rectangle(pixels, width, height, stride, app->context_x, app->context_y, 26 * cell,
                   2 * line_height, theme->menu);

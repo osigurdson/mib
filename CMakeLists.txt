@@ -44,13 +44,16 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(NOT PROTOCOLS_DIR)
         message(FATAL_ERROR "wayland-protocols development package is required")
     endif()
-    set(PROTOCOL_NAMES xdg-shell viewporter fractional-scale-v1 xdg-activation-v1 xdg-decoration-unstable-v1)
+    set(PROTOCOL_NAMES xdg-shell viewporter fractional-scale-v1 xdg-activation-v1
+                       xdg-decoration-unstable-v1 cursor-shape-v1 tablet-unstable-v2)
     set(PROTOCOL_XMLS
         "${PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
         "${PROTOCOLS_DIR}/stable/viewporter/viewporter.xml"
         "${PROTOCOLS_DIR}/staging/fractional-scale/fractional-scale-v1.xml"
         "${PROTOCOLS_DIR}/staging/xdg-activation/xdg-activation-v1.xml"
-        "${PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml")
+        "${PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
+        "${PROTOCOLS_DIR}/staging/cursor-shape/cursor-shape-v1.xml"
+        "${PROTOCOLS_DIR}/unstable/tablet/tablet-unstable-v2.xml")
     foreach(NAME XML IN ZIP_LISTS PROTOCOL_NAMES PROTOCOL_XMLS)
         set(HEADER "${GENERATED}/${NAME}-client-protocol.h")
         set(SOURCE "${GENERATED}/${NAME}-protocol.c")
@@ -143,7 +146,7 @@ if(BUILD_TESTING)
         target_link_libraries(editor-test PRIVATE jot-core jot-memory)
         add_test(NAME editor COMMAND editor-test)
         add_executable(client-test tests/client-test.c ${PLATFORM_FILES})
-        target_link_libraries(client-test PRIVATE jot-core jot-memory jot-protocols)
+        target_link_libraries(client-test PRIVATE jot-core jot-memory jot-protocols PkgConfig::WAYLAND_SERVER)
         add_test(NAME wayland-input COMMAND client-test)
     endif()
 endif()

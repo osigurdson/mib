@@ -28,7 +28,7 @@ INCLUDES := -Isrc -I$(GEN)
 WAYLAND_CFLAGS := $(shell $(PKG_CONFIG) --cflags wayland-client xkbcommon)
 WAYLAND_LIBS := $(shell $(PKG_CONFIG) --libs wayland-client xkbcommon)
 PROTOCOLS_DIR := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
-PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-activation-v1 xdg-decoration-unstable-v1
+PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-activation-v1 xdg-decoration-unstable-v1 cursor-shape-v1 tablet-unstable-v2
 PROTOCOL_HEADERS := $(addprefix $(GEN)/,$(addsuffix -client-protocol.h,$(PROTOCOL_NAMES)))
 PROTOCOL_SOURCES := $(addprefix $(GEN)/,$(addsuffix -protocol.c,$(PROTOCOL_NAMES)))
 CORE := src/app.c src/session.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c
@@ -65,6 +65,16 @@ $(GEN)/xdg-activation-v1-protocol.c: $(PROTOCOLS_DIR)/staging/xdg-activation/xdg
 $(GEN)/xdg-decoration-unstable-v1-client-protocol.h: $(PROTOCOLS_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml | $(GEN)
 	$(WAYLAND_SCANNER) client-header $< $@
 $(GEN)/xdg-decoration-unstable-v1-protocol.c: $(PROTOCOLS_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml | $(GEN)
+	$(WAYLAND_SCANNER) private-code $< $@
+
+$(GEN)/cursor-shape-v1-client-protocol.h: $(PROTOCOLS_DIR)/staging/cursor-shape/cursor-shape-v1.xml | $(GEN)
+	$(WAYLAND_SCANNER) client-header $< $@
+$(GEN)/cursor-shape-v1-protocol.c: $(PROTOCOLS_DIR)/staging/cursor-shape/cursor-shape-v1.xml | $(GEN)
+	$(WAYLAND_SCANNER) private-code $< $@
+# Cursor-shape references the tablet-tool interface, even when only pointers are used.
+$(GEN)/tablet-unstable-v2-client-protocol.h: $(PROTOCOLS_DIR)/unstable/tablet/tablet-unstable-v2.xml | $(GEN)
+	$(WAYLAND_SCANNER) client-header $< $@
+$(GEN)/tablet-unstable-v2-protocol.c: $(PROTOCOLS_DIR)/unstable/tablet/tablet-unstable-v2.xml | $(GEN)
 	$(WAYLAND_SCANNER) private-code $< $@
 
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)
@@ -106,7 +116,7 @@ $(TEST_BIN)/editor-test: tests/editor-test.c src/editor.c src/keys.c src/ex.c sr
 client-test: $(TEST_BIN)/client-test
 
 $(TEST_BIN)/client-test: tests/client-test.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/client-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/client-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(shell $(PKG_CONFIG) --libs wayland-server) $(LDLIBS)
 
 font-test: $(TEST_BIN)/font-test
 

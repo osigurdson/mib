@@ -14,7 +14,8 @@ rasterizes fresh glyphs at the actual physical pixel size.
 
 Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
 libxkbcommon development files, `wayland-scanner`, and `wayland-protocols` with
-xdg-shell, viewporter, fractional-scale-v1, xdg-activation-v1, and xdg-decoration. Tests also use
+xdg-shell, viewporter, fractional-scale-v1, xdg-activation-v1, xdg-decoration,
+cursor-shape, and tablet-v2. Tests also use
 the Wayland server development package; Tesseract tests are optional. Normal builds use the checked-in
 19,164-byte subset; there are no downloads or font-library build steps.
 
@@ -62,7 +63,10 @@ server-side decorations, keeping tiling desktops such as Hyprland minimal.
 When the compositor requires client decorations or does not support negotiation
 (as on GNOME), Jot draws a compact title bar with drag, minimize, maximize, and
 close controls. Double-click the title to maximize/restore; drag an edge to
-resize. The title bar follows the light/dark palette and hides in fullscreen.
+resize. The edges have eight-pixel grab areas and larger corner targets; resize
+cursors follow the desktop theme when cursor-shape is available. A small grip
+marks the bottom-right corner. The title bar follows the light/dark palette and
+hides in fullscreen.
 
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.

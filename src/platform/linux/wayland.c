@@ -8,6 +8,7 @@
 #include "xdg-activation-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 #include "xdg-decoration-unstable-v1-client-protocol.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include <errno.h>
 #include <limits.h>
 #include <poll.h>
@@ -46,6 +47,9 @@ struct wayland_client {
     struct wl_seat *seat;
     struct wl_keyboard *keyboard;
     struct wl_pointer *pointer;
+    struct wp_cursor_shape_manager_v1 *cursor_manager;
+    struct wp_cursor_shape_device_v1 *cursor_device;
+    uint32_t cursor_serial, cursor_shape;
     int pointer_x, pointer_y;
     bool dragging;
     uint32_t serial, last_click;
@@ -66,6 +70,8 @@ struct wayland_client {
     unsigned pending_buffers;
     bool configured;
 };
+
+static void update_cursor(struct wayland_client *client);
 
 #include "clipboard.inc"
 
@@ -240,6 +246,7 @@ static void apply_decorations(struct wayland_client *client)
         client->title_pressed = TITLE_NONE;
     }
     client->app->dirty = true;
+    update_cursor(client);
 }
 
 static void surface_configure(void *data, struct xdg_surface *surface, uint32_t serial)
@@ -536,6 +543,61 @@ static const struct wl_keyboard_listener keyboard_listener = {
     .repeat_info = keyboard_repeat,
 };
 
+static uint32_t resize_edge(const struct wayland_client *client, int x, int y)
+{
+    const struct app *app = client->app;
+    if (!app->client_decorated || app->maximized || client->fullscreen)
+        return XDG_TOPLEVEL_RESIZE_EDGE_NONE;
+    /* Use the existing eight-pixel padding, with longer corner grab zones. */
+    bool left = x < 8, right = x >= app->width - 8;
+    bool top = y < 8, bottom = y >= app->height - 8;
+    if (left || right) {
+        top |= y < 20;
+        bottom |= y >= app->height - 20;
+    }
+    if (top || bottom) {
+        left |= x < 20;
+        right |= x >= app->width - 20;
+    }
+    return (left ? XDG_TOPLEVEL_RESIZE_EDGE_LEFT : right ? XDG_TOPLEVEL_RESIZE_EDGE_RIGHT : 0) |
+           (top ? XDG_TOPLEVEL_RESIZE_EDGE_TOP : bottom ? XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM : 0);
+}
+static uint32_t pointer_shape(const struct wayland_client *client)
+{
+    if (client->dragging || client->title_pressed != TITLE_NONE)
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
+    switch (resize_edge(client, client->pointer_x, client->pointer_y)) {
+    case XDG_TOPLEVEL_RESIZE_EDGE_TOP: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_N_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_S_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_LEFT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_W_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_RIGHT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_E_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NW_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NE_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SW_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SE_RESIZE;
+    default: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
+    }
+}
+static void update_cursor(struct wayland_client *client)
+{
+    if (!client->cursor_device || !client->cursor_serial)
+        return;
+    uint32_t shape = pointer_shape(client);
+    if (shape != client->cursor_shape) {
+        /* Cursor requests require the enter serial, not a key/button serial. */
+        wp_cursor_shape_device_v1_set_shape(client->cursor_device, client->cursor_serial, shape);
+        client->cursor_shape = shape;
+    }
+}
+static void cursor_device(struct wayland_client *client)
+{
+    if (client->cursor_manager && client->pointer && !client->cursor_device) {
+        client->cursor_device = wp_cursor_shape_manager_v1_get_pointer(client->cursor_manager,
+                                                                      client->pointer);
+        update_cursor(client);
+    }
+}
+
 static void pointer_enter(void *data, struct wl_pointer *pointer, uint32_t serial,
                           struct wl_surface *surface, wl_fixed_t x, wl_fixed_t y)
 {
@@ -545,6 +607,9 @@ static void pointer_enter(void *data, struct wl_pointer *pointer, uint32_t seria
     c->serial = serial;
     c->pointer_x = wl_fixed_to_int(x);
     c->pointer_y = wl_fixed_to_int(y);
+    c->cursor_serial = serial;
+    c->cursor_shape = 0;
+    update_cursor(c);
 }
 static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t serial,
                           struct wl_surface *surface)
@@ -555,6 +620,8 @@ static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t seria
     struct wayland_client *client = data;
     client->dragging = false;
     client->title_pressed = TITLE_NONE;
+    client->cursor_serial = 0;
+    client->cursor_shape = 0;
 }
 static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time, wl_fixed_t x,
                            wl_fixed_t y)
@@ -566,21 +633,7 @@ static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time
     c->pointer_y = wl_fixed_to_int(y);
     if (c->dragging)
         app_pointer(c->app, c->pointer_x, c->pointer_y, true);
-}
-static uint32_t resize_edge(const struct wayland_client *client, int x, int y)
-{
-    if (!client->app->client_decorated || client->app->maximized || client->fullscreen)
-        return XDG_TOPLEVEL_RESIZE_EDGE_NONE;
-    uint32_t edge = XDG_TOPLEVEL_RESIZE_EDGE_NONE;
-    if (x < 5)
-        edge |= XDG_TOPLEVEL_RESIZE_EDGE_LEFT;
-    else if (x >= client->app->width - 5)
-        edge |= XDG_TOPLEVEL_RESIZE_EDGE_RIGHT;
-    if (y < 5)
-        edge |= XDG_TOPLEVEL_RESIZE_EDGE_TOP;
-    else if (y >= client->app->height - 5)
-        edge |= XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM;
-    return edge;
+    update_cursor(c);
 }
 static void toggle_maximized(struct wayland_client *client)
 {
@@ -658,8 +711,10 @@ static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t seri
     c->serial = serial;
     if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_RELEASED)
         c->dragging = false;
-    if (decoration_button(c, serial, time, button, state))
+    if (decoration_button(c, serial, time, button, state)) {
+        update_cursor(c);
         return;
+    }
     if (button == 0x111 && state == WL_POINTER_BUTTON_STATE_PRESSED) {
         app_context(c->app, c->pointer_x, c->pointer_y);
         return;
@@ -685,6 +740,7 @@ static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t seri
             c->last_click_x = c->pointer_x;
             c->last_click_y = c->pointer_y;
         }
+        update_cursor(c);
     }
 }
 static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time, uint32_t axis,
@@ -708,7 +764,12 @@ static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabil
     if ((capabilities & WL_SEAT_CAPABILITY_POINTER) && !client->pointer) {
         client->pointer = wl_seat_get_pointer(seat);
         wl_pointer_add_listener(client->pointer, &pointer_listener, client);
+        cursor_device(client);
     } else if (!(capabilities & WL_SEAT_CAPABILITY_POINTER) && client->pointer) {
+        if (client->cursor_device)
+            wp_cursor_shape_device_v1_destroy(client->cursor_device);
+        client->cursor_device = NULL;
+        client->cursor_serial = client->cursor_shape = 0;
         wl_pointer_destroy(client->pointer);
         client->pointer = NULL;
     }
@@ -757,6 +818,10 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
     else if (strcmp(interface, wp_fractional_scale_manager_v1_interface.name) == 0)
         client->scale_manager =
             wl_registry_bind(registry, name, &wp_fractional_scale_manager_v1_interface, 1);
+    else if (strcmp(interface, wp_cursor_shape_manager_v1_interface.name) == 0) {
+        client->cursor_manager = wl_registry_bind(registry, name, &wp_cursor_shape_manager_v1_interface, 1);
+        cursor_device(client);
+    }
     else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
         client->decoration_manager =
             wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
@@ -930,6 +995,10 @@ cleanup:
     app->service_data = NULL;
     if (client->activation)
         xdg_activation_v1_destroy(client->activation);
+    if (client->cursor_device)
+        wp_cursor_shape_device_v1_destroy(client->cursor_device);
+    if (client->cursor_manager)
+        wp_cursor_shape_manager_v1_destroy(client->cursor_manager);
     if (client->pointer)
         wl_pointer_destroy(client->pointer);
     if (client->keyboard)
