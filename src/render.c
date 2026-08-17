@@ -91,21 +91,12 @@ static const char *leaf_name(const char *path)
     return slash ? slash + 1 : path;
 }
 
-static bool title_bar(struct app *app, uint32_t *pixels, int width, int height, int stride,
-                      int ascender)
+static void title_bar(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
     const struct palette *theme = colors(app);
     int h = app->title_height;
     rectangle(pixels, width, height, stride, 0, 0, width, h, theme->status);
     rectangle(pixels, width, height, stride, 0, h - 1, width, 1, theme->dim);
-    const char *name = app->scratch && app->directory ? leaf_name(app->directory)
-                       : app->editor.filename ? leaf_name(app->editor.filename) : "";
-    char title[512];
-    snprintf(title, sizeof(title), "Jot%s%s%s", *name ? " — " : "", name,
-             app->editor.modified ? " [+]" : "");
-    if (!label(app, pixels, width - 3 * h, height, stride, title, app->padding,
-               app->padding + ascender, app->cell))
-        return false;
     int size = h / 4, stroke = (int)(app->scale120 / 120);
     if (size < 3)
         size = 3;
@@ -131,7 +122,6 @@ static bool title_bar(struct app *app, uint32_t *pixels, int width, int height, 
                           stroke, stroke, theme->text);
             }
     }
-    return true;
 }
 
 enum app_title_action app_title_hit(const struct app *app, int logical_x, int logical_y)
@@ -298,8 +288,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     for (int y = 0; y < height; ++y)
         for (int x = 0; x < width; ++x)
             pixels[(size_t)y * stride + x] = theme->background;
-    if (app->client_decorated && !title_bar(app, pixels, width, height, stride, ascender))
-        return false;
+    if (app->client_decorated)
+        title_bar(app, pixels, width, height, stride);
     size_t selection_a = 0, selection_b = 0;
     bool linewise;
     bool selected = editor_selection(ed, &selection_a, &selection_b, &linewise);
