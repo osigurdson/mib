@@ -114,6 +114,8 @@ static void evict(struct edit_history *h)
 
 bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text, size_t length)
 {
+    if (!editor_can_edit(ed))
+        return false;
     if (from > to || to > ed->length || length > SIZE_MAX - (ed->length - (to - from)) - 1)
         return false;
     if (to - from == length && (!length || !memcmp(ed->text + from, text, length)))
@@ -208,6 +210,8 @@ new_record:
 
 void editor_undo(struct editor *ed, bool redo)
 {
+    if (!editor_can_edit(ed))
+        return;
     editor_change_end(ed);
     struct edit_history *h = ed->history;
     if (!h || (redo ? h->position == h->count : !h->position)) {

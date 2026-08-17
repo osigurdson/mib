@@ -2,6 +2,7 @@
 #define APP_H
 #include "editor.h"
 #include "tiny-font.h"
+#include "markdown.h"
 
 /* Round up to whole milliseconds so redraws never exceed 30 FPS. */
 enum { APP_FRAME_INTERVAL_MS = (1000 + 30 - 1) / 30 };
@@ -10,6 +11,7 @@ enum app_title_action { TITLE_NONE, TITLE_MOVE, TITLE_MINIMIZE, TITLE_MAXIMIZE, 
 
 struct app {
     struct editor editor;
+    struct md_cache markdown;
     struct tiny_font *font;
     struct media *media;
     char *directory, *clipboard_image;
@@ -29,6 +31,7 @@ struct app {
     bool dirty, running, failed, follow_cursor;
     unsigned font_size;
     int cell, line_height, padding, gutter, view_width, title_height;
+    int text_x, text_width;
 };
 size_t app_view_next(struct app *app, size_t start);
 int app_view_rows(struct app *app, size_t start);

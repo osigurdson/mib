@@ -109,11 +109,23 @@ Ex ranges/substitutions, clipboard paste/yank, wrapping, and conservative
 Markdown styling. See the [complete key reference](docs/keys.md).
 
 `Ctrl+S` saves, `Ctrl+Q` quits, and `Ctrl+plus/minus/0` changes the font size.
-Line numbers and search highlighting are always enabled. `:set md/nomd` toggles
-Markdown styling. `:set light` and `:set dark` choose the color palette; scratch
-pages remember the choice when closed. Dark is the default. Saves always use
-the current page or file.
-Screenshots can be pasted or imported by dropping image files. Images stay as
+Choose a render mode with `:set raw`, `:set normal`, or `:set polish`:
+
+- **Raw** shows plain source, including literal image markup, with no Markdown styling.
+- **Normal** is the default: styled Markdown with visible syntax and inline images.
+- **Polish** is a read-only reading view. It conceals supported Markdown markers,
+  removes the gutter, centers the reading column, and adds breathing room.
+
+Raw and normal remain editable and show line numbers. Polish keeps navigation,
+search, selection, copying, saving, and link/image opening; switch to raw or
+normal to edit. Selections and copies still refer to the underlying Markdown
+source. These modes use the existing Markdown parser; no new Markdown syntax
+is introduced. `:set md` and `:set nomd` remain aliases for normal and raw.
+
+Search matches stay highlighted in every mode. `:set light` and `:set dark`
+choose the color palette. Scratch pages remember both render mode and palette
+when closed. Dark is the default. Saves always use the current page or file.
+In raw and normal, paste screenshots or drop image files to import them. Images stay as
 standalone `![](assets/name.png)` lines. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.
 Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`

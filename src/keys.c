@@ -75,6 +75,8 @@ void editor_yank(struct editor *ed, size_t a, size_t b, bool linewise)
 void editor_put(struct editor *ed, const char *text, size_t length, bool linewise, bool after,
                 unsigned count)
 {
+    if (!editor_can_edit(ed))
+        return;
     if (!length || !count)
         return;
     if (length > 16 * 1024 * 1024 || count > 16 * 1024 * 1024 / length) {
@@ -713,6 +715,12 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
         command_input(ed, key, text);
         return;
     }
+    if (ed->render_mode == RENDER_POLISH &&
+        (key == KEY_CUT || key == KEY_CTRL_V || key == KEY_DELETE || key == KEY_BACKSPACE ||
+         key == KEY_TAB || key == KEY_SHIFT_TAB || key == KEY_CTRL_W)) {
+        editor_can_edit(ed);
+        return;
+    }
     if (key == KEY_CTRL_S) {
         editor_save(ed, ed->filename);
         return;
@@ -849,6 +857,13 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
     if (!count)
         count = 1;
     bool visual = ed->mode == VISUAL || ed->mode == VISUAL_LINE;
+    if (ed->render_mode == RENDER_POLISH &&
+        ((!visual && strchr("dc><iaIAoOsSxXDCJr~pPu", *p)) ||
+         (visual && strchr("dc><JuU~xspP", *p)))) {
+        editor_can_edit(ed);
+        ed->pending[0] = 0;
+        return;
+    }
     char op = 0;
     if (strchr("dyc><", *p) && !visual) {
         op = *p++;

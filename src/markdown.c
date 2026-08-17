@@ -22,24 +22,34 @@ size_t markdown_line(const char *s, size_t start, size_t end, struct md_span *ou
         while (q < end && s[q] == '#')
             ++q;
         if (q - p <= 6 && q < end && s[q] == ' ') {
-            add(out, &n, capacity, p, q, MD_DIM);
+            add(out, &n, capacity, p, q, MD_DIM | MD_HIDE);
+            add(out, &n, capacity, q, q + 1, MD_HIDE);
             add(out, &n, capacity, q, end, MD_HEADING | MD_BOLD);
         }
     }
     if (p < end && s[p] == '>') {
-        add(out, &n, capacity, p, p + 1, MD_DIM);
+        add(out, &n, capacity, p, p + 1, MD_DIM | MD_HIDE);
+        if (p + 1 < end && s[p + 1] == ' ')
+            add(out, &n, capacity, p + 1, p + 2, MD_HIDE);
         add(out, &n, capacity, p + 1, end, MD_QUOTE);
     }
     if (p + 1 < end && strchr("-*+", s[p]) && s[p + 1] == ' ') {
-        add(out, &n, capacity, p, p + 1, MD_DIM);
-        if (p + 5 < end && s[p + 2] == '[' && s[p + 4] == ']' && s[p + 5] == ' ') {
+        bool task = p + 5 < end && s[p + 2] == '[' && s[p + 4] == ']' && s[p + 5] == ' ';
+        add(out, &n, capacity, p, p + 1, MD_DIM | (task ? MD_HIDE : MD_BULLET));
+        if (task) {
+            bool checked = s[p + 3] == 'x' || s[p + 3] == 'X';
+            add(out, &n, capacity, p + 1, p + 2, MD_HIDE);
             add(out, &n, capacity, p + 2, p + 5, MD_DIM);
-            if (s[p + 3] == 'x' || s[p + 3] == 'X')
+            add(out, &n, capacity, p + 2, p + 3, MD_TASK | (checked ? MD_CHECKED : 0));
+            add(out, &n, capacity, p + 3, p + 5, MD_HIDE);
+            if (checked)
                 add(out, &n, capacity, p + 5, end, MD_DONE);
         }
     }
     for (size_t i = start; i < end; ++i) {
         if (s[i] == '\\') {
+            if (i + 1 < end)
+                add(out, &n, capacity, i, i + 1, MD_HIDE);
             ++i;
             continue;
         }
@@ -51,9 +61,9 @@ size_t markdown_line(const char *s, size_t start, size_t end, struct md_span *ou
             while (q + run <= end && memcmp(s + i, s + q, run))
                 ++q;
             if (q + run <= end) {
-                add(out, &n, capacity, i, i + run, MD_DIM);
+                add(out, &n, capacity, i, i + run, MD_DIM | MD_HIDE);
                 add(out, &n, capacity, i + run, q, MD_CODE);
-                add(out, &n, capacity, q, q + run, MD_DIM);
+                add(out, &n, capacity, q, q + run, MD_DIM | MD_HIDE);
                 i = q + run - 1;
             }
             continue;
@@ -67,9 +77,10 @@ size_t markdown_line(const char *s, size_t start, size_t end, struct md_span *ou
                 while (r < end && s[r] != ')')
                     ++r;
                 if (r < end) {
-                    add(out, &n, capacity, i, a + 1, MD_DIM);
+                    unsigned conceal = s[i] == '!' ? 0 : MD_HIDE;
+                    add(out, &n, capacity, i, a + 1, MD_DIM | conceal);
                     add(out, &n, capacity, a + 1, q, MD_LINK);
-                    add(out, &n, capacity, q, r + 1, MD_DIM);
+                    add(out, &n, capacity, q, r + 1, MD_DIM | conceal);
                     i = r;
                 }
             }
@@ -90,9 +101,9 @@ size_t markdown_line(const char *s, size_t start, size_t end, struct md_span *ou
                 ++q;
             }
             if (q + run <= end) {
-                add(out, &n, capacity, i, i + run, MD_DIM);
+                add(out, &n, capacity, i, i + run, MD_DIM | MD_HIDE);
                 add(out, &n, capacity, i + run, q, run == 2 ? MD_BOLD : MD_ITALIC);
-                add(out, &n, capacity, q, q + run, MD_DIM);
+                add(out, &n, capacity, q, q + run, MD_DIM | MD_HIDE);
                 i = q + run - 1;
             }
         }

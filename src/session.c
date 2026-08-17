@@ -423,7 +423,7 @@ int session_open(struct app *app, const char *name)
                 app->height = (int)h;
             if (font >= 8 && font <= 48)
                 app->font_size = font;
-            app->editor.markdown = md != 0;
+            app->editor.render_mode = md <= RENDER_POLISH ? (enum render_mode)md : RENDER_NORMAL;
             app->editor.light = light != 0;
             app->maximized = maximized != 0;
             app->restore_width = app->width;
@@ -462,7 +462,7 @@ void session_close(struct app *app)
         int n = snprintf(state, sizeof(state), "%d %d %u %u %u %u %u\n",
                          app->maximized ? app->restore_width : app->width,
                          app->maximized ? app->restore_height : app->height, app->font_size,
-                         1u, app->editor.markdown, app->maximized, app->editor.light);
+                         1u, (unsigned)app->editor.render_mode, app->maximized, app->editor.light);
         char *path = session_path(app, ".tinyvi-state");
         if (path) {
             platform_file_write_atomic(path, state, (size_t)n, error, sizeof(error));

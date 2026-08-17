@@ -11,11 +11,23 @@ enum {
     MD_LINK = 16,
     MD_HEADING = 32,
     MD_DONE = 64,
-    MD_QUOTE = 128
+    MD_QUOTE = 128,
+    MD_HIDE = 256,
+    MD_BULLET = 512,
+    MD_TASK = 1024,
+    MD_CHECKED = 2048
 };
 struct md_span {
     size_t start, end;
     unsigned style;
+};
+/* One logical line of presentation data; no document-sized render buffer. */
+struct md_cache {
+    struct md_span spans[128];
+    size_t start, end, count;
+    uint64_t revision;
+    char fence_after;
+    bool valid, fenced, fence_line, quote;
 };
 /* Fixed caller-owned span storage; excess styling is safely omitted. */
 size_t markdown_line(const char *text, size_t start, size_t end, struct md_span *spans,

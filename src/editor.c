@@ -15,6 +15,14 @@ static char *copy_string(const char *value)
     return copy;
 }
 
+bool editor_can_edit(struct editor *ed)
+{
+    if (ed->render_mode != RENDER_POLISH)
+        return true;
+    snprintf(ed->message, sizeof(ed->message), "Polish is read-only (:set normal to edit)");
+    return false;
+}
+
 bool editor_reserve(struct editor *ed, size_t needed)
 {
     if (needed <= ed->capacity)
@@ -39,7 +47,7 @@ bool editor_reserve(struct editor *ed, size_t needed)
 
 bool editor_open(struct editor *ed, const char *filename)
 {
-    ed->markdown = true;
+    ed->render_mode = RENDER_NORMAL;
     ed->viewport_rows = 24;
     ed->viewport_columns = 80;
     if (!editor_reserve(ed, 1))

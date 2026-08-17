@@ -136,6 +136,17 @@ int main(void)
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1 && !app.editor.light);
     app_close(&app);
+    const char *mode_commands[] = {"set raw", "set normal", "set polish"};
+    for (unsigned mode = RENDER_RAW; mode <= RENDER_POLISH; ++mode) {
+        assert(app_open(&app, NULL));
+        assert(session_open(&app, directory) == 1);
+        editor_command(&app.editor, mode_commands[mode]);
+        app_close(&app);
+        assert(app_open(&app, NULL));
+        assert(session_open(&app, directory) == 1 && app.editor.render_mode == (enum render_mode)mode);
+        assert(editor_reload(&app.editor) && app.editor.render_mode == (enum render_mode)mode);
+        app_close(&app);
+    }
     free(page);
     free(agents);
     /* Remove only the known files in this unique test directory. */

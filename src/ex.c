@@ -77,6 +77,8 @@ void editor_command(struct editor *ed, const char *command)
         return;
     }
     if (*p == 's' && p[1] && !isalnum((unsigned char)p[1]) && !isspace((unsigned char)p[1])) {
+        if (!editor_can_edit(ed))
+            return;
         editor_substitute(ed, p, first, last);
         return;
     }
@@ -113,17 +115,25 @@ void editor_command(struct editor *ed, const char *command)
     else if (!strcmp(p, "Ex"))
         ed->requests |= ED_OPEN_DIRECTORY;
     else if (!strcmp(p, "set") && argument) {
-        if (!strcmp(argument, "md"))
-            ed->markdown = true;
-        else if (!strcmp(argument, "nomd"))
-            ed->markdown = false;
-        else if (!strcmp(argument, "light"))
+        if (!strcmp(argument, "raw") || !strcmp(argument, "nomd") ||
+            !strcmp(argument, "normal") || !strcmp(argument, "md") ||
+            !strcmp(argument, "polish")) {
+            editor_change_end(ed);
+            ed->render_mode = !strcmp(argument, "raw") || !strcmp(argument, "nomd") ? RENDER_RAW
+                              : !strcmp(argument, "polish") ? RENDER_POLISH : RENDER_NORMAL;
+            ed->mode = NORMAL;
+            ed->pending[0] = 0;
+            ed->top = editor_line_start(ed, ed->top);
+            editor_clamp(ed);
+        } else if (!strcmp(argument, "light"))
             ed->light = true;
         else if (!strcmp(argument, "dark"))
             ed->light = false;
         else
             goto unknown;
     } else if (strlen(p) == 1 && strchr("dy><j", *p)) {
+        if (*p != 'y' && !editor_can_edit(ed))
+            return;
         size_t a = editor_line_at(ed, first), b = editor_line_end(ed, editor_line_at(ed, last));
         if (*p == '>' || *p == '<')
             editor_indent(ed, a, b, *p == '>');

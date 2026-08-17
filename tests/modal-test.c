@@ -27,8 +27,53 @@ static void expect(const char *s)
         assert(0);
     }
 }
+static void readonly_mode(void)
+{
+    reset("one two\nthree\n");
+    uint64_t revision = ed.revision;
+    editor_command(&ed, "set polish");
+    assert(ed.render_mode == RENDER_POLISH && ed.mode == NORMAL);
+    const char *edits[] = {"i", "a", "I", "A", "o", "O", "s", "S", "dd", "cw", "x", "X",
+                           "p", "P", "u", "rX", "~", ">>", "<<", "J", "D", "C"};
+    for (unsigned i = 0; i < sizeof(edits) / sizeof(edits[0]); ++i) {
+        keys(edits[i]);
+        expect("one two\nthree\n");
+        assert(ed.revision == revision && ed.mode == NORMAL && !(ed.requests & ED_PASTE));
+    }
+    const enum editor_key special[] = {KEY_CUT, KEY_CTRL_V, KEY_DELETE, KEY_BACKSPACE,
+                                       KEY_TAB, KEY_SHIFT_TAB, KEY_CTRL_W, KEY_CTRL_R};
+    for (unsigned i = 0; i < sizeof(special) / sizeof(special[0]); ++i) {
+        editor_input(&ed, special[i], "");
+        expect("one two\nthree\n");
+        assert(ed.revision == revision && strstr(ed.message, "read-only"));
+    }
+    const char *commands[] = {"%s/one/X/g", "1d", "1,2>", "1,2<", "1,2j", "undo", "redo"};
+    for (unsigned i = 0; i < sizeof(commands) / sizeof(commands[0]); ++i) {
+        editor_command(&ed, commands[i]);
+        expect("one two\nthree\n");
+        assert(ed.revision == revision && strstr(ed.message, "read-only"));
+    }
+    assert(!editor_replace(&ed, 0, 0, "X", 1));
+    editor_put(&ed, "X", 1, false, false, 1);
+    expect("one two\nthree\n");
+    ed.cursor = 0;
+    keys("w");
+    assert(ed.cursor == 4);
+    keys("/three");
+    editor_input(&ed, KEY_ENTER, "");
+    assert(ed.cursor == 8);
+    ed.cursor = 0;
+    keys("vly");
+    assert(ed.mode == NORMAL && ed.register_length == 2 && !strcmp(ed.register_text, "on"));
+    editor_command(&ed, "set normal");
+    assert(ed.render_mode == RENDER_NORMAL);
+    keys("u");
+    expect(""); /* rejected edits did not consume or clear undo history */
+}
+
 int main(void)
 {
+    readonly_mode();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch"};
     for (unsigned i = 0; i < sizeof(removed) / sizeof(removed[0]); ++i) {
@@ -37,9 +82,9 @@ int main(void)
         expect("notes");
     }
     editor_command(&ed, "set nomd");
-    assert(!ed.markdown);
+    assert(ed.render_mode == RENDER_RAW);
     editor_command(&ed, "set md");
-    assert(ed.markdown);
+    assert(ed.render_mode == RENDER_NORMAL);
     reset("one two three\nfour five\nsix\n");
     keys("2dw");
     expect("three\nfour five\nsix\n");

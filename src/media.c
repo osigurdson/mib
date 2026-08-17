@@ -377,6 +377,10 @@ static bool store_image(struct app *app, const unsigned char *data, size_t lengt
 }
 bool media_paste_image(struct app *app, const unsigned char *data, size_t length)
 {
+    if (!editor_can_edit(&app->editor)) {
+        app->dirty = true;
+        return false;
+    }
     char name[256];
     if (!store_image(app, data, length, name))
         return false;
@@ -416,6 +420,10 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
 }
 void media_paste_text(struct app *app, const char *text, size_t length)
 {
+    if (!editor_can_edit(&app->editor)) {
+        app->dirty = true;
+        return;
+    }
     if (!length || length > 16 * 1024 * 1024 || memchr(text, 0, length))
         return;
     char *normal = malloc(length + 1);
@@ -486,6 +494,10 @@ char *media_fragment(struct app *app, size_t *length)
 }
 bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t length)
 {
+    if (!editor_can_edit(&app->editor)) {
+        app->dirty = true;
+        return false;
+    }
     if (length < 16 || memcmp(bytes, "TVFRAG1", 8))
         return false;
     size_t directory_length = fragment_u32(bytes + 8), text_length = fragment_u32(bytes + 12);
@@ -562,6 +574,10 @@ bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t le
 }
 void media_import_file(struct app *app, const char *path)
 {
+    if (!editor_can_edit(&app->editor)) {
+        app->dirty = true;
+        return;
+    }
     size_t n;
     char *data = session_read(path, FILE_LIMIT, &n);
     if (!data)
@@ -575,6 +591,10 @@ void media_import_file(struct app *app, const char *path)
 }
 void media_import_uris(struct app *app, const char *uris, size_t length)
 {
+    if (!editor_can_edit(&app->editor)) {
+        app->dirty = true;
+        return;
+    }
     size_t p = 0;
     while (p < length) {
         size_t end = p;

@@ -1,7 +1,7 @@
 # Jot key reference
 
-Line numbers are always visible. The gutter reserves four digits and grows for
-longer notes, with two character cells between the numbers and text. Scratch
+Raw and normal modes show line numbers. The gutter reserves four digits and grows
+for longer notes, with two character cells between the numbers and text. Scratch
 pages open in normal mode with the cursor at the end; explicit files start at
 the beginning. The bottom line shows the current mode, any keys you've typed so
 far, and the line and column.
@@ -114,13 +114,21 @@ Press `:` to open it. Up and Down browse your history.
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
-| `:set md`, `:set nomd` | Turn Markdown styling on or off |
+| `:set raw` | Editable plain source, with no Markdown styling or inline images |
+| `:set normal` | Editable styled source with inline images (default) |
+| `:set polish` | Read-only reading view; conceal supported markers and hide the gutter |
+| `:set md`, `:set nomd` | Aliases for normal and raw |
 | `:set light`, `:set dark` | Choose the light or dark palette (remembered per page) |
 | `:Ex` | Open the page's folder in your file manager |
 | `:e!` | Reload the page from disk |
 | `:u`, `:redo` | Undo, redo |
 
 Ranges can use `%`, `.`, `$`, line numbers, `'<,'>` and `+n` or `-n`.
+
+Render mode and palette are remembered per scratch page. In polish, movement,
+search, visual selection, copying, saving and link/image opening remain available.
+Typing, paste, drops, deletion, substitutions, undo and redo are blocked. Switch
+to raw or normal to edit. Copies retain the selected Markdown source.
 
 ## Window
 

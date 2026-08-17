@@ -189,17 +189,90 @@ size_t app_row_next(const struct editor *ed, size_t start, unsigned columns)
     }
     return p < ed->length ? p + 1 : p;
 }
+static struct md_cache *markdown_at(struct app *app, size_t position)
+{
+    struct editor *ed = &app->editor;
+    struct md_cache *cache = &app->markdown;
+    size_t start = editor_line_start(ed, position);
+    if (cache->valid && cache->revision == ed->revision && cache->start == start)
+        return cache;
+    size_t p = 0;
+    char fence = 0;
+    if (cache->valid && cache->revision == ed->revision && start > cache->start) {
+        p = cache->end < ed->length ? cache->end + 1 : cache->end;
+        fence = cache->fence_after;
+    }
+    while (p < start) {
+        char marker = editor_fence(ed, p);
+        if (marker)
+            fence = fence ? (fence == marker ? 0 : fence) : marker;
+        size_t end = editor_line_end(ed, p);
+        p = end < ed->length ? end + 1 : end;
+    }
+    char marker = editor_fence(ed, start);
+    cache->start = start;
+    cache->end = editor_line_end(ed, start);
+    cache->revision = ed->revision;
+    cache->valid = true;
+    cache->fenced = fence || marker;
+    cache->fence_line = marker && (!fence || marker == fence);
+    cache->fence_after = marker ? (fence ? (fence == marker ? 0 : fence) : marker) : fence;
+    cache->count = markdown_line(ed->text, start, cache->end, cache->spans, 128, cache->fenced);
+    cache->quote = false;
+    for (size_t i = 0; i < cache->count; ++i)
+        cache->quote |= (cache->spans[i].style & MD_QUOTE) != 0;
+    return cache;
+}
+static unsigned markdown_style(const struct md_cache *cache, size_t at)
+{
+    unsigned style = 0;
+    for (size_t i = 0; i < cache->count; ++i)
+        if (at >= cache->spans[i].start && at < cache->spans[i].end)
+            style |= cache->spans[i].style;
+    return style;
+}
+static const struct media_entry *view_image(struct app *app, size_t start)
+{
+    if (app->editor.render_mode == RENDER_RAW ||
+        (app->editor.render_mode == RENDER_POLISH && markdown_at(app, start)->fenced))
+        return NULL;
+    const struct media_entry *image = media_at(app, start);
+    return image && image->width > 0 ? image : NULL;
+}
 size_t app_view_next(struct app *app, size_t start)
 {
-    const struct media_entry *image = media_at(app, start);
-    if (image && image->width > 0)
+    const struct media_entry *image = view_image(app, start);
+    if (image)
         return image->end < app->editor.length ? image->end + 1 : image->end;
-    return app_row_next(&app->editor, start,
-                        app->editor.viewport_columns ? app->editor.viewport_columns : 80);
+    unsigned columns = app->editor.viewport_columns ? app->editor.viewport_columns : 80;
+    if (app->editor.render_mode != RENDER_POLISH)
+        return app_row_next(&app->editor, start, columns);
+    struct md_cache *cache = markdown_at(app, start);
+    size_t p = start, last_space = SIZE_MAX;
+    unsigned col = 0;
+    while (!cache->fence_line && p < cache->end) {
+        size_t at = p;
+        uint32_t cp = editor_codepoint(app->editor.text, cache->end, &p);
+        if (markdown_style(cache, at) & MD_HIDE)
+            continue;
+        unsigned step = cp == '\t' ? 4 - col % 4 : 1;
+        if (col + step > columns)
+            return last_space != SIZE_MAX && last_space > start ? last_space : col ? at : p;
+        col += step;
+        if (cp == ' ' || cp == '\t')
+            last_space = p;
+    }
+    return cache->end < app->editor.length ? cache->end + 1 : cache->end;
 }
 int app_view_rows(struct app *app, size_t start)
 {
-    return media_rows(app, start, app->view_width - 2 * app->padding - app->gutter,
+    if (app->editor.render_mode == RENDER_RAW)
+        return 1;
+    if (app->editor.render_mode == RENDER_POLISH && markdown_at(app, start)->fence_line)
+        return 0;
+    if (!view_image(app, start))
+        return 1;
+    return media_rows(app, start, app->text_width,
                       app->line_height ? app->line_height : 24,
                       app->editor.viewport_rows ? app->editor.viewport_rows : 24);
 }
@@ -268,19 +341,33 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     if (!tiny_font_set_size(app->font, size))
         return false;
     struct tiny_font_metrics metrics = tiny_font_metrics(app->font);
-    int cell = metrics.advance, ascender = metrics.ascender, line_height = metrics.line_height + 2;
+    bool polish = ed->render_mode == RENDER_POLISH;
+    int cell = metrics.advance, ascender = metrics.ascender;
+    int status_line = metrics.line_height + 2, line_height = status_line;
+    if (polish)
+        line_height += (int)((4 * (int64_t)app->scale120 + 60) / 120);
     int padding = (int)((8 * (int64_t)app->scale120 + 60) / 120);
-    app->title_height = app->client_decorated ? line_height + padding : 0;
+    app->title_height = app->client_decorated ? status_line + padding : 0;
     int top = app->title_height + padding;
-    int status_y = height - line_height - 2 * padding, rows = (status_y - top) / line_height;
+    int status_y = height - status_line - 2 * padding, rows = (status_y - top) / line_height;
     size_t lines = editor_line_count(ed);
     int digits = 1;
     for (size_t n = lines; n >= 10; n /= 10)
         ++digits;
     if (digits < 4)
         digits = 4;
-    int gutter = (digits + 2) * cell;
-    int columns = (width - 2 * padding - gutter) / cell;
+    int gutter = polish ? 0 : (digits + 2) * cell;
+    int text_x = padding + gutter, text_width = width - 2 * padding - gutter;
+    if (polish) {
+        int margin = (int)((24 * (int64_t)app->scale120 + 60) / 120);
+        text_width = width - 2 * margin;
+        if (text_width > 80 * cell)
+            text_width = 80 * cell;
+        if (text_width < cell)
+            text_width = cell;
+        text_x = (width - text_width) / 2;
+    }
+    int columns = text_width / cell;
     if (rows < 1)
         rows = 1;
     if (columns < 1)
@@ -293,6 +380,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     app->line_height = line_height;
     app->padding = padding;
     app->gutter = gutter;
+    app->text_x = text_x;
+    app->text_width = text_width;
     if (ed->top > ed->length)
         ed->top = editor_line_start(ed, ed->length);
     if (app->follow_cursor) {
@@ -324,34 +413,23 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     size_t selection_a = 0, selection_b = 0;
     bool linewise;
     bool selected = editor_selection(ed, &selection_a, &selection_b, &linewise);
-    char fenced = 0;
-    for (size_t p = 0; p < editor_line_start(ed, ed->top);) {
-        char marker = editor_fence(ed, p);
-        if (marker)
-            fenced = fenced ? (fenced == marker ? 0 : fenced) : marker;
-        size_t end = editor_line_end(ed, p);
-        if (end == ed->length)
-            break;
-        p = end + 1;
-    }
-    size_t start = ed->top, last_line = SIZE_MAX;
+    size_t start = ed->top;
     int cursor_x = -1, cursor_y = -1;
     for (int row = 0; row < rows; ++row) {
         size_t next = app_view_next(app, start), end = next;
         if (end > start && ed->text[end - 1] == '\n')
             --end;
-        size_t logical_start = editor_line_start(ed, start),
-               logical_end = editor_line_end(ed, start);
-        char is_fence = editor_fence(ed, logical_start);
-        if (logical_start != last_line && is_fence)
-            fenced = fenced ? (fenced == is_fence ? 0 : fenced) : is_fence;
-        last_line = logical_start;
-        struct md_span spans[128];
-        size_t span_count = ed->markdown ? markdown_line(ed->text, logical_start, logical_end,
-                                                         spans, 128, fenced || is_fence)
-                                         : 0;
+        size_t logical_start = editor_line_start(ed, start);
+        struct md_cache *cache = ed->render_mode == RENDER_RAW ? NULL : markdown_at(app, start);
+        if (polish && cache->fence_line) {
+            if (next <= start)
+                break;
+            start = next;
+            --row;
+            continue;
+        }
         int y = top + row * line_height;
-        if (start == logical_start) {
+        if (!polish && start == logical_start) {
             char number[32];
             snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
             uint32_t color = logical_start == editor_line_start(ed, ed->cursor)
@@ -361,12 +439,12 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                            padding + i * cell, y + ascender, status_y, color))
                     return false;
         }
-        const struct media_entry *image = media_at(app, start);
-        if (image && image->width > 0) {
+        const struct media_entry *image = view_image(app, start);
+        if (image) {
             int span = app_view_rows(app, start);
             bool image_selected = ed->cursor >= image->start && ed->cursor <= image->end;
-            draw_image(app, image, pixels, width, height, stride, padding + gutter, y + 2,
-                       width - 2 * padding - gutter, (span - 1) * line_height - 4,
+            draw_image(app, image, pixels, width, height, stride, text_x, y + 2,
+                       text_width, (span - 1) * line_height - 4,
                        image_selected || (selected && start >= selection_a && start < selection_b));
             row += span - 1;
             if (next <= start || next == ed->length)
@@ -374,16 +452,20 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             start = next;
             continue;
         }
+        if (polish && cache->fenced)
+            rectangle(pixels, width, height, stride, text_x, y, text_width, line_height, theme->code);
+        if (polish && cache->quote)
+            rectangle(pixels, width, height, stride, text_x - padding, y, 2, line_height, theme->quote);
         size_t offset = start;
         unsigned column = 0;
         while (offset < end) {
             size_t at = offset;
             uint32_t cp = editor_codepoint(ed->text, end, &offset);
-            unsigned advance = cp == '\t' ? 4 - column % 4 : 1, style = 0;
-            for (size_t i = 0; i < span_count; ++i)
-                if (at >= spans[i].start && at < spans[i].end)
-                    style |= spans[i].style;
-            int x = padding + gutter + (int)column * cell;
+            unsigned style = cache ? markdown_style(cache, at) : 0;
+            if (polish && (style & MD_HIDE))
+                continue;
+            unsigned advance = cp == '\t' ? 4 - column % 4 : 1;
+            int x = text_x + (int)column * cell;
             uint32_t color = theme->text;
             if (style & MD_DIM)
                 color = theme->dim;
@@ -410,7 +492,24 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                 cursor_x = x;
                 cursor_y = y;
             }
-            if (cp != '\t') {
+            if (polish && (style & (MD_BULLET | MD_TASK))) {
+                int stroke = (int)((app->scale120 + 119) / 120);
+                int center = y + ascender * 2 / 3;
+                if (style & MD_BULLET) {
+                    rectangle(pixels, width, height, stride, x + cell / 2 - stroke,
+                              center - stroke, 2 * stroke + 1, 2 * stroke + 1, theme->dim);
+                } else {
+                    int side = cell - 2 * stroke, left = x + stroke, upper = center - side / 2;
+                    uint32_t ink = style & MD_CHECKED ? theme->quote : theme->dim;
+                    rectangle(pixels, width, height, stride, left, upper, side, stroke, ink);
+                    rectangle(pixels, width, height, stride, left, upper, stroke, side, ink);
+                    rectangle(pixels, width, height, stride, left + side - stroke, upper, stroke, side, ink);
+                    rectangle(pixels, width, height, stride, left, upper + side - stroke, side, stroke, ink);
+                    if (style & MD_CHECKED)
+                        rectangle(pixels, width, height, stride, left + 2 * stroke, upper + 2 * stroke,
+                                  side - 4 * stroke, side - 4 * stroke, ink);
+                }
+            } else if (cp != '\t') {
                 if (cp < 32 || cp == 127)
                     cp = '?';
                 if (!glyph(app, pixels, width, height, stride, cp, x, y + ascender, status_y,
@@ -425,14 +524,14 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             column += advance;
         }
         if (ed->cursor == end && (end == ed->length || ed->text[end] == '\n')) {
-            cursor_x = padding + gutter + (int)column * cell;
+            cursor_x = text_x + (int)column * cell;
             cursor_y = y;
         }
         if (next == start || (next == ed->length && (next == 0 || ed->text[next - 1] != '\n')))
             break;
         start = next;
     }
-    if (!ed->command_active && cursor_x >= 0) {
+    if (!polish && !ed->command_active && cursor_x >= 0) {
         if (ed->mode == INSERT)
             rectangle(pixels, width, height, stride, cursor_x, cursor_y, 2, line_height,
                       theme->cursor);
@@ -440,10 +539,12 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             rectangle(pixels, width, height, stride, cursor_x, cursor_y + line_height - 3, cell, 3,
                       theme->cursor);
     }
-    rectangle(pixels, width, height, stride, 0, status_y, width, line_height + 2 * padding,
+    rectangle(pixels, width, height, stride, 0, status_y, width, status_line + 2 * padding,
               theme->status);
     char status[512];
-    const char *mode = ed->mode == INSERT        ? "INSERT"
+    const char *mode = polish ? "POLISH [read only]"
+                       : ed->render_mode == RENDER_RAW ? (ed->mode == INSERT ? "RAW INSERT" : "RAW")
+                       : ed->mode == INSERT        ? "INSERT"
                        : ed->mode == VISUAL      ? "VISUAL"
                        : ed->mode == VISUAL_LINE ? "VISUAL LINE"
                                                  : "NORMAL";
@@ -500,26 +601,34 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
 {
     if (app->cell < 1 || app->line_height < 1)
         return app->editor.cursor;
-    int x = (int)((int64_t)logical_x * app->scale120 / 120) - app->padding - app->gutter;
+    int x = (int)((int64_t)logical_x * app->scale120 / 120) - app->text_x;
     int y = (int)((int64_t)logical_y * app->scale120 / 120) - app->padding - app->title_height;
     unsigned row = y > 0 ? (unsigned)(y / app->line_height) : 0;
     if (row >= app->editor.viewport_rows)
         row = app->editor.viewport_rows - 1;
     struct editor *ed = &app->editor;
     size_t p = ed->top;
-    while (row) {
+    for (;;) {
         unsigned span = (unsigned)app_view_rows(app, p);
-        if (row < span)
-            return p;
-        row -= span;
-        size_t next = app_view_next(app, p);
-        if (next == p)
+        if (span && row < span) {
+            if (view_image(app, p))
+                return p;
             break;
+        }
+        size_t next = app_view_next(app, p);
+        if (next <= p)
+            break;
+        row -= span;
         p = next;
     }
     size_t end = app_view_next(app, p);
+    struct md_cache *cache = ed->render_mode == RENDER_POLISH ? markdown_at(app, p) : NULL;
     unsigned col = 0, target = x > 0 ? (unsigned)(x / app->cell) : 0;
     while (p < end && ed->text[p] != '\n') {
+        if (cache && (markdown_style(cache, p) & MD_HIDE)) {
+            p = editor_next(ed, p);
+            continue;
+        }
         unsigned step = ed->text[p] == '\t' ? 4 - col % 4 : 1;
         if (col + step > target)
             break;

@@ -169,11 +169,69 @@ static void decoration_layout(void)
     app_close(&app);
 }
 
+static void render_modes(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    const char *note = "# Head\n**bold** [label](https://example.com/a/very/long/destination) tail\n"
+                       "> quote\n- [x] task\n```\n# raw\n```\n";
+    assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+    app.editor.cursor = 0;
+    enum { WIDTH = 320, HEIGHT = 400 };
+    uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
+    assert(pixels);
+    assert(app.editor.render_mode == RENDER_NORMAL);
+    assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+    int normal_height = app.line_height;
+    size_t second = (size_t)(strstr(note, "**bold") - note);
+    assert(app_view_next(&app, second) < editor_line_end(&app.editor, second));
+    editor_command(&app.editor, "set raw");
+    assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+    assert(app.gutter == 6 * app.cell && app.line_height == normal_height);
+    assert(app_hit_test(&app, app.text_x, app.padding + app.line_height / 2) == 0);
+    uint64_t revision = app.editor.revision;
+    editor_command(&app.editor, "set polish");
+    assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+    assert(app.gutter == 0 && app.text_x > app.padding && app.line_height > normal_height);
+    assert(app_view_next(&app, second) == editor_line_end(&app.editor, second) + 1);
+    int x = app.text_x, first = app.padding + app.line_height / 2;
+    assert(app_hit_test(&app, x, first) == 2); /* heading marker is concealed */
+    assert(app_hit_test(&app, x, first + app.line_height) == second + 2);
+    assert(app_hit_test(&app, x + 5 * app.cell, first + app.line_height) ==
+           (size_t)(strstr(note, "label") - note));
+    assert(app_hit_test(&app, x + 11 * app.cell, first + app.line_height) ==
+           (size_t)(strstr(note, "tail") - note));
+    assert(app_hit_test(&app, x, first + 2 * app.line_height) ==
+           (size_t)(strstr(note, "quote") - note));
+    assert(app_hit_test(&app, x + 2 * app.cell, first + 3 * app.line_height) ==
+           (size_t)(strstr(note, "task") - note));
+    size_t fence = (size_t)(strstr(note, "```") - note);
+    assert(app_view_rows(&app, fence) == 0);
+    assert(app_hit_test(&app, x, first + 4 * app.line_height) ==
+           (size_t)(strstr(note, "# raw") - note));
+    assert(pixels[(app.padding + 4 * app.line_height) * WIDTH + x] == 0xff242d3b);
+    assert(pixels[(app.padding + 2 * app.line_height) * WIDTH + x - app.padding] == 0xffa3be8c);
+    app_pointer(&app, x, first + app.line_height, false);
+    app_pointer(&app, x + 3 * app.cell, first + app.line_height, true);
+    assert(app.editor.mode == VISUAL && app.editor.anchor == second + 2 &&
+           app.editor.cursor == second + 5);
+    assert(app.editor.revision == revision && !strcmp(app.editor.text, note));
+    app_input(&app, KEY_TEXT, "d");
+    assert(app.editor.revision == revision && !strcmp(app.editor.text, note));
+    editor_command(&app.editor, "set normal");
+    assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+    assert(app.gutter == 6 * app.cell && app.line_height == normal_height);
+    assert(!strcmp(app.editor.text, note));
+    free(pixels);
+    app_close(&app);
+}
+
 int main(void)
 {
     gutter_layout();
     theme_layout();
     decoration_layout();
+    render_modes();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

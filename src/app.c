@@ -73,7 +73,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         }
         app->context_menu = false;
     }
-    const struct media_entry *selected_image = media_at(app, app->editor.cursor);
+    const struct media_entry *selected_image = app->editor.render_mode == RENDER_RAW ? NULL
+                                               : media_at(app, app->editor.cursor);
     char image_name[256] = {0}, image_markup[280] = {0};
     if (selected_image) {
         size_t n = selected_image->end - selected_image->start;
@@ -84,9 +85,10 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     }
     if (selected_image)
         snprintf(image_name, sizeof(image_name), "%s", selected_image->name);
-    app->editor.extra_search = media_search;
+    app->editor.extra_search = app->editor.render_mode == RENDER_RAW ? NULL : media_search;
     app->editor.extra_search_data = app;
-    bool delete_image = selected_image && !app->editor.command_active &&
+    bool delete_image = selected_image && app->editor.render_mode != RENDER_POLISH &&
+                        !app->editor.command_active &&
                         (app->editor.mode == NORMAL || app->editor.mode == INSERT) &&
                         !app->editor.pending[0] &&
                         (key == KEY_DELETE || (key == KEY_TEXT && text && !strcmp(text, "d")));

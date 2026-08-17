@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 enum editor_mode { NORMAL, INSERT, VISUAL, VISUAL_LINE };
+enum render_mode { RENDER_RAW, RENDER_NORMAL, RENDER_POLISH };
 enum editor_key {
     KEY_TEXT,
     KEY_ESCAPE,
@@ -58,8 +59,9 @@ struct editor {
     char *text, *filename;
     size_t length, capacity, cursor, top, left;
     enum editor_mode mode;
+    enum render_mode render_mode;
     bool modified, command_active, quit, crlf;
-    bool markdown, light, search_forward, search_word, search_failed,
+    bool light, search_forward, search_word, search_failed,
         search_pending;
     char command[1024], message[256], search[256], pending[40];
     size_t command_length, anchor, visual_first, visual_last, search_origin;
@@ -89,6 +91,8 @@ char editor_fence(const struct editor *ed, size_t position);
 bool editor_heading(const struct editor *ed, size_t position);
 void editor_search(struct editor *ed, bool forward, unsigned count);
 bool editor_selection(const struct editor *ed, size_t *from, size_t *to, bool *linewise);
+/* Report read-only polish mode before starting an edit or import. */
+bool editor_can_edit(struct editor *ed);
 bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text, size_t length);
 void editor_put(struct editor *ed, const char *text, size_t length, bool linewise, bool after,
                 unsigned count);

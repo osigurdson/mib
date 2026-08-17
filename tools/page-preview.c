@@ -13,15 +13,17 @@ int main(int argc, char **argv)
         app.font_size = (unsigned)atoi(argv[3]);
     if (argc > 4)
         app.scale120 = (unsigned)atoi(argv[4]);
-    if (argc > 5) {
-        if (strcmp(argv[5], "light") && strcmp(argv[5], "dark"))
+    for (int i = 5; i < argc; ++i) {
+        if (!strcmp(argv[i], "light") || !strcmp(argv[i], "dark"))
+            app.editor.light = !strcmp(argv[i], "light");
+        else if (!strcmp(argv[i], "decorated"))
+            app.client_decorated = true;
+        else if (!strcmp(argv[i], "raw") || !strcmp(argv[i], "normal") || !strcmp(argv[i], "polish")) {
+            char command[32];
+            snprintf(command, sizeof(command), "set %s", argv[i]);
+            editor_command(&app.editor, command);
+        } else
             return 2;
-        app.editor.light = !strcmp(argv[5], "light");
-    }
-    if (argc > 6) {
-        if (strcmp(argv[6], "decorated"))
-            return 2;
-        app.client_decorated = true;
     }
     int width = (int)(800 * app.scale120 / 120), height = (int)(560 * app.scale120 / 120);
     uint32_t *pixels = malloc((size_t)width * height * 4);
