@@ -8,21 +8,21 @@
 struct palette {
     uint32_t background, text, dim, link, heading, quote, done, italic;
     uint32_t code, search, selection, cursor, status, menu, menu_selected, handle;
-    uint32_t title, title_separator;
+    uint32_t title, title_separator, title_hover, title_pressed;
 };
 static const struct palette dark = {
     0xff18202b, 0xffe5edf5, 0xff697889, 0xff88c0d0,
     0xffebcb8b, 0xffa3be8c, 0xff77868a, 0xffb9a0cb,
     0xff242d3b, 0xff66502c, 0xff405c78, 0xff8fbcbb,
     0xff283443, 0xff34485b, 0xff4b6680, 0xffe5edf5,
-    0xff1d2733, 0xff303c4b,
+    0xff1d2733, 0xff303c4b, 0xff303e4e, 0xff3d5064,
 };
 static const struct palette light = {
     0xfffaf9f6, 0xff263342, 0xff697685, 0xff176778,
     0xff855a16, 0xff416b36, 0xff687567, 0xff755088,
     0xffeeede7, 0xfff5dc8e, 0xffc5dced, 0xff1d6972,
     0xffe5e8eb, 0xffe9edf1, 0xffcbdbe8, 0xff263342,
-    0xfff2f1ee, 0xffdeded8,
+    0xfff2f1ee, 0xffdeded8, 0xffe0e2df, 0xffcdd3d0,
 };
 static const struct palette *colors(const struct app *app)
 {
@@ -46,6 +46,19 @@ static void rectangle(uint32_t *pixels, int width, int height, int stride, int x
     for (int row = y < 0 ? 0 : y; row < height && row < y + h; ++row)
         for (int col = x < 0 ? 0 : x; col < width && col < x + w; ++col)
             pixels[(size_t)row * (size_t)stride + (size_t)col] = color;
+}
+
+static void rounded_rectangle(uint32_t *pixels, int width, int height, int stride,
+                               int x, int y, int size, int radius, uint32_t color)
+{
+    for (int row = 0; row < size; ++row) {
+        int dy = row < radius ? radius - row - 1
+                 : row >= size - radius ? row - (size - radius) : 0;
+        int inset = 0;
+        while ((radius - inset) * (radius - inset) + dy * dy > radius * radius)
+            ++inset;
+        rectangle(pixels, width, height, stride, x + inset, y + row, size - 2 * inset, 1, color);
+    }
 }
 
 static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int stride, uint32_t cp,
@@ -106,23 +119,38 @@ static void title_bar(struct app *app, uint32_t *pixels, int width, int height, 
     if (stroke < 1)
         stroke = 1;
     for (int button = 0; button < 3; ++button) {
+        enum app_title_action action = TITLE_MINIMIZE + button;
+        bool active = app->title_hover == action &&
+                      (app->title_pressed == TITLE_NONE || app->title_pressed == action);
+        uint32_t foreground = theme->text;
+        if (active) {
+            bool pressed = app->title_pressed == action;
+            uint32_t background = pressed ? theme->title_pressed : theme->title_hover;
+            if (action == TITLE_CLOSE) {
+                background = pressed ? 0xffa83333 : 0xffc74242;
+                foreground = 0xffffffff;
+            }
+            int inset = 3 * stroke;
+            rounded_rectangle(pixels, width, height, stride, width - (3 - button) * h + inset,
+                              inset, h - 2 * inset, 3 * stroke, background);
+        }
         int x = width - (3 - button) * h + (h - size) / 2, y = (h - size) / 2;
         if (button == 0)
-            rectangle(pixels, width, height, stride, x, y + size, size, stroke, theme->text);
+            rectangle(pixels, width, height, stride, x, y + size, size, stroke, foreground);
         else if (button == 1) {
             int offset = app->maximized ? 3 * stroke : 0;
-            rectangle(pixels, width, height, stride, x + offset, y - offset, size, stroke, theme->text);
+            rectangle(pixels, width, height, stride, x + offset, y - offset, size, stroke, foreground);
             rectangle(pixels, width, height, stride, x + size + offset - stroke, y - offset,
-                      stroke, size, theme->text);
-            rectangle(pixels, width, height, stride, x, y, size, stroke, theme->text);
-            rectangle(pixels, width, height, stride, x, y, stroke, size, theme->text);
-            rectangle(pixels, width, height, stride, x + size - stroke, y, stroke, size, theme->text);
-            rectangle(pixels, width, height, stride, x, y + size - stroke, size, stroke, theme->text);
+                      stroke, size, foreground);
+            rectangle(pixels, width, height, stride, x, y, size, stroke, foreground);
+            rectangle(pixels, width, height, stride, x, y, stroke, size, foreground);
+            rectangle(pixels, width, height, stride, x + size - stroke, y, stroke, size, foreground);
+            rectangle(pixels, width, height, stride, x, y + size - stroke, size, stroke, foreground);
         } else
             for (int i = 0; i < size; ++i) {
-                rectangle(pixels, width, height, stride, x + i, y + i, stroke, stroke, theme->text);
+                rectangle(pixels, width, height, stride, x + i, y + i, stroke, stroke, foreground);
                 rectangle(pixels, width, height, stride, x + size - i - 1, y + i,
-                          stroke, stroke, theme->text);
+                          stroke, stroke, foreground);
             }
     }
 }

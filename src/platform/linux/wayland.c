@@ -36,7 +36,6 @@ struct wayland_client {
     struct zxdg_decoration_manager_v1 *decoration_manager;
     struct zxdg_toplevel_decoration_v1 *decoration;
     bool pending_csd, fullscreen;
-    enum app_title_action title_pressed;
     uint32_t title_click;
     int title_click_x, title_click_y;
     struct wp_viewporter *viewporter;
@@ -167,6 +166,7 @@ static bool draw(struct wayland_client *client)
     wl_surface_commit(client->surface);
     client->app->dirty = false;
     client->app->redraw_at = started + APP_FRAME_INTERVAL_MS;
+    update_cursor(client);
     return true;
 }
 
@@ -243,7 +243,8 @@ static void apply_decorations(struct wayland_client *client)
         client->app->client_decorated = decorated;
         client->app->context_menu = false;
         client->dragging = false;
-        client->title_pressed = TITLE_NONE;
+        client->app->title_pressed = TITLE_NONE;
+        client->app->title_hover = TITLE_NONE;
     }
     client->app->dirty = true;
     update_cursor(client);
@@ -564,7 +565,7 @@ static uint32_t resize_edge(const struct wayland_client *client, int x, int y)
 }
 static uint32_t pointer_shape(const struct wayland_client *client)
 {
-    if (client->dragging || client->title_pressed != TITLE_NONE)
+    if (client->dragging || client->app->title_pressed != TITLE_NONE)
         return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
     switch (resize_edge(client, client->pointer_x, client->pointer_y)) {
     case XDG_TOPLEVEL_RESIZE_EDGE_TOP: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_N_RESIZE;
@@ -580,6 +581,14 @@ static uint32_t pointer_shape(const struct wayland_client *client)
 }
 static void update_cursor(struct wayland_client *client)
 {
+    enum app_title_action hover = app_title_hit(client->app, client->pointer_x, client->pointer_y);
+    if (!client->cursor_serial || client->dragging ||
+        resize_edge(client, client->pointer_x, client->pointer_y) || hover < TITLE_MINIMIZE)
+        hover = TITLE_NONE;
+    if (client->app->title_hover != hover) {
+        client->app->title_hover = hover;
+        client->app->dirty = true;
+    }
     if (!client->cursor_device || !client->cursor_serial)
         return;
     uint32_t shape = pointer_shape(client);
@@ -619,9 +628,12 @@ static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t seria
     (void)surface;
     struct wayland_client *client = data;
     client->dragging = false;
-    client->title_pressed = TITLE_NONE;
+    if (client->app->title_pressed != TITLE_NONE)
+        client->app->dirty = true;
+    client->app->title_pressed = TITLE_NONE;
     client->cursor_serial = 0;
     client->cursor_shape = 0;
+    update_cursor(client);
 }
 static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time, wl_fixed_t x,
                            wl_fixed_t y)
@@ -647,9 +659,10 @@ static bool decoration_button(struct wayland_client *client, uint32_t serial, ui
 {
     enum app_title_action hit = app_title_hit(client->app, client->pointer_x, client->pointer_y);
     if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_RELEASED &&
-        client->title_pressed != TITLE_NONE) {
-        enum app_title_action pressed = client->title_pressed;
-        client->title_pressed = TITLE_NONE;
+        client->app->title_pressed != TITLE_NONE) {
+        enum app_title_action pressed = client->app->title_pressed;
+        client->app->title_pressed = TITLE_NONE;
+        client->app->dirty = true;
         if (pressed == hit) {
             if (hit == TITLE_CLOSE)
                 app_request_close(client->app);
@@ -696,7 +709,8 @@ static bool decoration_button(struct wayland_client *client, uint32_t serial, ui
             client->title_click_y = client->pointer_y;
         } else {
             client->title_click = 0;
-            client->title_pressed = hit;
+            client->app->title_pressed = hit;
+            client->app->dirty = true;
         }
     }
     return true;
@@ -766,6 +780,7 @@ static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabil
         wl_pointer_add_listener(client->pointer, &pointer_listener, client);
         cursor_device(client);
     } else if (!(capabilities & WL_SEAT_CAPABILITY_POINTER) && client->pointer) {
+        pointer_leave(client, client->pointer, 0, NULL);
         if (client->cursor_device)
             wp_cursor_shape_device_v1_destroy(client->cursor_device);
         client->cursor_device = NULL;

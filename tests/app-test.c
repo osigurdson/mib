@@ -133,6 +133,27 @@ static void decoration_layout(void)
         assert(app_title_hit(&app, (WIDTH - 5 * h / 2) * 120 / (int)scales[i], y) == TITLE_MINIMIZE);
         assert(app_title_hit(&app, (WIDTH - 3 * h / 2) * 120 / (int)scales[i], y) == TITLE_MAXIMIZE);
         assert(app_title_hit(&app, (WIDTH - h / 2) * 120 / (int)scales[i], y) == TITLE_CLOSE);
+        for (enum app_title_action action = TITLE_MINIMIZE; action <= TITLE_CLOSE; ++action) {
+            int stroke = (int)(scales[i] / 120);
+            int sample = WIDTH - (TITLE_CLOSE - action + 1) * h + 4 * stroke;
+            app.title_hover = action;
+            assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+            uint32_t hover = action == TITLE_CLOSE ? 0xffc74242
+                             : app.editor.light ? 0xffe0e2df : 0xff303e4e;
+            assert(pixels[h / 2 * WIDTH + sample] == hover);
+            app.title_pressed = action;
+            if (action == TITLE_MAXIMIZE)
+                app.maximized = true; /* the restore button shares the same feedback */
+            assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+            uint32_t pressed = action == TITLE_CLOSE ? 0xffa83333
+                               : app.editor.light ? 0xffcdd3d0 : 0xff3d5064;
+            assert(pixels[h / 2 * WIDTH + sample] == pressed);
+            app.title_hover = TITLE_NONE;
+            assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+            assert(pixels[h / 2 * WIDTH + sample] == pixels[0]);
+            app.title_pressed = TITLE_NONE;
+            app.maximized = false;
+        }
         int x = (app.padding + app.gutter) * 120 / (int)scales[i];
         int first = (h + app.padding + app.line_height / 2) * 120 / (int)scales[i];
         int second = first + app.line_height * 120 / (int)scales[i];

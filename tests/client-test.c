@@ -72,6 +72,22 @@ static void decorations(void)
     app.view_width = 800;
     client.pointer_x = 780;
     client.pointer_y = 20;
+    pointer_enter(&client, NULL, 99, NULL, wl_fixed_from_int(780), wl_fixed_from_int(20));
+    assert(app.title_hover == TITLE_CLOSE);
+    app.dirty = false;
+    pointer_motion(&client, NULL, 1, wl_fixed_from_int(781), wl_fixed_from_int(20));
+    assert(!app.dirty); /* moving inside one button needs no extra repaint */
+    pointer_button(&client, NULL, 100, 2, 0x110, WL_POINTER_BUTTON_STATE_PRESSED);
+    assert(app.title_pressed == TITLE_CLOSE && app.dirty);
+    pointer_motion(&client, NULL, 3, wl_fixed_from_int(400), wl_fixed_from_int(20));
+    assert(app.title_hover == TITLE_NONE && app.title_pressed == TITLE_CLOSE);
+    pointer_button(&client, NULL, 101, 4, 0x110, WL_POINTER_BUTTON_STATE_RELEASED);
+    assert(app.title_pressed == TITLE_NONE && app.running);
+    pointer_motion(&client, NULL, 5, wl_fixed_from_int(780), wl_fixed_from_int(20));
+    assert(app.title_hover == TITLE_CLOSE);
+    app.dirty = false;
+    pointer_leave(&client, NULL, 102, NULL);
+    assert(app.title_hover == TITLE_NONE && app.dirty);
     client.dragging = true;
     pointer_button(&client, NULL, 0, 90, 0x110, WL_POINTER_BUTTON_STATE_RELEASED);
     assert(!client.dragging); /* releasing a text selection over the header ends the drag */
@@ -83,7 +99,7 @@ static void decorations(void)
     assert(decoration_button(&client, 3, 120, 0x110, WL_POINTER_BUTTON_STATE_PRESSED));
     client.pointer_y = 100;
     assert(decoration_button(&client, 4, 130, 0x110, WL_POINTER_BUTTON_STATE_RELEASED));
-    assert(app.running && client.title_pressed == TITLE_NONE); /* release outside cancels */
+    assert(app.running && app.title_pressed == TITLE_NONE); /* release outside cancels */
     client.pointer_y = 20;
     app.editor.modified = false;
     assert(decoration_button(&client, 5, 140, 0x110, WL_POINTER_BUTTON_STATE_PRESSED));

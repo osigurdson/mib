@@ -17,6 +17,7 @@ struct app {
     bool media_scanned, image_hit, ocr_retry;
     bool scratch, maximized, context_menu, client_decorated;
     int context_x, context_y, context_choice;
+    enum app_title_action title_hover, title_pressed;
     int owner_fd, activation_fd;
     void *owner_handle;
     uint64_t page_id, work_at, redraw_at;
