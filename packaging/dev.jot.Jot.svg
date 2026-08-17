@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<title>jot</title>
+<defs>
+<clipPath id="r">
+<rect width="512" height="512" rx="114"/>
+</clipPath>
+</defs>
+<g clip-path="url(#r)">
+<rect width="512" height="512" fill="#17171C"/>
+<path d="M 290 210 V 340 Q 290 410 222 410 Q 192 410 172 396" fill="none" stroke="#FFFFFF" stroke-width="58" stroke-linecap="round" stroke-linejoin="round">
+</path>
+<circle cx="290" cy="126" r="40" fill="#FFC83D">
+</circle>
+</g>
+</svg>

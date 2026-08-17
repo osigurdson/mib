@@ -14,6 +14,7 @@ PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
 DATADIR ?= $(PREFIX)/share
 APPLICATIONSDIR ?= $(DATADIR)/applications
+ICONDIR ?= $(DATADIR)/icons
 DESTDIR ?=
 INSTALL ?= install
 CFLAGS ?= -Os -g
@@ -73,8 +74,9 @@ run: jot
 	"$(LINUX_BUILD_DIR)/jot" $(ARGS)
 
 install: jot
-	$(INSTALL) -d "$(DESTDIR)$(BINDIR)" "$(DESTDIR)$(APPLICATIONSDIR)"
+	$(INSTALL) -d "$(DESTDIR)$(BINDIR)" "$(DESTDIR)$(APPLICATIONSDIR)" "$(DESTDIR)$(ICONDIR)/hicolor/scalable/apps"
 	$(INSTALL) -m 755 "$(LINUX_BUILD_DIR)/jot" "$(DESTDIR)$(BINDIR)/jot"
+	$(INSTALL) -m 644 packaging/dev.jot.Jot.svg "$(DESTDIR)$(ICONDIR)/hicolor/scalable/apps/dev.jot.Jot.svg"
 	$(PYTHON) tools/install-desktop.py "$(BINDIR)/jot" "$(DESTDIR)$(APPLICATIONSDIR)/dev.jot.Jot.desktop"
 
 windows:

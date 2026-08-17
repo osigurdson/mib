@@ -1,5 +1,7 @@
 # Jot
 
+<img src="packaging/dev.jot.Jot.svg" width="96" height="96" alt="Jot logo">
+
 A small C editor for notes and screenshots with native Linux/Wayland and Windows
 backends, rendering on the CPU.
 Its bundled monospace Nerd Font uses a small custom outline format, an 8×8
@@ -46,9 +48,13 @@ staging root for packaging, for example `make install DESTDIR=/tmp/jot-package`.
 Installation also adds a **Jot** launcher entry at
 `~/.local/share/applications/dev.jot.Jot.desktop`. Its executable path follows
 `BINDIR`; override `DATADIR` or `APPLICATIONSDIR` to choose where the desktop entry
-is installed. The font is embedded; no additional runtime assets are required.
+is installed. The logo is installed under `$(DATADIR)/icons/hicolor` (override
+`ICONDIR` to change the icon root). The font remains embedded.
 This replaces the previous Jot executable and launcher entry when installed to
 the same prefix. Existing pages and preferences remain compatible.
+
+The logo is the unchanged [upstream Jot SVG](https://github.com/osigurdson/jot/blob/4cdc1ccb336dab9237f97394b70bd8704c1758b3/data/dev.jot.Jot.svg),
+covered by the bundled [MIT license](third_party/jot-LICENSE).
 
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.
