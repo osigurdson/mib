@@ -196,23 +196,23 @@ static void render_modes(void)
     assert(app_view_next(&app, second) == editor_line_end(&app.editor, second) + 1);
     int x = app.text_x, first = app.padding + app.line_height / 2;
     assert(app_hit_test(&app, x, first) == 2); /* heading marker is concealed */
-    assert(app_hit_test(&app, x, first + app.line_height) == second + 2);
-    assert(app_hit_test(&app, x + 5 * app.cell, first + app.line_height) ==
+    assert(app_hit_test(&app, x, first + 2 * app.line_height) == second + 2);
+    assert(app_hit_test(&app, x + 5 * app.cell, first + 2 * app.line_height) ==
            (size_t)(strstr(note, "label") - note));
-    assert(app_hit_test(&app, x + 11 * app.cell, first + app.line_height) ==
+    assert(app_hit_test(&app, x + 11 * app.cell, first + 2 * app.line_height) ==
            (size_t)(strstr(note, "tail") - note));
-    assert(app_hit_test(&app, x, first + 2 * app.line_height) ==
+    assert(app_hit_test(&app, x, first + 3 * app.line_height) ==
            (size_t)(strstr(note, "quote") - note));
-    assert(app_hit_test(&app, x + 2 * app.cell, first + 3 * app.line_height) ==
+    assert(app_hit_test(&app, x + 2 * app.cell, first + 4 * app.line_height) ==
            (size_t)(strstr(note, "task") - note));
     size_t fence = (size_t)(strstr(note, "```") - note);
     assert(app_view_rows(&app, fence) == 0);
-    assert(app_hit_test(&app, x, first + 4 * app.line_height) ==
+    assert(app_hit_test(&app, x, first + 5 * app.line_height) ==
            (size_t)(strstr(note, "# raw") - note));
-    assert(pixels[(app.padding + 4 * app.line_height) * WIDTH + x] == 0xff242d3b);
-    assert(pixels[(app.padding + 2 * app.line_height) * WIDTH + x - app.padding] == 0xffa3be8c);
-    app_pointer(&app, x, first + app.line_height, false);
-    app_pointer(&app, x + 3 * app.cell, first + app.line_height, true);
+    assert(pixels[(app.padding + 5 * app.line_height) * WIDTH + x] == 0xff242d3b);
+    assert(pixels[(app.padding + 3 * app.line_height) * WIDTH + x - app.padding] == 0xffa3be8c);
+    app_pointer(&app, x, first + 2 * app.line_height, false);
+    app_pointer(&app, x + 3 * app.cell, first + 2 * app.line_height, true);
     assert(app.editor.mode == VISUAL && app.editor.anchor == second + 2 &&
            app.editor.cursor == second + 5);
     assert(app.editor.revision == revision && !strcmp(app.editor.text, note));
@@ -226,12 +226,60 @@ static void render_modes(void)
     app_close(&app);
 }
 
+static unsigned style_at(const char *text, const char *needle)
+{
+    struct md_span spans[128];
+    size_t n = markdown_line(text, 0, strlen(text), spans, 128, false);
+    size_t at = (size_t)(strstr(text, needle) - text);
+    unsigned style = 0;
+    for (size_t i = 0; i < n; ++i)
+        if (at >= spans[i].start && at < spans[i].end) style |= spans[i].style;
+    return style;
+}
+static void markdown_notes(void)
+{
+    assert(style_at("**bold and *nested italic***", "nested") == (MD_BOLD | MD_ITALIC));
+    assert(style_at("*italic and **nested bold***", "nested") == (MD_BOLD | MD_ITALIC));
+    assert(style_at("***both***", "both") == (MD_BOLD | MD_ITALIC));
+    assert(style_at("~~old **bold**~~", "bold") == (MD_STRIKE | MD_BOLD));
+    assert(style_at("`~~literal~~`", "literal") == MD_CODE);
+    assert(style_at("https://example.org/a_b", "a_b") == MD_LINK);
+    assert(!(style_at("word_with_underscores", "with") & MD_ITALIC));
+    assert(markdown_block("  12) item", 0, 10).indent == 6);
+    assert(markdown_block("    - [x] task", 0, 14).indent == 6);
+    assert(markdown_block("* * *", 0, 5).rule);
+    assert(!markdown_block("- text", 0, 6).rule);
+    assert(!markdown_block("1234567890. text", 0, 16).indent);
+    struct app app;
+    assert(app_open(&app, NULL));
+    const char *note = "## Heading\n  12. a long nested list item with several words for wrapping\n---\n";
+    assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+    editor_command(&app.editor, "set polish");
+    uint32_t pixels[400 * 400];
+    assert(app_paint(&app, pixels, 400, 400, 400));
+    assert(app_view_rows(&app, 0) == 2);
+    size_t list = (size_t)(strstr(note, "  12.") - note);
+    size_t wrap = app_view_next(&app, list);
+    assert(wrap > list && wrap < editor_line_end(&app.editor, list));
+    /* Continuation text begins under the first item character, not the number. */
+    assert(app_hit_test(&app, app.text_x + 6 * app.cell,
+                       app.padding + 3 * app.line_height) == wrap);
+    size_t rule = (size_t)(strstr(note, "---") - note);
+    assert(app_view_next(&app, rule) == strlen(note));
+    editor_command(&app.editor, "set raw");
+    assert(app_paint(&app, pixels, 400, 400, 400));
+    assert(app_view_rows(&app, 0) == 1);
+    assert(!strcmp(app.editor.text, note));
+    app_close(&app);
+}
+
 int main(void)
 {
     gutter_layout();
     theme_layout();
     decoration_layout();
     render_modes();
+    markdown_notes();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

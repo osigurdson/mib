@@ -79,6 +79,13 @@ changes on focus when no local edits are pending. One process owns a page; a
 second launch requests activation of that window. Pages and explicit files both
 protect unsaved changes on quit.
 
+Markdown presentation supports headings, nested bullet/numbered/task lists,
+quotes, horizontal rules, fenced and inline code, links, bare URLs, images,
+bold/italic combinations, and strikethrough. Polish mode hides syntax, adds
+hanging list indents and heading separators, and stays read-only. Raw mode
+always shows the exact source. Parsing uses fixed-size line storage; unusually
+complex inline formatting falls back to literal text when that storage fills.
+
 ## Platforms and source organization
 
 Linux/Wayland and Windows share the editor, application, renderer, and bundled

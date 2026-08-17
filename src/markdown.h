@@ -15,7 +15,8 @@ enum {
     MD_HIDE = 256,
     MD_BULLET = 512,
     MD_TASK = 1024,
-    MD_CHECKED = 2048
+    MD_CHECKED = 2048,
+    MD_STRIKE = 4096
 };
 struct md_span {
     size_t start, end;
@@ -28,7 +29,11 @@ struct md_cache {
     uint64_t revision;
     char fence_after;
     bool valid, fenced, fence_line, quote;
+    unsigned indent, heading;
+    bool rule;
 };
+struct md_block { unsigned indent, heading; bool rule; };
+struct md_block markdown_block(const char *text, size_t start, size_t end);
 /* Fixed caller-owned span storage; excess styling is safely omitted. */
 size_t markdown_line(const char *text, size_t start, size_t end, struct md_span *spans,
                      size_t capacity, bool fenced);

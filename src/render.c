@@ -218,6 +218,10 @@ static struct md_cache *markdown_at(struct app *app, size_t position)
     cache->fence_line = marker && (!fence || marker == fence);
     cache->fence_after = marker ? (fence ? (fence == marker ? 0 : fence) : marker) : fence;
     cache->count = markdown_line(ed->text, start, cache->end, cache->spans, 128, cache->fenced);
+    struct md_block block = markdown_block(ed->text, start, cache->end);
+    cache->indent = cache->fenced ? 0 : block.indent;
+    cache->heading = cache->fenced ? 0 : block.heading;
+    cache->rule = !cache->fenced && block.rule;
     cache->quote = false;
     for (size_t i = 0; i < cache->count; ++i)
         cache->quote |= (cache->spans[i].style & MD_QUOTE) != 0;
@@ -230,6 +234,12 @@ static unsigned markdown_style(const struct md_cache *cache, size_t at)
         if (at >= cache->spans[i].start && at < cache->spans[i].end)
             style |= cache->spans[i].style;
     return style;
+}
+/* A hanging indent is capped so even deeply nested lists make progress. */
+static unsigned view_indent(const struct app *app, const struct md_cache *cache, size_t start)
+{
+    unsigned columns = app->editor.viewport_columns;
+    return start == cache->start ? 0 : cache->indent < columns / 2 ? cache->indent : columns / 2;
 }
 static const struct media_entry *view_image(struct app *app, size_t start)
 {
@@ -249,8 +259,8 @@ size_t app_view_next(struct app *app, size_t start)
         return app_row_next(&app->editor, start, columns);
     struct md_cache *cache = markdown_at(app, start);
     size_t p = start, last_space = SIZE_MAX;
-    unsigned col = 0;
-    while (!cache->fence_line && p < cache->end) {
+    unsigned col = view_indent(app, cache, start);
+    while (!cache->fence_line && !cache->rule && p < cache->end) {
         size_t at = p;
         uint32_t cp = editor_codepoint(app->editor.text, cache->end, &p);
         if (markdown_style(cache, at) & MD_HIDE)
@@ -270,8 +280,12 @@ int app_view_rows(struct app *app, size_t start)
         return 1;
     if (app->editor.render_mode == RENDER_POLISH && markdown_at(app, start)->fence_line)
         return 0;
-    if (!view_image(app, start))
-        return 1;
+    if (!view_image(app, start)) {
+        struct md_cache *cache = markdown_at(app, start);
+        bool last = app_view_next(app, start) >= cache->end;
+        return app->editor.render_mode == RENDER_POLISH && cache->heading &&
+                       cache->heading <= 2 && last ? 2 : 1;
+    }
     return media_rows(app, start, app->text_width,
                       app->line_height ? app->line_height : 24,
                       app->editor.viewport_rows ? app->editor.viewport_rows : 24);
@@ -456,8 +470,15 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             rectangle(pixels, width, height, stride, text_x, y, text_width, line_height, theme->code);
         if (polish && cache->quote)
             rectangle(pixels, width, height, stride, text_x - padding, y, 2, line_height, theme->quote);
+        int span = app_view_rows(app, start);
+        if (polish && (cache->rule || (cache->heading && cache->heading <= 2 && span == 2))) {
+            int rule_y = cache->rule ? y + line_height / 2 : y + line_height + line_height / 3;
+            rectangle(pixels, width, height, stride, text_x, rule_y, text_width,
+                      cache->heading == 1 ? 2 : 1, theme->dim);
+        }
         size_t offset = start;
-        unsigned column = 0;
+        unsigned column = polish ? view_indent(app, cache, start) : 0;
+        if (polish && cache->rule) offset = end;
         while (offset < end) {
             size_t at = offset;
             uint32_t cp = editor_codepoint(ed->text, end, &offset);
@@ -518,7 +539,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                 if ((style & MD_BOLD) && !glyph(app, pixels, width, height, stride, cp, x + 1,
                                                 y + ascender, status_y, color))
                     return false;
-                if (style & MD_DONE)
+                if (style & (MD_DONE | MD_STRIKE))
                     rectangle(pixels, width, height, stride, x, y + ascender / 2, cell, 1, color);
             }
             column += advance;
@@ -527,6 +548,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             cursor_x = text_x + (int)column * cell;
             cursor_y = y;
         }
+        row += span - 1;
         if (next == start || (next == ed->length && (next == 0 || ed->text[next - 1] != '\n')))
             break;
         start = next;
@@ -623,7 +645,7 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
     }
     size_t end = app_view_next(app, p);
     struct md_cache *cache = ed->render_mode == RENDER_POLISH ? markdown_at(app, p) : NULL;
-    unsigned col = 0, target = x > 0 ? (unsigned)(x / app->cell) : 0;
+    unsigned col = cache ? view_indent(app, cache, p) : 0, target = x > 0 ? (unsigned)(x / app->cell) : 0;
     while (p < end && ed->text[p] != '\n') {
         if (cache && (markdown_style(cache, p) & MD_HIDE)) {
             p = editor_next(ed, p);
