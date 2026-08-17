@@ -196,3 +196,87 @@ size_t markdown_line(const char *s, size_t start, size_t end, struct md_span *ou
     inlines(s, start, end, out, &n, capacity, 0);
     return n;
 }
+
+/* Pipe tables deliberately have a small, fixed column limit. Escaped pipes
+ * remain inside their cell, including in inline code. */
+unsigned markdown_cells(const char *s, size_t start, size_t end, struct md_cell *cells)
+{
+    while (start < end && (s[start] == ' ' || s[start] == '\t')) ++start;
+    while (end > start && (s[end - 1] == ' ' || s[end - 1] == '\t')) --end;
+    bool pipe = false;
+    if (start < end && s[start] == '|') { ++start; pipe = true; }
+    unsigned count = 0;
+    size_t a = start;
+    for (size_t p = start; p <= end; ++p) {
+        if (p < end && s[p] == '\\' && p + 1 < end) { ++p; continue; }
+        if (p != end && s[p] != '|') continue;
+        if (count == MD_TABLE_COLUMNS) return 0;
+        size_t b = p;
+        while (a < b && (s[a] == ' ' || s[a] == '\t')) ++a;
+        while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t')) --b;
+        cells[count++] = (struct md_cell){a, b};
+        if (p < end) pipe = true;
+        if (p + 1 == end && s[p] == '|') break;
+        a = p + 1;
+    }
+    return pipe ? count : 0;
+}
+static bool table_separator(const char *s, size_t a, size_t b, unsigned count,
+                            unsigned char *align)
+{
+    struct md_cell cells[MD_TABLE_COLUMNS];
+    unsigned char found[MD_TABLE_COLUMNS];
+    if (!count || markdown_cells(s, a, b, cells) != count) return false;
+    for (unsigned i = 0; i < count; ++i) {
+        size_t p = cells[i].start, end = cells[i].end;
+        bool left = p < end && s[p] == ':';
+        if (left) ++p;
+        size_t dashes = p;
+        while (p < end && s[p] == '-') ++p;
+        if (p - dashes < 3) return false;
+        bool right = p < end && s[p] == ':';
+        if (right) ++p;
+        if (p != end) return false;
+        found[i] = right ? (left ? 1 : 2) : 0;
+    }
+    memcpy(align, found, count);
+    return true;
+}
+void markdown_table(const char *s, size_t length, size_t start, size_t end,
+                    struct md_table *table, bool continuation)
+{
+    unsigned previous = table->count;
+    table->count = markdown_cells(s, start, end, table->cells);
+    table->header = table->separator = false;
+    if (!table->count) return;
+    if (continuation && table->count == previous) {
+        table->separator = table_separator(s, start, end, table->count, table->align);
+        return;
+    }
+    size_t next = end < length ? end + 1 : end, next_end = next;
+    while (next_end < length && s[next_end] != '\n') ++next_end;
+    if (table_separator(s, next, next_end, table->count, table->align)) {
+        table->header = true;
+        return;
+    }
+    if (continuation && !previous) { table->count = 0; return; }
+    /* Random access (scrolling/clicking) reconstructs context without an AST. */
+    size_t a = start, b = end;
+    struct md_cell cells[MD_TABLE_COLUMNS];
+    for (;;) {
+        if (table_separator(s, a, b, table->count, table->align) && a) {
+            size_t header_end = a - 1, header = header_end;
+            while (header && s[header - 1] != '\n') --header;
+            if (markdown_cells(s, header, header_end, cells) == table->count) {
+                table->separator = a == start;
+                return;
+            }
+        }
+        if (!a) break;
+        b = a - 1;
+        a = b;
+        while (a && s[a - 1] != '\n') --a;
+        if (markdown_cells(s, a, b, cells) != table->count) break;
+    }
+    table->count = 0;
+}

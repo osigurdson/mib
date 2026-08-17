@@ -273,6 +273,73 @@ static void markdown_notes(void)
     app_close(&app);
 }
 
+static void markdown_tables(void)
+{
+    const char *note = "| Name | Value |\n| :--- | ---: |\n"
+                       "| **alpha** with several words that wrap neatly | 42 |\n"
+                       "| literal \\| pipe | `code` |\n";
+    struct md_table table = {0};
+    size_t separator = (size_t)(strchr(note, '\n') - note) + 1;
+    size_t body = (size_t)(strchr(note + separator, '\n') - note) + 1;
+    size_t last = (size_t)(strchr(note + body, '\n') - note) + 1;
+    markdown_table(note, strlen(note), 0, separator - 1, &table, false);
+    assert(table.count == 2 && table.header && !table.separator);
+    assert(table.align[0] == 0 && table.align[1] == 2);
+    markdown_table(note, strlen(note), separator, body - 1, &table, true);
+    assert(table.separator && !table.header);
+    markdown_table(note, strlen(note), body, last - 1, &table, true);
+    assert(table.count == 2 && !table.header && !table.separator);
+    memset(&table, 0, sizeof(table));
+    markdown_table(note, strlen(note), last, strlen(note) - 1, &table, false);
+    assert(table.count == 2 && table.align[1] == 2); /* direct access into body */
+    assert(table.cells[0].end - table.cells[0].start == strlen("literal \\| pipe"));
+    const char *bad = "a | b\n-- | ---\n";
+    markdown_table(bad, strlen(bad), 0, 5, &table, false);
+    assert(!table.count);
+    struct md_cell cells[MD_TABLE_COLUMNS];
+    const char *wide = "a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q";
+    assert(!markdown_cells(wide, 0, strlen(wide), cells));
+    struct app app;
+    assert(app_open(&app, NULL));
+    assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+    editor_command(&app.editor, "set polish");
+    uint32_t pixels[400 * 400];
+    assert(app_paint(&app, pixels, 400, 400, 400));
+    assert(app_view_rows(&app, separator) == 0);
+    assert(app_view_next(&app, body) == last);
+    int body_rows = app_view_rows(&app, body);
+    assert(body_rows > 1);
+    /* Clicking wrapped/hidden source and a right-aligned number. */
+    assert(app_hit_test(&app, app.text_x + app.cell,
+                       app.padding + app.line_height) == body + 4);
+    assert(app_hit_test(&app, app.text_x + app.cell,
+                       app.padding + 2 * app.line_height) ==
+           (size_t)(strstr(note, "several") - note));
+    unsigned content = (app.editor.viewport_columns - 1) / 2 - 3;
+    int number_x = app.text_x + (int)(2 * content + 2) * app.cell;
+    assert(app_hit_test(&app, number_x, app.padding + app.line_height) ==
+           (size_t)(strstr(note, "42") - note));
+    assert(app_hit_test(&app, app.text_x + app.cell,
+                       app.padding + (body_rows + 1) * app.line_height) == last + 2);
+    /* A resize must retain access to long rows through the source fallback. */
+    assert(app_paint(&app, pixels, 120, 200, 120));
+    assert(app_view_next(&app, body) < last);
+    app.editor.cursor = app.editor.top = 0;
+    editor_command(&app.editor, "set raw");
+    assert(app_paint(&app, pixels, 400, 400, 400));
+    assert(app_view_rows(&app, separator) == 1);
+    assert(app_hit_test(&app, app.text_x, app.padding) == 0);
+    assert(!strcmp(app.editor.text, note));
+    const char *code = "```\n| a | b |\n| --- | --- |\n```\n";
+    assert(editor_replace(&app.editor, 0, app.editor.length, code, strlen(code)));
+    app.editor.cursor = app.editor.top = 0;
+    editor_command(&app.editor, "set polish");
+    assert(app_paint(&app, pixels, 400, 400, 400));
+    size_t code_separator = (size_t)(strstr(code, "| ---") - code);
+    assert(app_view_rows(&app, code_separator) == 1 && !app.markdown.table.count);
+    app_close(&app);
+}
+
 int main(void)
 {
     gutter_layout();
@@ -280,6 +347,7 @@ int main(void)
     decoration_layout();
     render_modes();
     markdown_notes();
+    markdown_tables();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

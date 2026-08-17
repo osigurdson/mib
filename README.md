@@ -81,8 +81,11 @@ protect unsaved changes on quit.
 
 Markdown presentation supports headings, nested bullet/numbered/task lists,
 quotes, horizontal rules, fenced and inline code, links, bare URLs, images,
-bold/italic combinations, and strikethrough. Polish mode hides syntax, adds
-hanging list indents and heading separators, and stays read-only. Raw mode
+bold/italic combinations, strikethrough, and simple pipe tables. Tables have
+bold headers, left/center/right alignment, escaped pipes (`\|`), and wrapping
+cell text. They support up to 16 columns with matching cell counts. Very wide
+tables or rows taller than the viewport show as source so all text stays
+accessible. Polish mode hides syntax, adds hanging list indents and heading separators, and stays read-only. Raw mode
 always shows the exact source. Parsing uses fixed-size line storage; unusually
 complex inline formatting falls back to literal text when that storage fills.
 

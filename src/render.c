@@ -209,6 +209,8 @@ static struct md_cache *markdown_at(struct app *app, size_t position)
         size_t end = editor_line_end(ed, p);
         p = end < ed->length ? end + 1 : end;
     }
+    bool table_continuation = cache->valid && cache->revision == ed->revision &&
+                              cache->end < ed->length && cache->end + 1 == start;
     char marker = editor_fence(ed, start);
     cache->start = start;
     cache->end = editor_line_end(ed, start);
@@ -217,7 +219,25 @@ static struct md_cache *markdown_at(struct app *app, size_t position)
     cache->fenced = fence || marker;
     cache->fence_line = marker && (!fence || marker == fence);
     cache->fence_after = marker ? (fence ? (fence == marker ? 0 : fence) : marker) : fence;
+    if (cache->fenced) cache->table.count = 0;
+    else markdown_table(ed->text, ed->length, start, cache->end, &cache->table,
+                        table_continuation);
     cache->count = markdown_line(ed->text, start, cache->end, cache->spans, 128, cache->fenced);
+    if (cache->table.count) {
+        size_t previous = start;
+        for (unsigned i = 0; i < cache->table.count; ++i) {
+            struct md_cell cell = cache->table.cells[i];
+            if (previous < cell.start && cache->count < 128)
+                cache->spans[cache->count++] = (struct md_span){previous, cell.start, MD_DIM};
+            if (cache->table.header && cell.start < cell.end && cache->count < 128)
+                cache->spans[cache->count++] = (struct md_span){cell.start, cell.end, MD_BOLD};
+            previous = cell.end;
+        }
+        if (previous < cache->end && cache->count < 128)
+            cache->spans[cache->count++] = (struct md_span){previous, cache->end, MD_DIM};
+        if (cache->table.separator && cache->count < 128)
+            cache->spans[cache->count++] = (struct md_span){start, cache->end, MD_DIM};
+    }
     struct md_block block = markdown_block(ed->text, start, cache->end);
     cache->indent = cache->fenced ? 0 : block.indent;
     cache->heading = cache->fenced ? 0 : block.heading;
@@ -234,6 +254,59 @@ static unsigned markdown_style(const struct md_cache *cache, size_t at)
         if (at >= cache->spans[i].start && at < cache->spans[i].end)
             style |= cache->spans[i].style;
     return style;
+}
+/* Shared table geometry keeps wrapping, drawing and clicks on source offsets. */
+static size_t table_segment(const struct app *app, const struct md_cache *cache,
+                            size_t start, size_t end, unsigned width, unsigned *used)
+{
+    size_t p = start, space = SIZE_MAX;
+    unsigned space_used = 0;
+    *used = 0;
+    while (p < end) {
+        size_t at = p;
+        uint32_t cp = editor_codepoint(app->editor.text, end, &p);
+        if (markdown_style(cache, at) & MD_HIDE) continue;
+        unsigned step = cp == '\t' ? 4 - *used % 4 : 1;
+        if (*used + step > width && *used) {
+            if (space != SIZE_MAX) { *used = space_used; return space; }
+            return at;
+        }
+        *used += step > width ? width : step;
+        if (cp == ' ' || cp == '\t') { space = p; space_used = *used; }
+    }
+    return p;
+}
+static int table_rows(const struct app *app, const struct md_cache *cache, unsigned width)
+{
+    int rows = 1;
+    for (unsigned i = 0; i < cache->table.count; ++i) {
+        struct md_cell cell = cache->table.cells[i];
+        size_t p = cell.start;
+        int count = 0;
+        do {
+            unsigned used;
+            size_t next = table_segment(app, cache, p, cell.end, width, &used);
+            ++count;
+            if (count > (int)app->editor.viewport_rows || next <= p) break;
+            p = next;
+        } while (p < cell.end);
+        if (count > rows) rows = count;
+    }
+    return rows;
+}
+static unsigned table_width(const struct app *app, const struct md_cache *cache)
+{
+    unsigned count = cache->table.count, columns = app->editor.viewport_columns;
+    if (app->editor.render_mode != RENDER_POLISH || !count || columns < 4 * count + 1)
+        return 0;
+    unsigned width = (columns - 1) / count - 3;
+    return cache->table.separator || table_rows(app, cache, width) <= (int)app->editor.viewport_rows ? width : 0;
+}
+static unsigned table_align(const struct md_cache *cache, unsigned column,
+                            unsigned width, unsigned used)
+{
+    unsigned spare = width > used ? width - used : 0;
+    return cache->table.align[column] == 2 ? spare : cache->table.align[column] == 1 ? spare / 2 : 0;
 }
 /* A hanging indent is capped so even deeply nested lists make progress. */
 static unsigned view_indent(const struct app *app, const struct md_cache *cache, size_t start)
@@ -258,6 +331,8 @@ size_t app_view_next(struct app *app, size_t start)
     if (app->editor.render_mode != RENDER_POLISH)
         return app_row_next(&app->editor, start, columns);
     struct md_cache *cache = markdown_at(app, start);
+    if (table_width(app, cache))
+        return cache->end < app->editor.length ? cache->end + 1 : cache->end;
     size_t p = start, last_space = SIZE_MAX;
     unsigned col = view_indent(app, cache, start);
     while (!cache->fence_line && !cache->rule && p < cache->end) {
@@ -282,6 +357,8 @@ int app_view_rows(struct app *app, size_t start)
         return 0;
     if (!view_image(app, start)) {
         struct md_cache *cache = markdown_at(app, start);
+        unsigned width = table_width(app, cache);
+        if (width) return cache->table.separator ? 0 : table_rows(app, cache, width);
         bool last = app_view_next(app, start) >= cache->end;
         return app->editor.render_mode == RENDER_POLISH && cache->heading &&
                        cache->heading <= 2 && last ? 2 : 1;
@@ -344,6 +421,105 @@ static bool highlight(const struct editor *ed, size_t offset)
         if (editor_match_at(ed, p))
             return true;
     return false;
+}
+static uint32_t inline_color(const struct palette *theme, unsigned style)
+{
+    if (style & MD_DIM) return theme->dim;
+    if (style & MD_LINK) return theme->link;
+    if (style & MD_HEADING) return theme->heading;
+    if (style & MD_QUOTE) return theme->quote;
+    if (style & MD_DONE) return theme->done;
+    if (style & MD_ITALIC) return theme->italic;
+    return theme->text;
+}
+static bool draw_table(struct app *app, struct md_cache *cache, uint32_t *pixels,
+                       int width, int height, int stride, int y, int ascender,
+                       int limit, unsigned content, size_t selection_a, size_t selection_b)
+{
+    const struct palette *theme = colors(app);
+    int rows = table_rows(app, cache, content), cell = app->cell;
+    int table_height = rows * app->line_height;
+    int column_width = (int)(content + 3) * cell;
+    int table_width = column_width * (int)cache->table.count;
+    if (y + table_height > limit) table_height = limit - y;
+    if (cache->table.header) {
+        rectangle(pixels, width, height, stride, app->text_x, y, table_width, table_height, theme->code);
+        rectangle(pixels, width, height, stride, app->text_x, y, table_width, 1, theme->dim);
+    }
+    rectangle(pixels, width, height, stride, app->text_x, y + table_height - 1,
+              table_width, 1, theme->dim);
+    for (unsigned i = 0; i <= cache->table.count; ++i)
+        rectangle(pixels, width, height, stride, app->text_x + (int)i * column_width,
+                  y, 1, table_height, theme->dim);
+    for (unsigned i = 0; i < cache->table.count; ++i) {
+        struct md_cell range = cache->table.cells[i];
+        size_t p = range.start;
+        for (int row = 0; p < range.end && y + row * app->line_height < limit; ++row) {
+            unsigned used;
+            size_t next = table_segment(app, cache, p, range.end, content, &used);
+            unsigned column = table_align(cache, i, content, used);
+            int top = y + row * app->line_height;
+            while (p < next) {
+                size_t at = p;
+                uint32_t cp = editor_codepoint(app->editor.text, next, &p);
+                unsigned style = markdown_style(cache, at);
+                if (style & MD_HIDE) continue;
+                int x = app->text_x + (int)i * column_width + ((int)column + 1) * cell;
+                unsigned advance = cp == '\t' ? 4 - (column - table_align(cache, i, content, used)) % 4 : 1;
+                if (advance > content) advance = content;
+                uint32_t color = inline_color(theme, style);
+                if (style & MD_CODE)
+                    rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
+                              app->line_height, theme->code);
+                if (highlight(&app->editor, at))
+                    rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
+                              app->line_height, theme->search);
+                if (at >= selection_a && at < selection_b)
+                    rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
+                              app->line_height, theme->selection);
+                if (cp != '\t') {
+                    if (cp < 32 || cp == 127) cp = '?';
+                    if (!glyph(app, pixels, width, height, stride, cp, x, top + ascender, limit, color))
+                        return false;
+                    if ((cache->table.header || (style & MD_BOLD)) &&
+                        !glyph(app, pixels, width, height, stride, cp, x + 1, top + ascender, limit, color))
+                        return false;
+                    if (style & (MD_DONE | MD_STRIKE))
+                        rectangle(pixels, width, height, stride, x, top + ascender / 2, cell, 1, color);
+                }
+                column += advance;
+            }
+        }
+    }
+    return true;
+}
+static size_t table_hit(const struct app *app, const struct md_cache *cache, int x,
+                        unsigned row, unsigned content)
+{
+    unsigned target = x > 0 ? (unsigned)(x / app->cell) : 0;
+    unsigned column = target / (content + 3);
+    if (column >= cache->table.count) column = cache->table.count - 1;
+    struct md_cell cell = cache->table.cells[column];
+    size_t p = cell.start, end = p;
+    unsigned used = 0;
+    for (unsigned i = 0; i <= row; ++i) {
+        end = table_segment(app, cache, p, cell.end, content, &used);
+        if (i < row && end == cell.end) return cell.end;
+        if (i == row) break;
+        p = end;
+    }
+    unsigned left = column * (content + 3) + 1 + table_align(cache, column, content, used);
+    target = target > left ? target - left : 0;
+    unsigned col = 0;
+    while (p < end) {
+        size_t at = p;
+        uint32_t cp = editor_codepoint(app->editor.text, end, &p);
+        if (markdown_style(cache, at) & MD_HIDE) continue;
+        unsigned step = cp == '\t' ? 4 - col % 4 : 1;
+        if (col + step > target) return at;
+        col += step;
+    }
+    return end;
 }
 static bool paint(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
@@ -435,7 +611,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             --end;
         size_t logical_start = editor_line_start(ed, start);
         struct md_cache *cache = ed->render_mode == RENDER_RAW ? NULL : markdown_at(app, start);
-        if (polish && cache->fence_line) {
+        if (polish && (cache->fence_line ||
+                       (table_width(app, cache) && cache->table.separator))) {
             if (next <= start)
                 break;
             start = next;
@@ -466,6 +643,17 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             start = next;
             continue;
         }
+        unsigned table_content = polish ? table_width(app, cache) : 0;
+        if (table_content) {
+            int span = table_rows(app, cache, table_content);
+            if (!draw_table(app, cache, pixels, width, height, stride, y, ascender, status_y,
+                            table_content, selected ? selection_a : 0, selected ? selection_b : 0))
+                return false;
+            row += span - 1;
+            if (next <= start || next == ed->length) break;
+            start = next;
+            continue;
+        }
         if (polish && cache->fenced)
             rectangle(pixels, width, height, stride, text_x, y, text_width, line_height, theme->code);
         if (polish && cache->quote)
@@ -487,19 +675,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                 continue;
             unsigned advance = cp == '\t' ? 4 - column % 4 : 1;
             int x = text_x + (int)column * cell;
-            uint32_t color = theme->text;
-            if (style & MD_DIM)
-                color = theme->dim;
-            else if (style & MD_LINK)
-                color = theme->link;
-            else if (style & MD_HEADING)
-                color = theme->heading;
-            else if (style & MD_QUOTE)
-                color = theme->quote;
-            else if (style & MD_DONE)
-                color = theme->done;
-            else if (style & MD_ITALIC)
-                color = theme->italic;
+            uint32_t color = inline_color(theme, style);
             if (style & MD_CODE)
                 rectangle(pixels, width, height, stride, x, y, cell * (int)advance, line_height,
                           theme->code);
@@ -635,6 +811,9 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
         if (span && row < span) {
             if (view_image(app, p))
                 return p;
+            struct md_cache *cache = markdown_at(app, p);
+            unsigned content = table_width(app, cache);
+            if (content) return table_hit(app, cache, x, row, content);
             break;
         }
         size_t next = app_view_next(app, p);
