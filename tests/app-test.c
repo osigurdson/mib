@@ -340,6 +340,53 @@ static void markdown_tables(void)
     app_close(&app);
 }
 
+static void normal_markdown_styles(void)
+{
+    assert(style_at("***bolditalic***", "bolditalic") == (MD_BOLD | MD_ITALIC));
+    assert(style_at("~~strikethrough~~", "strikethrough") == MD_STRIKE);
+    const char *note = "***slanted***\n **slanted**\n~~xxxx~~\n```text\nshort\n\n```\nafter\n";
+    const unsigned scales[] = {120, 180, 240};
+    for (unsigned light = 0; light < 2; ++light) {
+        for (unsigned scale = 0; scale < 3; ++scale) {
+            struct app app;
+            assert(app_open(&app, NULL));
+            assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+            app.editor.cursor = app.editor.length - 1;
+            app.editor.light = light;
+            app.scale120 = scales[scale];
+            int width = 400 * (int)app.scale120 / 120;
+            int height = 400 * (int)app.scale120 / 120;
+            uint32_t *pixels = malloc((size_t)width * height * sizeof(*pixels));
+            assert(pixels && app_paint(&app, pixels, width, height, width));
+            uint32_t background = light ? 0xfffaf9f6 : 0xff18202b;
+            uint32_t code = light ? 0xffeeede7 : 0xff242d3b;
+            uint32_t text = light ? 0xff263342 : 0xffe5edf5;
+            /* Both rows have text in the same columns; italic changes the shape. */
+            bool slanted = false;
+            for (int y = 0; y < app.line_height; ++y)
+                for (int x = app.text_x + 3 * app.cell; x < app.text_x + 10 * app.cell; ++x)
+                    slanted |= (pixels[(app.padding + y) * width + x] != background) !=
+                               (pixels[(app.padding + app.line_height + y) * width + x] != background);
+            assert(slanted);
+            int strike_y = app.padding + 2 * app.line_height + tiny_font_metrics(app.font).ascender * 3 / 4;
+            for (int x = app.text_x + 2 * app.cell; x < app.text_x + 6 * app.cell; ++x)
+                assert(pixels[strike_y * width + x] == text);
+            /* Fence markers, content and empty lines all shade through the right edge. */
+            for (int row = 3; row <= 6; ++row) {
+                int y = app.padding + row * app.line_height;
+                assert(pixels[y * width + app.text_x + app.text_width - 1] == code);
+                assert(pixels[y * width + app.padding] == background); /* gutter stays clear */
+            }
+            assert(pixels[(app.padding + 5 * app.line_height) * width + app.text_x] == code);
+            editor_command(&app.editor, "set raw");
+            assert(app_paint(&app, pixels, width, height, width));
+            assert(pixels[(app.padding + 5 * app.line_height) * width + app.text_x] == background);
+            free(pixels);
+            app_close(&app);
+        }
+    }
+}
+
 int main(void)
 {
     gutter_layout();
@@ -348,6 +395,7 @@ int main(void)
     render_modes();
     markdown_notes();
     markdown_tables();
+    normal_markdown_styles();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

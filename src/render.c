@@ -61,8 +61,9 @@ static void rounded_rectangle(uint32_t *pixels, int width, int height, int strid
     }
 }
 
-static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int stride, uint32_t cp,
-                  int x, int baseline, int clip_bottom, uint32_t color)
+static bool styled_glyph(struct app *app, uint32_t *pixels, int width, int height, int stride,
+                         uint32_t cp, int x, int baseline, int clip_bottom, uint32_t color,
+                         unsigned style)
 {
     const struct tiny_glyph *bitmap = tiny_font_glyph(app->font, cp);
     if (!bitmap)
@@ -71,9 +72,11 @@ static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int 
         int y = baseline - bitmap->top + row;
         if (y < 0 || y >= height || y >= clip_bottom)
             continue;
+        /* Shear the cached regular glyph; no additional font or bitmap cache. */
+        int slant = style & MD_ITALIC ? (bitmap->top - row) / 4 : 0;
         const unsigned char *coverage = bitmap->alpha + (size_t)row * bitmap->width;
         for (int col = 0; col < bitmap->width; ++col) {
-            int px = x + bitmap->left + col;
+            int px = x + bitmap->left + col + slant;
             if (px < 0 || px >= width)
                 continue;
             size_t offset = (size_t)y * (size_t)stride + (size_t)px;
@@ -81,6 +84,12 @@ static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int 
         }
     }
     return true;
+}
+
+static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int stride, uint32_t cp,
+                  int x, int baseline, int clip_bottom, uint32_t color)
+{
+    return styled_glyph(app, pixels, width, height, stride, cp, x, baseline, clip_bottom, color, 0);
 }
 
 static bool label(struct app *app, uint32_t *pixels, int width, int height, int stride,
@@ -479,13 +488,16 @@ static bool draw_table(struct app *app, struct md_cache *cache, uint32_t *pixels
                               app->line_height, theme->selection);
                 if (cp != '\t') {
                     if (cp < 32 || cp == 127) cp = '?';
-                    if (!glyph(app, pixels, width, height, stride, cp, x, top + ascender, limit, color))
+                    if (!styled_glyph(app, pixels, width, height, stride, cp, x, top + ascender,
+                                      limit, color, style))
                         return false;
                     if ((cache->table.header || (style & MD_BOLD)) &&
-                        !glyph(app, pixels, width, height, stride, cp, x + 1, top + ascender, limit, color))
+                        !styled_glyph(app, pixels, width, height, stride, cp, x + 1, top + ascender,
+                                      limit, color, style))
                         return false;
                     if (style & (MD_DONE | MD_STRIKE))
-                        rectangle(pixels, width, height, stride, x, top + ascender / 2, cell, 1, color);
+                        rectangle(pixels, width, height, stride, x, top + ascender * 3 / 4, cell,
+                                  (int)((app->scale120 + 119) / 120), color);
                 }
                 column += advance;
             }
@@ -654,7 +666,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             start = next;
             continue;
         }
-        if (polish && cache->fenced)
+        if (cache && cache->fenced)
             rectangle(pixels, width, height, stride, text_x, y, text_width, line_height, theme->code);
         if (polish && cache->quote)
             rectangle(pixels, width, height, stride, text_x - padding, y, 2, line_height, theme->quote);
@@ -709,14 +721,15 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             } else if (cp != '\t') {
                 if (cp < 32 || cp == 127)
                     cp = '?';
-                if (!glyph(app, pixels, width, height, stride, cp, x, y + ascender, status_y,
-                           color))
+                if (!styled_glyph(app, pixels, width, height, stride, cp, x, y + ascender, status_y,
+                                  color, style))
                     return false;
-                if ((style & MD_BOLD) && !glyph(app, pixels, width, height, stride, cp, x + 1,
-                                                y + ascender, status_y, color))
+                if ((style & MD_BOLD) && !styled_glyph(app, pixels, width, height, stride, cp, x + 1,
+                                                       y + ascender, status_y, color, style))
                     return false;
                 if (style & (MD_DONE | MD_STRIKE))
-                    rectangle(pixels, width, height, stride, x, y + ascender / 2, cell, 1, color);
+                    rectangle(pixels, width, height, stride, x, y + ascender * 3 / 4, cell,
+                              (int)((app->scale120 + 119) / 120), color);
             }
             column += advance;
         }
