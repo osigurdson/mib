@@ -85,8 +85,10 @@ bold/italic combinations, strikethrough, and simple pipe tables. Tables have
 bold headers, left/center/right alignment, escaped pipes (`\|`), and wrapping
 cell text. They support up to 16 columns with matching cell counts. Very wide
 tables or rows taller than the viewport show as source so all text stays
-accessible. Polish mode hides syntax, adds hanging list indents and heading separators, and stays read-only. Raw mode
-always shows the exact source. Parsing uses fixed-size line storage; unusually
+accessible. Polish mode hides syntax, adds hanging list indents and a pronounced
+heading size hierarchy with H1/H2 separators, and stays read-only. Normal mode
+uses a subtler heading size hierarchy while keeping source markers visible.
+Raw mode always shows the exact source. Parsing uses fixed-size line storage; unusually
 complex inline formatting falls back to literal text when that storage fills.
 
 ## Platforms and source organization

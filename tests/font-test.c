@@ -26,6 +26,18 @@ int main(void)
     struct tiny_font *font = tiny_font_open(); assert(font);
     assert(!tiny_font_set_size(font, 0));
     assert(!tiny_font_set_size(font, 128 * 64 + 1));
+    /* Alternating heading/body sizes shares the same bounded cache. */
+    assert(tiny_font_set_size(font, 18 * 64));
+    const struct tiny_glyph *small = tiny_font_glyph(font, 'A');
+    int small_width = small->width;
+    assert(tiny_font_set_size(font, 36 * 64));
+    const struct tiny_glyph *large = tiny_font_glyph(font, 'A');
+    assert(large != small && large->width > small_width);
+    assert(tiny_font_set_size(font, 18 * 64));
+    assert(tiny_font_glyph(font, 'A') == small && font->count == 2);
+    struct tiny_font_metrics measured = tiny_font_metrics_at(18 * 64);
+    struct tiny_font_metrics current = tiny_font_metrics(font);
+    assert(measured.advance == current.advance && measured.line_height == current.line_height);
     const unsigned sizes[] = {64, 12*64, 14*64, 16*64, 18*64, 21*64, 22*64+32, 27*64, 36*64, 128*64};
     for (unsigned s = 0; s < sizeof(sizes)/sizeof(sizes[0]); ++s) {
         assert(tiny_font_set_size(font, sizes[s]));

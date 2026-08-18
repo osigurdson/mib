@@ -196,23 +196,25 @@ static void render_modes(void)
     assert(app_view_next(&app, second) == editor_line_end(&app.editor, second) + 1);
     int x = app.text_x, first = app.padding + app.line_height / 2;
     assert(app_hit_test(&app, x, first) == 2); /* heading marker is concealed */
-    assert(app_hit_test(&app, x, first + 2 * app.line_height) == second + 2);
-    assert(app_hit_test(&app, x + 5 * app.cell, first + 2 * app.line_height) ==
+    int body_y = app.padding + app_view_height(&app, 0);
+    int body_first = body_y + app.line_height / 2;
+    assert(app_hit_test(&app, x, body_first) == second + 2);
+    assert(app_hit_test(&app, x + 5 * app.cell, body_first) ==
            (size_t)(strstr(note, "label") - note));
-    assert(app_hit_test(&app, x + 11 * app.cell, first + 2 * app.line_height) ==
+    assert(app_hit_test(&app, x + 11 * app.cell, body_first) ==
            (size_t)(strstr(note, "tail") - note));
-    assert(app_hit_test(&app, x, first + 3 * app.line_height) ==
+    assert(app_hit_test(&app, x, body_first + app.line_height) ==
            (size_t)(strstr(note, "quote") - note));
-    assert(app_hit_test(&app, x + 2 * app.cell, first + 4 * app.line_height) ==
+    assert(app_hit_test(&app, x + 2 * app.cell, body_first + 2 * app.line_height) ==
            (size_t)(strstr(note, "task") - note));
     size_t fence = (size_t)(strstr(note, "```") - note);
     assert(app_view_rows(&app, fence) == 0);
-    assert(app_hit_test(&app, x, first + 5 * app.line_height) ==
+    assert(app_hit_test(&app, x, body_first + 3 * app.line_height) ==
            (size_t)(strstr(note, "# raw") - note));
-    assert(pixels[(app.padding + 5 * app.line_height) * WIDTH + x] == 0xff242d3b);
-    assert(pixels[(app.padding + 3 * app.line_height) * WIDTH + x - app.padding] == 0xffa3be8c);
-    app_pointer(&app, x, first + 2 * app.line_height, false);
-    app_pointer(&app, x + 3 * app.cell, first + 2 * app.line_height, true);
+    assert(pixels[(body_y + 3 * app.line_height) * WIDTH + x] == 0xff242d3b);
+    assert(pixels[(body_y + app.line_height) * WIDTH + x - app.padding] == 0xffa3be8c);
+    app_pointer(&app, x, body_first, false);
+    app_pointer(&app, x + 3 * app.cell, body_first, true);
     assert(app.editor.mode == VISUAL && app.editor.anchor == second + 2 &&
            app.editor.cursor == second + 5);
     assert(app.editor.revision == revision && !strcmp(app.editor.text, note));
@@ -263,7 +265,7 @@ static void markdown_notes(void)
     assert(wrap > list && wrap < editor_line_end(&app.editor, list));
     /* Continuation text begins under the first item character, not the number. */
     assert(app_hit_test(&app, app.text_x + 6 * app.cell,
-                       app.padding + 3 * app.line_height) == wrap);
+                       app.padding + app_view_height(&app, 0) + app.line_height) == wrap);
     size_t rule = (size_t)(strstr(note, "---") - note);
     assert(app_view_next(&app, rule) == strlen(note));
     editor_command(&app.editor, "set raw");
@@ -387,6 +389,96 @@ static void normal_markdown_styles(void)
     }
 }
 
+static void heading_layout(void)
+{
+    const char *note = "# Heading\n## Heading\n### Heading\n#### Heading\n##### Heading\n###### Heading\n"
+                       "body\n# A much longer heading with enough words to wrap across several lines\ntail\n";
+    const unsigned scales[] = {120, 180, 240};
+    for (unsigned light = 0; light < 2; ++light) {
+        for (unsigned scale = 0; scale < 3; ++scale) {
+            struct app app;
+            assert(app_open(&app, NULL));
+            assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+            app.scale120 = scales[scale];
+            app.editor.light = light;
+            int width = 360 * (int)app.scale120 / 120;
+            int height = 720 * (int)app.scale120 / 120;
+            uint32_t *pixels = malloc((size_t)width * height * sizeof(*pixels));
+            assert(pixels);
+            int normal_h1 = 0;
+            const char *modes[] = {"set normal", "set polish", "set raw"};
+            for (unsigned mode = 0; mode < 3; ++mode) {
+                editor_command(&app.editor, modes[mode]);
+                app.editor.cursor = app.editor.top = 0;
+                app.follow_cursor = false;
+                assert(app_paint(&app, pixels, width, height, width));
+                size_t p = 0;
+                int y = app.padding, first_height = app_view_height(&app, 0), previous = first_height;
+                if (mode == 0) normal_h1 = first_height;
+                if (mode == 1) assert(first_height > normal_h1);
+                for (unsigned level = 1; level <= 6; ++level) {
+                    int h = app_view_height(&app, p);
+                    assert(h <= previous);
+                    if (mode == 2) assert(h == app.line_height);
+                    /* Every heading's left edge maps to its own source line. */
+                    int logical_x = (app.text_x + 1) * 120 / (int)app.scale120;
+                    int logical_y = (y + h / 2) * 120 / (int)app.scale120;
+                    assert(app_hit_test(&app, logical_x, logical_y) == p + (mode == 1 ? level + 1 : 0));
+                    previous = h;
+                    y += h;
+                    p = editor_line_end(&app.editor, p) + 1;
+                }
+                unsigned base_size = 18 * 64 * app.scale120 / 120;
+                unsigned heading_size = mode == 0 ? (base_size * 118 + 50) / 100
+                                       : mode == 1 ? (base_size * 190 + 50) / 100 : base_size;
+                int heading_cell = tiny_font_metrics_at(heading_size).advance;
+                unsigned target_column = mode == 1 ? 3 : 6;
+                int logical_click_x = (app.text_x + (int)target_column * heading_cell + heading_cell / 2)
+                                      * 120 / (int)app.scale120;
+                int logical_click_y = (app.padding + first_height / 2) * 120 / (int)app.scale120;
+                assert(app_hit_test(&app, logical_click_x, logical_click_y) ==
+                       target_column + (mode == 1 ? 2 : 0));
+                if (mode == 0) {
+                    app.editor.cursor = 6;
+                    assert(app_paint(&app, pixels, width, height, width));
+                    int cursor_x = app.text_x + 6 * heading_cell + heading_cell / 2;
+                    int cursor_y = app.padding + first_height - 2;
+                    assert(pixels[cursor_y * width + cursor_x] == (light ? 0xff1d6972 : 0xff8fbcbb));
+                    app.editor.cursor = 0;
+                }
+                if (mode != 2) assert(first_height > previous);
+                assert(app_view_height(&app, p) == app.line_height); /* body size restored */
+                p = editor_line_end(&app.editor, p) + 1;
+                y += app.line_height;
+                size_t wrap = app_view_next(&app, p);
+                assert(wrap > p && wrap < editor_line_end(&app.editor, p));
+                int h = app_view_height(&app, p);
+                int logical_x = (app.text_x + 1) * 120 / (int)app.scale120;
+                int logical_y = (y + h + h / 2) * 120 / (int)app.scale120;
+                assert(app_hit_test(&app, logical_x, logical_y) == wrap);
+                /* On a shorter window, follow the cursor using actual heights. */
+                app.editor.cursor = (size_t)(strstr(note, "tail") - note);
+                app.follow_cursor = true;
+                int short_height = 180 * (int)app.scale120 / 120;
+                assert(app_paint(&app, pixels, width, short_height, width));
+                assert(app.editor.top > 0);
+                int cursor_y = 0;
+                p = app.editor.top;
+                while (p < app.editor.cursor) {
+                    cursor_y += app_view_height(&app, p);
+                    size_t next = app_view_next(&app, p);
+                    assert(next > p && next <= app.editor.cursor);
+                    p = next;
+                }
+                assert(cursor_y + app_view_height(&app, p) <= app.text_height);
+            }
+            assert(!strcmp(app.editor.text, note));
+            free(pixels);
+            app_close(&app);
+        }
+    }
+}
+
 int main(void)
 {
     gutter_layout();
@@ -396,6 +488,7 @@ int main(void)
     markdown_notes();
     markdown_tables();
     normal_markdown_styles();
+    heading_layout();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

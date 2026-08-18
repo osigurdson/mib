@@ -20,7 +20,7 @@ struct workspace {
     struct crossing crossings[MAX_EDGES];
     unsigned count;
 };
-struct entry { uint32_t codepoint; struct tiny_glyph glyph; };
+struct entry { uint32_t codepoint, pixels64; struct tiny_glyph glyph; };
 struct tiny_font {
     unsigned pixels64, count, used;
     struct workspace *workspace;
@@ -102,16 +102,13 @@ void tiny_font_close(struct tiny_font *font)
 bool tiny_font_set_size(struct tiny_font *font, unsigned pixels64)
 {
     if (!font || pixels64 < 64 || pixels64 > 128 * 64) return false;
-    if (font->pixels64 != pixels64) {
-        font->pixels64 = pixels64;
-        font->count = font->used = 0;
-    }
+    font->pixels64 = pixels64;
     return true;
 }
 
-struct tiny_font_metrics tiny_font_metrics(const struct tiny_font *font)
+struct tiny_font_metrics tiny_font_metrics_at(unsigned pixels64)
 {
-    float scale = (float)font->pixels64 / (64 * u16(font_data + 4));
+    float scale = (float)pixels64 / (64 * u16(font_data + 4));
     struct tiny_font_metrics metrics = {
         .advance = (int)(u16(font_data + 6) * scale + 0.5f),
         .ascender = ceil_int(s16(font_data + 8) * scale),
@@ -122,6 +119,11 @@ struct tiny_font_metrics tiny_font_metrics(const struct tiny_font *font)
     if (metrics.advance < 1) metrics.advance = 1;
     if (metrics.line_height < 1) metrics.line_height = 1;
     return metrics;
+}
+
+struct tiny_font_metrics tiny_font_metrics(const struct tiny_font *font)
+{
+    return tiny_font_metrics_at(font->pixels64);
 }
 
 static const unsigned char *lookup(uint32_t cp)
@@ -251,7 +253,8 @@ const struct tiny_glyph *tiny_font_glyph(struct tiny_font *font, uint32_t cp)
     if (!record) return NULL;
     cp = u32(record);
     for (unsigned i = 0; i < font->count; ++i)
-        if (font->entries[i].codepoint == cp) return &font->entries[i].glyph;
+        if (font->entries[i].codepoint == cp && font->entries[i].pixels64 == font->pixels64)
+            return &font->entries[i].glyph;
     float scale = (float)font->pixels64 / (64 * u16(font_data + 4));
     int left = floor_int(s16(record + 12) * scale), top = ceil_int(s16(record + 18) * scale);
     int width = ceil_int(s16(record + 16) * scale) - left;
@@ -272,7 +275,7 @@ const struct tiny_glyph *tiny_font_glyph(struct tiny_font *font, uint32_t cp)
         rasterize(font->workspace, alpha, width, height);
     }
     struct entry *entry = &font->entries[font->count++];
-    *entry = (struct entry){cp, {width, height, left, top, alpha}};
+    *entry = (struct entry){cp, font->pixels64, {width, height, left, top, alpha}};
     font->used += bytes;
     return &entry->glyph;
 }

@@ -264,6 +264,31 @@ static unsigned markdown_style(const struct md_cache *cache, size_t at)
             style |= cache->spans[i].style;
     return style;
 }
+struct text_layout { unsigned size; int cell, ascender, height, inset; };
+static unsigned base_font_size(const struct app *app)
+{
+    return (unsigned)(((app->font_size ? app->font_size : 18) * 64 * (int64_t)app->scale120 + 60) / 120);
+}
+static struct text_layout text_layout(const struct app *app, const struct md_cache *cache)
+{
+    unsigned size = base_font_size(app);
+    struct text_layout layout = {size, app->cell, tiny_font_metrics_at(size).ascender,
+                                 app->line_height, 0};
+    if (!cache || !cache->heading || cache->table.count) return layout;
+    static const unsigned polish[] = {190, 160, 135, 118, 108, 100};
+    static const unsigned normal[] = {118, 114, 110, 106, 103, 100};
+    bool reader = app->editor.render_mode == RENDER_POLISH;
+    unsigned ratio = (reader ? polish : normal)[cache->heading - 1];
+    layout.size = (size * ratio + 50) / 100;
+    if (layout.size > 128 * 64) layout.size = 128 * 64;
+    struct tiny_font_metrics metrics = tiny_font_metrics_at(layout.size);
+    layout.cell = metrics.advance;
+    layout.ascender = metrics.ascender;
+    layout.inset = reader ? (int)((3 * app->scale120 + 60) / 120) : 0;
+    layout.height = metrics.line_height + 2 + layout.inset * 2;
+    if (layout.height < app->line_height) layout.height = app->line_height;
+    return layout;
+}
 /* Shared table geometry keeps wrapping, drawing and clicks on source offsets. */
 static size_t table_segment(const struct app *app, const struct md_cache *cache,
                             size_t start, size_t end, unsigned width, unsigned *used)
@@ -337,9 +362,16 @@ size_t app_view_next(struct app *app, size_t start)
     if (image)
         return image->end < app->editor.length ? image->end + 1 : image->end;
     unsigned columns = app->editor.viewport_columns ? app->editor.viewport_columns : 80;
-    if (app->editor.render_mode != RENDER_POLISH)
+    if (app->editor.render_mode == RENDER_RAW)
         return app_row_next(&app->editor, start, columns);
     struct md_cache *cache = markdown_at(app, start);
+    struct text_layout layout = text_layout(app, cache);
+    if (layout.cell > 0 && app->text_width > 0) {
+        columns = (unsigned)(app->text_width / layout.cell);
+        if (!columns) columns = 1;
+    }
+    if (app->editor.render_mode == RENDER_NORMAL)
+        return app_row_next(&app->editor, start, columns);
     if (table_width(app, cache))
         return cache->end < app->editor.length ? cache->end + 1 : cache->end;
     size_t p = start, last_space = SIZE_MAX;
@@ -358,23 +390,25 @@ size_t app_view_next(struct app *app, size_t start)
     }
     return cache->end < app->editor.length ? cache->end + 1 : cache->end;
 }
-int app_view_rows(struct app *app, size_t start)
+int app_view_height(struct app *app, size_t start)
 {
-    if (app->editor.render_mode == RENDER_RAW)
-        return 1;
-    if (app->editor.render_mode == RENDER_POLISH && markdown_at(app, start)->fence_line)
-        return 0;
+    if (app->editor.render_mode == RENDER_RAW) return app->line_height;
+    struct md_cache *cache = markdown_at(app, start);
+    if (app->editor.render_mode == RENDER_POLISH && cache->fence_line) return 0;
     if (!view_image(app, start)) {
-        struct md_cache *cache = markdown_at(app, start);
         unsigned width = table_width(app, cache);
-        if (width) return cache->table.separator ? 0 : table_rows(app, cache, width);
-        bool last = app_view_next(app, start) >= cache->end;
-        return app->editor.render_mode == RENDER_POLISH && cache->heading &&
-                       cache->heading <= 2 && last ? 2 : 1;
+        if (width)
+            return cache->table.separator ? 0 : table_rows(app, cache, width) * app->line_height;
+        return text_layout(app, cache).height;
     }
     return media_rows(app, start, app->text_width,
                       app->line_height ? app->line_height : 24,
-                      app->editor.viewport_rows ? app->editor.viewport_rows : 24);
+                      app->editor.viewport_rows ? app->editor.viewport_rows : 24) * app->line_height;
+}
+int app_view_rows(struct app *app, size_t start)
+{
+    int line = app->line_height ? app->line_height : 24;
+    return (app_view_height(app, start) + line - 1) / line;
 }
 static void draw_image(struct app *app, const struct media_entry *entry, uint32_t *pixels,
                        int width, int height, int stride, int x, int y, int available_width,
@@ -537,9 +571,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
 {
     struct editor *ed = &app->editor;
     const struct palette *theme = colors(app);
-    unsigned size =
-        (unsigned)(((app->font_size ? app->font_size : 18) * 64 * (int64_t)app->scale120 + 60) /
-                   120);
+    unsigned size = base_font_size(app);
     if (!tiny_font_set_size(app->font, size))
         return false;
     struct tiny_font_metrics metrics = tiny_font_metrics(app->font);
@@ -584,23 +616,28 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     app->gutter = gutter;
     app->text_x = text_x;
     app->text_width = text_width;
+    app->text_height = status_y - top;
     if (ed->top > ed->length)
         ed->top = editor_line_start(ed, ed->length);
     if (app->follow_cursor) {
         if (ed->cursor < ed->top)
             ed->top = editor_line_start(ed, ed->cursor);
-        size_t p = ed->top, cursor_row = 0;
+        size_t p = ed->top, cursor_offset = 0;
         while (p < ed->cursor) {
             size_t next = app_view_next(app, p);
             if (next <= p || next > ed->cursor ||
                 (next == ed->cursor && ed->text[next - 1] != '\n' && next == ed->length))
                 break;
-            cursor_row += (size_t)app_view_rows(app, p);
+            cursor_offset += (size_t)app_view_height(app, p);
             p = next;
         }
-        size_t remove = cursor_row >= (size_t)rows ? cursor_row - (size_t)rows + 1 : 0;
-        while (remove) {
-            size_t step = (size_t)app_view_rows(app, ed->top), next = app_view_next(app, ed->top);
+        size_t cursor_height = (size_t)app_view_height(app, p);
+        size_t available = app->text_height > 0 ? (size_t)app->text_height : 1;
+        if (cursor_height > available) cursor_height = available;
+        size_t remove = cursor_offset + cursor_height > available
+                            ? cursor_offset + cursor_height - available : 0;
+        while (remove && ed->top < p) {
+            size_t step = (size_t)app_view_height(app, ed->top), next = app_view_next(app, ed->top);
             if (next == ed->top)
                 break;
             ed->top = next;
@@ -616,8 +653,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     bool linewise;
     bool selected = editor_selection(ed, &selection_a, &selection_b, &linewise);
     size_t start = ed->top;
-    int cursor_x = -1, cursor_y = -1;
-    for (int row = 0; row < rows; ++row) {
+    int cursor_x = -1, cursor_y = -1, cursor_height = line_height, cursor_cell = cell;
+    for (int y = top; y < status_y;) {
         size_t next = app_view_next(app, start), end = next;
         if (end > start && ed->text[end - 1] == '\n')
             --end;
@@ -628,10 +665,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             if (next <= start)
                 break;
             start = next;
-            --row;
             continue;
         }
-        int y = top + row * line_height;
         if (!polish && start == logical_start) {
             char number[32];
             snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
@@ -644,12 +679,12 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         }
         const struct media_entry *image = view_image(app, start);
         if (image) {
-            int span = app_view_rows(app, start);
+            int image_height = app_view_height(app, start);
             bool image_selected = ed->cursor >= image->start && ed->cursor <= image->end;
             draw_image(app, image, pixels, width, height, stride, text_x, y + 2,
-                       text_width, (span - 1) * line_height - 4,
+                       text_width, image_height - line_height - 4,
                        image_selected || (selected && start >= selection_a && start < selection_b));
-            row += span - 1;
+            y += image_height;
             if (next <= start || next == ed->length)
                 break;
             start = next;
@@ -661,7 +696,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             if (!draw_table(app, cache, pixels, width, height, stride, y, ascender, status_y,
                             table_content, selected ? selection_a : 0, selected ? selection_b : 0))
                 return false;
-            row += span - 1;
+            y += span * line_height;
             if (next <= start || next == ed->length) break;
             start = next;
             continue;
@@ -670,9 +705,13 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             rectangle(pixels, width, height, stride, text_x, y, text_width, line_height, theme->code);
         if (polish && cache->quote)
             rectangle(pixels, width, height, stride, text_x - padding, y, 2, line_height, theme->quote);
-        int span = app_view_rows(app, start);
-        if (polish && (cache->rule || (cache->heading && cache->heading <= 2 && span == 2))) {
-            int rule_y = cache->rule ? y + line_height / 2 : y + line_height + line_height / 3;
+        struct text_layout layout = text_layout(app, cache);
+        int row_height = layout.height, text_y = y + layout.inset;
+        int text_cell = layout.cell, text_ascender = layout.ascender;
+        if (!tiny_font_set_size(app->font, layout.size)) return false;
+        bool last = cache && next >= cache->end;
+        if (polish && (cache->rule || (cache->heading && cache->heading <= 2 && last))) {
+            int rule_y = cache->rule ? y + line_height / 2 : y + row_height - 2;
             rectangle(pixels, width, height, stride, text_x, rule_y, text_width,
                       cache->heading == 1 ? 2 : 1, theme->dim);
         }
@@ -686,29 +725,31 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             if (polish && (style & MD_HIDE))
                 continue;
             unsigned advance = cp == '\t' ? 4 - column % 4 : 1;
-            int x = text_x + (int)column * cell;
+            int x = text_x + (int)column * text_cell;
             uint32_t color = inline_color(theme, style);
             if (style & MD_CODE)
-                rectangle(pixels, width, height, stride, x, y, cell * (int)advance, line_height,
+                rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
                           theme->code);
             if (highlight(ed, at))
-                rectangle(pixels, width, height, stride, x, y, cell * (int)advance, line_height,
+                rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
                           theme->search);
             if (selected && at >= selection_a && at < selection_b)
-                rectangle(pixels, width, height, stride, x, y, cell * (int)advance, line_height,
+                rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
                           theme->selection);
             if (at == ed->cursor) {
                 cursor_x = x;
                 cursor_y = y;
+                cursor_height = row_height;
+                cursor_cell = text_cell;
             }
             if (polish && (style & (MD_BULLET | MD_TASK))) {
                 int stroke = (int)((app->scale120 + 119) / 120);
-                int center = y + ascender * 2 / 3;
+                int center = text_y + text_ascender * 2 / 3;
                 if (style & MD_BULLET) {
-                    rectangle(pixels, width, height, stride, x + cell / 2 - stroke,
+                    rectangle(pixels, width, height, stride, x + text_cell / 2 - stroke,
                               center - stroke, 2 * stroke + 1, 2 * stroke + 1, theme->dim);
                 } else {
-                    int side = cell - 2 * stroke, left = x + stroke, upper = center - side / 2;
+                    int side = text_cell - 2 * stroke, left = x + stroke, upper = center - side / 2;
                     uint32_t ink = style & MD_CHECKED ? theme->quote : theme->dim;
                     rectangle(pixels, width, height, stride, left, upper, side, stroke, ink);
                     rectangle(pixels, width, height, stride, left, upper, stroke, side, ink);
@@ -721,33 +762,36 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             } else if (cp != '\t') {
                 if (cp < 32 || cp == 127)
                     cp = '?';
-                if (!styled_glyph(app, pixels, width, height, stride, cp, x, y + ascender, status_y,
+                if (!styled_glyph(app, pixels, width, height, stride, cp, x, text_y + text_ascender, status_y,
                                   color, style))
                     return false;
                 if ((style & MD_BOLD) && !styled_glyph(app, pixels, width, height, stride, cp, x + 1,
-                                                       y + ascender, status_y, color, style))
+                                                       text_y + text_ascender, status_y, color, style))
                     return false;
                 if (style & (MD_DONE | MD_STRIKE))
-                    rectangle(pixels, width, height, stride, x, y + ascender * 3 / 4, cell,
+                    rectangle(pixels, width, height, stride, x, text_y + text_ascender * 3 / 4, text_cell,
                               (int)((app->scale120 + 119) / 120), color);
             }
             column += advance;
         }
         if (ed->cursor == end && (end == ed->length || ed->text[end] == '\n')) {
-            cursor_x = text_x + (int)column * cell;
+            cursor_x = text_x + (int)column * text_cell;
             cursor_y = y;
+            cursor_height = row_height;
+            cursor_cell = text_cell;
         }
-        row += span - 1;
+        if (!tiny_font_set_size(app->font, size)) return false;
+        y += row_height;
         if (next == start || (next == ed->length && (next == 0 || ed->text[next - 1] != '\n')))
             break;
         start = next;
     }
     if (!polish && !ed->command_active && cursor_x >= 0) {
         if (ed->mode == INSERT)
-            rectangle(pixels, width, height, stride, cursor_x, cursor_y, 2, line_height,
+            rectangle(pixels, width, height, stride, cursor_x, cursor_y, 2, cursor_height,
                       theme->cursor);
         else
-            rectangle(pixels, width, height, stride, cursor_x, cursor_y + line_height - 3, cell, 3,
+            rectangle(pixels, width, height, stride, cursor_x, cursor_y + cursor_height - 3, cursor_cell, 3,
                       theme->cursor);
     }
     rectangle(pixels, width, height, stride, 0, status_y, width, status_line + 2 * padding,
@@ -814,19 +858,19 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
         return app->editor.cursor;
     int x = (int)((int64_t)logical_x * app->scale120 / 120) - app->text_x;
     int y = (int)((int64_t)logical_y * app->scale120 / 120) - app->padding - app->title_height;
-    unsigned row = y > 0 ? (unsigned)(y / app->line_height) : 0;
-    if (row >= app->editor.viewport_rows)
-        row = app->editor.viewport_rows - 1;
+    unsigned row = y > 0 ? (unsigned)y : 0;
+    if (app->text_height > 0 && row >= (unsigned)app->text_height)
+        row = (unsigned)app->text_height - 1;
     struct editor *ed = &app->editor;
     size_t p = ed->top;
     for (;;) {
-        unsigned span = (unsigned)app_view_rows(app, p);
+        unsigned span = (unsigned)app_view_height(app, p);
         if (span && row < span) {
             if (view_image(app, p))
                 return p;
             struct md_cache *cache = markdown_at(app, p);
             unsigned content = table_width(app, cache);
-            if (content) return table_hit(app, cache, x, row, content);
+            if (content) return table_hit(app, cache, x, row / app->line_height, content);
             break;
         }
         size_t next = app_view_next(app, p);
@@ -836,10 +880,13 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
         p = next;
     }
     size_t end = app_view_next(app, p);
-    struct md_cache *cache = ed->render_mode == RENDER_POLISH ? markdown_at(app, p) : NULL;
-    unsigned col = cache ? view_indent(app, cache, p) : 0, target = x > 0 ? (unsigned)(x / app->cell) : 0;
+    struct md_cache *cache = ed->render_mode == RENDER_RAW ? NULL : markdown_at(app, p);
+    struct text_layout layout = text_layout(app, cache);
+    bool polish = ed->render_mode == RENDER_POLISH;
+    unsigned col = polish ? view_indent(app, cache, p) : 0;
+    unsigned target = x > 0 ? (unsigned)(x / layout.cell) : 0;
     while (p < end && ed->text[p] != '\n') {
-        if (cache && (markdown_style(cache, p) & MD_HIDE)) {
+        if (polish && (markdown_style(cache, p) & MD_HIDE)) {
             p = editor_next(ed, p);
             continue;
         }

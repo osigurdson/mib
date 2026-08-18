@@ -31,10 +31,12 @@ struct app {
     bool dirty, running, failed, follow_cursor;
     unsigned font_size;
     int cell, line_height, padding, gutter, view_width, title_height;
-    int text_x, text_width;
+    int text_x, text_width, text_height;
 };
 size_t app_view_next(struct app *app, size_t start);
 int app_view_rows(struct app *app, size_t start);
+/* Physical pixels occupied by the visual row beginning at this source offset. */
+int app_view_height(struct app *app, size_t start);
 size_t app_row_next(const struct editor *ed, size_t start, unsigned columns);
 enum app_title_action app_title_hit(const struct app *app, int logical_x, int logical_y);
 size_t app_hit_test(struct app *app, int logical_x, int logical_y);
