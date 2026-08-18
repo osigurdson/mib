@@ -117,14 +117,17 @@ Press `:` to open it. Up and Down browse your history.
 | `:set raw` | Editable plain source, with no Markdown styling or inline images |
 | `:set normal` | Editable styled source with inline images (default) |
 | `:set polish` | Read-only reading view; conceal supported markers and hide the gutter |
-| `:set light`, `:set dark` | Choose the light or dark palette (remembered per page) |
+| `:set background=light`, `:set background=dark` | Set the background option (`bg` is an alias) |
+| `:set background?` | Show the background setting |
+| `:colorscheme {name}`, `:colo {name}` | Choose jot, default, desert, evening, or peachpuff |
+| `:colorscheme` | Show the active scheme |
 | `:Ex` | Open the page's folder in your file manager |
 | `:e!` | Reload the page from disk |
 | `:u`, `:redo` | Undo, redo |
 
 Ranges can use `%`, `.`, `$`, line numbers, `'<,'>` and `+n` or `-n`.
 
-Render mode and palette are remembered per scratch page. In polish, movement,
+Render mode, background and colorscheme are remembered per scratch page. In polish, movement,
 search, visual selection, copying, saving and link/image opening remain available.
 Typing, paste, drops, deletion, substitutions, undo and redo are blocked. Switch
 to raw or normal to edit. Copies retain the selected Markdown source.

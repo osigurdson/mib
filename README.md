@@ -133,9 +133,13 @@ search, selection, copying, saving, and link/image opening; switch to raw or
 normal to edit. Selections and copies still refer to the underlying Markdown
 source.
 
-Search matches stay highlighted in every mode. `:set light` and `:set dark`
-choose the color palette. Scratch pages remember both render mode and palette
-when closed. Dark is the default. Saves always use the current page or file.
+Search matches stay highlighted in every mode. Use `:set background=light` or
+`:set background=dark` (`bg` also works), and `:colorscheme {name}` (`:colo`).
+Built-in schemes are `jot` (the original look), `default`, `desert`, `evening`,
+and `peachpuff`. `:colorscheme` reports the current scheme; `:set background?`
+reports the background setting. Scratch pages remember render mode, background,
+and colorscheme when closed. Jot with a dark background is the default.
+See [colorscheme behavior and provenance](docs/colors.md). Saves always use the current page or file.
 In raw and normal, paste screenshots or drop image files to import them. Images stay as
 standalone `![](assets/name.png)` lines. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.

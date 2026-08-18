@@ -4,6 +4,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+const char *editor_colorscheme_name(enum color_scheme scheme)
+{
+    static const char *const names[] = {"jot", "default", "desert", "evening", "peachpuff"};
+    return (unsigned)scheme < COLOR_COUNT ? names[scheme] : "jot";
+}
+bool editor_colorscheme(struct editor *ed, const char *name)
+{
+    for (unsigned i = 0; i < COLOR_COUNT; ++i) {
+        if (strcmp(name, editor_colorscheme_name((enum color_scheme)i))) continue;
+        ed->colorscheme = (enum color_scheme)i;
+        if (i == COLOR_DESERT || i == COLOR_EVENING) ed->light = false;
+        else if (i == COLOR_PEACHPUFF) ed->light = true;
+        return true;
+    }
+    return false;
+}
 static size_t address(struct editor *ed, const char **input, bool *present)
 {
     const char *p = *input;
@@ -114,7 +130,13 @@ void editor_command(struct editor *ed, const char *command)
         editor_undo(ed, true);
     else if (!strcmp(p, "Ex"))
         ed->requests |= ED_OPEN_DIRECTORY;
-    else if (!strcmp(p, "set") && argument) {
+    else if (strlen(p) >= 4 && strlen(p) <= strlen("colorscheme") &&
+             !strncmp(p, "colorscheme", strlen(p))) {
+        if (!argument || !*argument)
+            snprintf(ed->message, sizeof(ed->message), "%s", editor_colorscheme_name(ed->colorscheme));
+        else if (!editor_colorscheme(ed, argument))
+            snprintf(ed->message, sizeof(ed->message), "Cannot find color scheme: %.200s", argument);
+    } else if (!strcmp(p, "set") && argument) {
         if (!strcmp(argument, "raw") || !strcmp(argument, "normal") ||
             !strcmp(argument, "polish")) {
             editor_change_end(ed);
@@ -124,10 +146,13 @@ void editor_command(struct editor *ed, const char *command)
             ed->pending[0] = 0;
             ed->top = editor_line_start(ed, ed->top);
             editor_clamp(ed);
-        } else if (!strcmp(argument, "light"))
+        } else if (!strcmp(argument, "background=light") || !strcmp(argument, "bg=light"))
             ed->light = true;
-        else if (!strcmp(argument, "dark"))
+        else if (!strcmp(argument, "background=dark") || !strcmp(argument, "bg=dark"))
             ed->light = false;
+        else if (!strcmp(argument, "background?") || !strcmp(argument, "bg?") ||
+                 !strcmp(argument, "background") || !strcmp(argument, "bg"))
+            snprintf(ed->message, sizeof(ed->message), "background=%s", ed->light ? "light" : "dark");
         else
             goto unknown;
     } else if (strlen(p) == 1 && strchr("dy><j", *p)) {

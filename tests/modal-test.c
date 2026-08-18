@@ -76,7 +76,7 @@ int main(void)
     readonly_mode();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
-                             "set md", "set nomd"};
+                             "set md", "set nomd", "set light", "set dark"};
     for (unsigned i = 0; i < sizeof(removed) / sizeof(removed[0]); ++i) {
         editor_command(&ed, removed[i]);
         assert(strstr(ed.message, "Unknown command"));
@@ -86,6 +86,37 @@ int main(void)
     assert(ed.render_mode == RENDER_RAW);
     editor_command(&ed, "set normal");
     assert(ed.render_mode == RENDER_NORMAL);
+    uint64_t revision = ed.revision;
+    const char *schemes[] = {"jot", "default", "desert", "evening", "peachpuff"};
+    for (unsigned i = 0; i < COLOR_COUNT; ++i) {
+        char command[80];
+        snprintf(command, sizeof(command), "colorscheme %s", schemes[i]);
+        editor_command(&ed, command);
+        assert(ed.colorscheme == (enum color_scheme)i);
+        editor_command(&ed, "colorscheme");
+        assert(!strcmp(ed.message, schemes[i]));
+        editor_command(&ed, "set background=light");
+        assert(ed.light);
+        editor_command(&ed, "set bg?");
+        assert(!strcmp(ed.message, "background=light"));
+        editor_command(&ed, "set bg=dark");
+        assert(!ed.light);
+        editor_command(&ed, "set background?");
+        assert(!strcmp(ed.message, "background=dark"));
+        assert(ed.revision == revision);
+        expect("notes");
+    }
+    editor_command(&ed, "colo jot");
+    assert(ed.colorscheme == COLOR_JOT);
+    editor_command(&ed, "colorscheme missing");
+    assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_JOT);
+    editor_command(&ed, "set background=invalid");
+    assert(strstr(ed.message, "Unknown command") && !ed.light);
+    editor_command(&ed, "set polish");
+    editor_command(&ed, "colorscheme peachpuff");
+    assert(ed.colorscheme == COLOR_PEACHPUFF && ed.light && ed.render_mode == RENDER_POLISH);
+    editor_command(&ed, "colorscheme jot");
+    editor_command(&ed, "set normal");
     reset("one two three\nfour five\nsix\n");
     keys("2dw");
     expect("three\nfour five\nsix\n");

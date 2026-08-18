@@ -71,7 +71,7 @@ static void theme_layout(void)
     unsigned columns = app.editor.viewport_columns, rows = app.editor.viewport_rows;
     uint64_t revision = app.editor.revision;
     app_input(&app, KEY_TEXT, ":");
-    app_input(&app, KEY_TEXT, "set light");
+    app_input(&app, KEY_TEXT, "set background=light");
     app_input(&app, KEY_ENTER, "");
     assert(app.editor.light && app.editor.revision == revision);
     for (int i = 0; i < STRIDE * HEIGHT; ++i)
@@ -97,7 +97,7 @@ static void theme_layout(void)
     assert(light[app.context_y * STRIDE + x] == 0xffcbdbe8);
     assert(light[(app.context_y + app.line_height) * STRIDE + x] == 0xffe9edf1);
     app.context_menu = false;
-    editor_command(&app.editor, "set dark");
+    editor_command(&app.editor, "set background=dark");
     assert(!app.editor.light);
     assert(app_paint(&app, light, WIDTH, HEIGHT, STRIDE));
     for (int row = 0; row < HEIGHT; ++row)
@@ -479,6 +479,55 @@ static void heading_layout(void)
     }
 }
 
+static void colorschemes(void)
+{
+    const uint32_t backgrounds[COLOR_COUNT][2] = {
+        {0xff18202b, 0xfffaf9f6}, {0xff000000, 0xffffffff},
+        {0xff333333, 0xff333333}, {0xff333333, 0xff333333}, {0xffffdab9, 0xffffdab9}
+    };
+    const uint32_t searches[COLOR_COUNT][2] = {
+        {0xff66502c, 0xfff5dc8e}, {0xffffff00, 0xffffff00},
+        {0xff7f7f8c, 0xff7f7f8c}, {0xffffff00, 0xffffff00}, {0xffcd00cd, 0xffcd00cd}
+    };
+    const uint32_t search_text[COLOR_COUNT][2] = {
+        {0xffe5edf5, 0xff263342}, {0xff000000, 0xff000000},
+        {0xfff0e68c, 0xfff0e68c}, {0xff000000, 0xff000000}, {0xffffdab9, 0xffffdab9}
+    };
+    const uint32_t status_backgrounds[COLOR_COUNT][2] = {
+        {0xff283443, 0xffe5e8eb}, {0xffffffff, 0xff000000},
+        {0xffc2bfa5, 0xffc2bfa5}, {0xffffffff, 0xffffffff}, {0xff000000, 0xff000000}
+    };
+    struct app app;
+    assert(app_open(&app, NULL));
+    assert(editor_replace(&app.editor, 0, 0, "MMMM\n", 5));
+    strcpy(app.editor.search, "MMMM");
+    app.editor.cursor = 4;
+    app.client_decorated = true;
+    uint32_t pixels[400 * 300];
+    const char *modes[] = {"set raw", "set normal", "set polish"};
+    for (unsigned scheme = 0; scheme < COLOR_COUNT; ++scheme) {
+        assert(editor_colorscheme(&app.editor, editor_colorscheme_name((enum color_scheme)scheme)));
+        for (unsigned light = 0; light < 2; ++light) {
+            editor_command(&app.editor, light ? "set bg=light" : "set bg=dark");
+            for (unsigned mode = 0; mode < 3; ++mode) {
+                editor_command(&app.editor, modes[mode]);
+                assert(app_paint(&app, pixels, 400, 300, 400));
+                int top = app.title_height + app.padding;
+                assert(pixels[top * 400] == backgrounds[scheme][light]);
+                assert(pixels[299 * 400] == status_backgrounds[scheme][light]);
+                assert(pixels[top * 400 + app.text_x] == searches[scheme][light]);
+                bool ink = false;
+                for (int y = top; y < top + app.line_height; ++y)
+                    for (int x = app.text_x; x < app.text_x + app.cell; ++x)
+                        ink |= pixels[y * 400 + x] == search_text[scheme][light];
+                assert(ink); /* yellow/light search backgrounds need dark ink */
+            }
+        }
+    }
+    assert(!strcmp(app.editor.text, "MMMM\n"));
+    app_close(&app);
+}
+
 int main(void)
 {
     gutter_layout();
@@ -489,6 +538,7 @@ int main(void)
     markdown_tables();
     normal_markdown_styles();
     heading_layout();
+    colorschemes();
     struct app app;
     assert(app_open(&app, NULL));
     app_input(&app, KEY_TEXT, "i");

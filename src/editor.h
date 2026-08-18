@@ -54,12 +54,15 @@ enum editor_request {
     ED_ZOOM_OUT = 256,
     ED_ZOOM_RESET = 512
 };
+enum color_scheme { COLOR_JOT, COLOR_DEFAULT, COLOR_DESERT, COLOR_EVENING, COLOR_PEACHPUFF, COLOR_COUNT };
+const char *editor_colorscheme_name(enum color_scheme scheme);
 struct edit_history;
 struct editor {
     char *text, *filename;
     size_t length, capacity, cursor, top, left;
     enum editor_mode mode;
     enum render_mode render_mode;
+    enum color_scheme colorscheme;
     bool modified, command_active, quit, crlf;
     bool light, search_forward, search_word, search_failed,
         search_pending;
@@ -92,6 +95,7 @@ bool editor_heading(const struct editor *ed, size_t position);
 void editor_search(struct editor *ed, bool forward, unsigned count);
 bool editor_selection(const struct editor *ed, size_t *from, size_t *to, bool *linewise);
 /* Report read-only polish mode before starting an edit or import. */
+bool editor_colorscheme(struct editor *ed, const char *name);
 bool editor_can_edit(struct editor *ed);
 bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text, size_t length);
 void editor_put(struct editor *ed, const char *text, size_t length, bool linewise, bool after,

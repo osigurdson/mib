@@ -5,28 +5,16 @@
 #include <stdio.h>
 #include <string.h>
 
-struct palette {
-    uint32_t background, text, dim, link, heading, quote, done, italic;
-    uint32_t code, search, selection, cursor, status, menu, menu_selected, handle;
-    uint32_t title, title_separator, title_hover, title_pressed;
-};
-static const struct palette dark = {
-    0xff18202b, 0xffe5edf5, 0xff697889, 0xff88c0d0,
-    0xffebcb8b, 0xffa3be8c, 0xff77868a, 0xffb9a0cb,
-    0xff242d3b, 0xff66502c, 0xff405c78, 0xff8fbcbb,
-    0xff283443, 0xff34485b, 0xff4b6680, 0xffe5edf5,
-    0xff1d2733, 0xff303c4b, 0xff303e4e, 0xff3d5064,
-};
-static const struct palette light = {
-    0xfffaf9f6, 0xff263342, 0xff697685, 0xff176778,
-    0xff855a16, 0xff416b36, 0xff687567, 0xff755088,
-    0xffeeede7, 0xfff5dc8e, 0xffc5dced, 0xff1d6972,
-    0xffe5e8eb, 0xffe9edf1, 0xffcbdbe8, 0xff263342,
-    0xfff2f1ee, 0xffdeded8, 0xffe0e2df, 0xffcdd3d0,
-};
+#include "colors.h"
 static const struct palette *colors(const struct app *app)
 {
-    return app->editor.light ? &light : &dark;
+    switch (app->editor.colorscheme) {
+    case COLOR_DEFAULT: return app->editor.light ? &vim_default_light : &vim_default_dark;
+    case COLOR_DESERT: return &vim_desert;
+    case COLOR_EVENING: return &vim_evening;
+    case COLOR_PEACHPUFF: return &vim_peachpuff;
+    default: return app->editor.light ? &light : &dark;
+    }
 }
 
 static uint32_t blend(uint32_t background, unsigned alpha, uint32_t foreground)
@@ -93,15 +81,14 @@ static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int 
 }
 
 static bool label(struct app *app, uint32_t *pixels, int width, int height, int stride,
-                  const char *text, int x, int baseline, int cell)
+                  const char *text, int x, int baseline, int cell, uint32_t color)
 {
-    const struct palette *theme = colors(app);
     size_t length = strlen(text), offset = 0;
     while (offset < length && x < width - cell) {
         uint32_t cp = editor_codepoint(text, length, &offset);
         if (cp < 32 || cp == 127)
             cp = '?';
-        if (!glyph(app, pixels, width, height, stride, cp, x, baseline, height, theme->text))
+        if (!glyph(app, pixels, width, height, stride, cp, x, baseline, height, color))
             return false;
         x += cell;
     }
@@ -520,6 +507,8 @@ static bool draw_table(struct app *app, struct md_cache *cache, uint32_t *pixels
                 if (at >= selection_a && at < selection_b)
                     rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
                               app->line_height, theme->selection);
+                if (highlight(&app->editor, at)) color = theme->search_text;
+                if (at >= selection_a && at < selection_b) color = theme->selection_text;
                 if (cp != '\t') {
                     if (cp < 32 || cp == 127) cp = '?';
                     if (!styled_glyph(app, pixels, width, height, stride, cp, x, top + ascender,
@@ -736,6 +725,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             if (selected && at >= selection_a && at < selection_b)
                 rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
                           theme->selection);
+            if (highlight(ed, at)) color = theme->search_text;
+            if (selected && at >= selection_a && at < selection_b) color = theme->selection_text;
             if (at == ed->cursor) {
                 cursor_x = x;
                 cursor_y = y;
@@ -809,7 +800,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         char prompt[1100];
         snprintf(prompt, sizeof(prompt), "%c%s_", ed->command_kind ? ed->command_kind : ':',
                  ed->command);
-        if (!label(app, pixels, width, height, stride, prompt, padding, baseline, cell))
+        if (!label(app, pixels, width, height, stride, prompt, padding, baseline, cell, theme->status_text))
             return false;
     } else {
         char position[64];
@@ -823,8 +814,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             snprintf(status + n, sizeof(status) - n, "  indexing image");
         }
         if (!label(app, pixels, position_x - cell, height, stride,
-                   ed->message[0] ? ed->message : status, padding, baseline, cell) ||
-            !label(app, pixels, width, height, stride, position, position_x, baseline, cell))
+                   ed->message[0] ? ed->message : status, padding, baseline, cell, theme->status_text) ||
+            !label(app, pixels, width, height, stride, position, position_x, baseline, cell, theme->status_text))
             return false;
     }
     if (app->client_decorated && !app->maximized) {
@@ -844,10 +835,12 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                   app->context_y + app->context_choice * line_height, 26 * cell, line_height,
                   theme->menu_selected);
         if (!label(app, pixels, width, height, stride, " Copy Text from Image", app->context_x,
-                   app->context_y + ascender, cell))
+                   app->context_y + ascender, cell,
+                   app->context_choice == 0 ? theme->menu_selected_text : theme->menu_text))
             return false;
         if (!label(app, pixels, width, height, stride, " Open Image", app->context_x,
-                   app->context_y + line_height + ascender, cell))
+                   app->context_y + line_height + ascender, cell,
+                   app->context_choice == 1 ? theme->menu_selected_text : theme->menu_text))
             return false;
     }
     return true;

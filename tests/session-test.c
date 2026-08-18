@@ -100,8 +100,8 @@ int main(void)
     assert(app.font_size == 23 && app.width == 900 &&
            app.height == 600 && app.maximized);
     assert(!strcmp(app.editor.text, "another\n")); /* close did not save local edits */
-    assert(!app.editor.light); /* legacy state defaults to dark */
-    editor_command(&app.editor, "set light");
+    assert(!app.editor.light && app.editor.colorscheme == COLOR_JOT); /* legacy preferences */
+    editor_command(&app.editor, "set background=light");
     assert(app.editor.light && !app.editor.modified);
     app_close(&app);
     assert(app_open(&app, NULL));
@@ -131,7 +131,7 @@ int main(void)
     free(text);
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1 && app.editor.light);
-    editor_command(&app.editor, "set dark");
+    editor_command(&app.editor, "set background=dark");
     app_close(&app);
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1 && !app.editor.light);
@@ -146,6 +146,20 @@ int main(void)
         assert(session_open(&app, directory) == 1 && app.editor.render_mode == (enum render_mode)mode);
         assert(editor_reload(&app.editor) && app.editor.render_mode == (enum render_mode)mode);
         app_close(&app);
+    }
+    for (unsigned scheme = 0; scheme < COLOR_COUNT; ++scheme) {
+        for (unsigned light = 0; light < 2; ++light) {
+            assert(app_open(&app, NULL));
+            assert(session_open(&app, directory) == 1);
+            assert(editor_colorscheme(&app.editor, editor_colorscheme_name((enum color_scheme)scheme)));
+            editor_command(&app.editor, light ? "set background=light" : "set background=dark");
+            app_close(&app);
+            assert(app_open(&app, NULL));
+            assert(session_open(&app, directory) == 1);
+            assert(app.editor.colorscheme == (enum color_scheme)scheme && app.editor.light == (bool)light);
+            assert(editor_reload(&app.editor) && app.editor.colorscheme == (enum color_scheme)scheme);
+            app_close(&app);
+        }
     }
     free(page);
     free(agents);

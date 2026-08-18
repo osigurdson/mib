@@ -22,7 +22,7 @@ int main(int argc, char **argv)
             char command[32];
             snprintf(command, sizeof(command), "set %s", argv[i]);
             editor_command(&app.editor, command);
-        } else
+        } else if (!editor_colorscheme(&app.editor, argv[i]))
             return 2;
     }
     int width = (int)(800 * app.scale120 / 120), height = (int)(560 * app.scale120 / 120);
