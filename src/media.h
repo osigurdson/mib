@@ -24,6 +24,8 @@ char *media_ocr_text(struct app *app, size_t *length);
 bool media_paste_image(struct app *app, const unsigned char *data, size_t length);
 char *media_fragment(struct app *app, size_t *length);
 bool media_paste_fragment(struct app *app, const unsigned char *data, size_t length);
+/* Move insert-mode typing onto a text line when the cursor is on an image. */
+bool media_prepare_insert(struct app *app);
 void media_paste_text(struct app *app, const char *text, size_t length);
 void media_import_uris(struct app *app, const char *uris, size_t length);
 void media_import_file(struct app *app, const char *path);

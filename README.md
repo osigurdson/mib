@@ -144,7 +144,10 @@ reports the background setting. Scratch pages remember render mode, background,
 and colorscheme when closed. Jot with a dark background is the default.
 See [colorscheme behavior and provenance](docs/colors.md). Saves always use the current page or file.
 In raw and normal, paste screenshots or drop image files to import them. Images stay as
-standalone `![](assets/name.png)` lines. `gx` or double-click opens an image;
+standalone `![](assets/name.png)` lines. In normal rendering, inserting or
+pasting text on an image uses a separate text line. `i`/`I` insert above an image;
+`a`/`A` insert below it. Image paste in insert mode leaves the cursor after the
+image so typing can continue. Raw mode keeps literal source editing. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.
 Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`
 sidecars used by search/highlighting. `TINYVI_OCR=0` disables automatic OCR.
@@ -200,8 +203,8 @@ see the parity report for their coverage and limits.
 ## Current footprint
 
 The current executable measures **192,376 bytes stripped on Linux** and
-**266,752 bytes on Windows**. An empty page recently measured **735–743 KiB
-PSS** (688–696 KiB private), with 3,032–3,040 KiB total RSS including shared
+**266,752 bytes on Windows**. An empty page recently measured **762–765 KiB
+PSS** (692–696 KiB private), with 2,968–2,976 KiB total RSS including shared
 libraries. Both executable size and idle PSS remain below 1 MiB. See
 [the feature scope, bounds, tests and historical image/before-and-after measurements](docs/jot-parity.md).
 

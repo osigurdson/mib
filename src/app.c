@@ -99,6 +99,22 @@ void app_input(struct app *app, enum editor_key key, const char *text)
                         !app->editor.pending[0] &&
                         (key == KEY_DELETE || (key == KEY_TEXT && text && !strcmp(text, "d")));
     bool insert = app->editor.mode == INSERT;
+    bool image_insert = selected_image && app->editor.render_mode == RENDER_NORMAL &&
+                        !app->editor.command_active && !app->editor.pending[0];
+    if (image_insert && app->editor.mode == NORMAL && key == KEY_TEXT && text) {
+        if (!strcmp(text, "i") || !strcmp(text, "I"))
+            text = "O";
+        else if (!strcmp(text, "a") || !strcmp(text, "A"))
+            text = "o";
+    }
+    bool image_enter = image_insert && insert && key == KEY_ENTER;
+    if (image_insert && insert && !delete_image &&
+        ((key == KEY_TEXT && text && *text) || key == KEY_TAB || image_enter)) {
+        if (!media_prepare_insert(app)) {
+            app->dirty = true;
+            return;
+        }
+    }
     if (delete_image) {
         /* Reuse line deletion, including its register and clipboard behavior. */
         editor_change_end(&app->editor);
@@ -108,7 +124,7 @@ void app_input(struct app *app, enum editor_key key, const char *text)
             app->editor.mode = INSERT;
             editor_change_begin(&app->editor);
         }
-    } else
+    } else if (!image_enter)
         editor_input(&app->editor, key, text);
     unsigned requests = app->editor.requests;
     if (requests & ED_ZOOM_IN) {
@@ -129,9 +145,13 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     app->editor.requests = 0;
     if (app->service)
         app->service(app, service_requests, app->service_data);
-    else if (service_requests & ED_PASTE)
-        editor_put(&app->editor, app->editor.register_text, app->editor.register_length,
-                   app->editor.register_linewise, app->editor.put_after, app->editor.put_count);
+    else if (service_requests & ED_PASTE) {
+        if (image_insert)
+            media_paste_text(app, app->editor.register_text, app->editor.register_length);
+        else
+            editor_put(&app->editor, app->editor.register_text, app->editor.register_length,
+                       app->editor.register_linewise, app->editor.put_after, app->editor.put_count);
+    }
     free(app->clipboard_image);
     app->clipboard_image = NULL;
     app->follow_cursor = key != KEY_CTRL_E && key != KEY_CTRL_Y;

@@ -139,6 +139,24 @@ python3 tools/measure-memory.py --kind image --max-pss 4096
 python3 tools/measure-memory.py --binary /path/to/baseline
 ```
 
+## Typing around images (2026-11-02)
+
+Normal rendering keeps image references on their own lines during ordinary text
+insertion. Pasting an image in insert mode leaves the cursor after its reference,
+so subsequent typing does not turn the image into literal Markdown. On a
+selected image, `i`/`I` open a text line above and `a`/`A` open one below. Typing,
+Tab, Enter, or text paste after moving onto an image in insert mode uses a
+separate text line; normal-mode text puts use linewise placement there. Raw
+mode retains literal source editing, and polish remains read-only.
+
+Regression checks cover continuing after image paste, `i/I/a/A` from hidden
+source offsets, direct insert-mode typing/Tab/Enter, text paste, grouped
+undo/redo, actual inline-image rendering, raw editing, and save/reopen. All nine
+Linux tests, nine Windows/Wine tests, and nine ASan/UBSan tests passed. Linux is
+785,376 bytes with debug information or 192,376 bytes stripped; Windows remains
+266,752 bytes. Three empty-page launches measured 762–765 KiB idle PSS
+(692–696 KiB private), still below 1 MiB.
+
 ## Rounded client decorations (2026-11-02)
 
 Floating Wayland windows with client-side decorations now have 12-logical-pixel

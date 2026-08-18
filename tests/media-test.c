@@ -143,6 +143,97 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     assert(!rmdir(assets) && !rmdir(directory));
 #endif
 }
+static void image_typing_test(const char *directory, const unsigned char *png, size_t bytes)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    app.directory = strdup(directory);
+    assert(app.directory);
+    app_input(&app, KEY_TEXT, "i");
+    assert(media_paste_image(&app, png, bytes));
+    const char *reference = strstr(app.editor.text, "![](");
+    assert(reference);
+    char *markup = strdup(reference);
+    assert(markup);
+    const struct media_entry *image = media_at(&app, 0);
+    assert(image);
+    char *path = session_path(&app, image->name);
+    assert(path);
+    app_input(&app, KEY_TEXT, "after paste");
+    reference = strstr(app.editor.text, "![](");
+    assert(reference && media_at(&app, (size_t)(reference - app.editor.text)));
+    assert(!strncmp(app.editor.text, markup, strlen(markup)));
+    assert(strstr(app.editor.text, "\nafter paste"));
+    uint32_t *pixels = malloc(320 * 240 * sizeof(*pixels));
+    assert(pixels && app_paint(&app, pixels, 320, 240, 320));
+    assert(app_view_rows(&app, 0) > 1);
+    free(pixels);
+    app_input(&app, KEY_ESCAPE, "");
+    const char *keys[] = {"i", "I", "a", "A"};
+    for (unsigned i = 0; i < 4; ++i) {
+        assert(editor_replace(&app.editor, 0, app.editor.length, markup, strlen(markup)));
+        app.editor.cursor = strlen(markup) / 2; /* hidden source offset on the image */
+        app.editor.mode = NORMAL;
+        app_input(&app, KEY_TEXT, keys[i]);
+        app_input(&app, KEY_TEXT, "near image");
+        app_input(&app, KEY_ESCAPE, "");
+        reference = strstr(app.editor.text, "![](");
+        assert(reference && media_at(&app, (size_t)(reference - app.editor.text)));
+        assert(strstr(app.editor.text, markup));
+        assert(i < 2 ? !strncmp(app.editor.text, "near image\n", 11)
+                     : strstr(app.editor.text, "\nnear image\n") != NULL);
+        app_input(&app, KEY_TEXT, "u");
+        assert(!strcmp(app.editor.text, markup));
+        app_input(&app, KEY_CTRL_R, "");
+        reference = strstr(app.editor.text, "![](");
+        assert(reference && media_at(&app, (size_t)(reference - app.editor.text)));
+    }
+    for (unsigned action = 0; action < 5; ++action) {
+        assert(editor_replace(&app.editor, 0, app.editor.length, markup, strlen(markup)));
+        app.editor.cursor = strlen(markup) / 2;
+        app.editor.mode = INSERT;
+        if (action == 0)
+            app_input(&app, KEY_TEXT, "typed");
+        else if (action == 1)
+            app_input(&app, KEY_TAB, "");
+        else if (action == 2) {
+            app_input(&app, KEY_ENTER, "");
+            app_input(&app, KEY_TEXT, "paragraph");
+        } else {
+            app.editor.mode = action == 3 ? INSERT : NORMAL;
+            app.editor.put_after = true;
+            media_paste_text(&app, "clipboard", 9);
+        }
+        app_input(&app, KEY_ESCAPE, "");
+        reference = strstr(app.editor.text, "![](");
+        assert(reference && media_at(&app, (size_t)(reference - app.editor.text)));
+        assert(strstr(app.editor.text, markup));
+        app_input(&app, KEY_TEXT, "u");
+        assert(!strcmp(app.editor.text, markup));
+    }
+    /* Raw mode continues to edit the literal source, without image redirects. */
+    app.editor.render_mode = RENDER_RAW;
+    app.editor.cursor = 0;
+    app_input(&app, KEY_TEXT, "i");
+    app_input(&app, KEY_TEXT, "literal");
+    app_input(&app, KEY_ESCAPE, "");
+    assert(!strncmp(app.editor.text, "literal![](", 11));
+    app_input(&app, KEY_TEXT, "u");
+    app.editor.render_mode = RENDER_NORMAL;
+    /* Saving and reopening keeps the image reference and asset intact. */
+    char *note_path = session_path(&app, "typing.md");
+    assert(note_path && editor_save(&app.editor, note_path));
+    app_close(&app);
+    assert(app_open(&app, note_path));
+    assert(media_at(&app, 0));
+    assert(!strcmp(app.editor.text, markup));
+    app_close(&app);
+    assert(platform_file_remove(path));
+    free(path);
+    free(markup);
+    assert(platform_file_remove(note_path));
+    free(note_path);
+}
 int main(int argc, char **argv)
 {
     char directory[1024];
@@ -170,6 +261,7 @@ int main(int argc, char **argv)
     size_t bytes;
     unsigned char *png = image_png(rgba, 320, 180, &bytes);
     assert(png);
+    image_typing_test(directory, png, bytes);
     cleanup_test(directory, png, bytes);
     int w, h;
     assert(image_info(png, bytes, &w, &h) && w == 320 && h == 180);

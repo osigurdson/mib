@@ -510,7 +510,8 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
     }
     size_t at = p;
     editor_replace(ed, p, p, markup, strlen(markup));
-    ed->cursor = at;
+    ed->cursor = !visual && ed->mode == INSERT && ed->render_mode == RENDER_NORMAL
+                     ? at + strlen(markup) : at;
     if (visual)
         ed->mode = NORMAL;
     if (own)
@@ -521,6 +522,21 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
     media_tick(app);
     return true;
 }
+bool media_prepare_insert(struct app *app)
+{
+    struct editor *ed = &app->editor;
+    if (ed->render_mode != RENDER_NORMAL || ed->mode != INSERT)
+        return true;
+    const struct media_entry *image = media_at(app, ed->cursor);
+    if (!image)
+        return true;
+    size_t start = image->start;
+    editor_change_begin(ed);
+    if (!editor_replace(ed, start, start, "\n", 1))
+        return false;
+    ed->cursor = start;
+    return true;
+}
 void media_paste_text(struct app *app, const char *text, size_t length)
 {
     if (!editor_can_edit(&app->editor)) {
@@ -529,7 +545,7 @@ void media_paste_text(struct app *app, const char *text, size_t length)
     }
     if (!length || length > 16 * 1024 * 1024 || memchr(text, 0, length))
         return;
-    char *normal = malloc(length + 1);
+    char *normal = malloc(length + 2);
     if (!normal)
         return;
     size_t n = 0;
@@ -538,7 +554,15 @@ void media_paste_text(struct app *app, const char *text, size_t length)
             continue;
         normal[n++] = text[i] == '\r' ? '\n' : text[i];
     }
+    bool image_line = app->editor.render_mode == RENDER_NORMAL &&
+                      app->editor.mode == NORMAL && media_at(app, app->editor.cursor);
+    if (image_line && normal[n - 1] != '\n')
+        normal[n++] = '\n';
     normal[n] = 0;
+    if (!media_prepare_insert(app)) {
+        free(normal);
+        return;
+    }
     bool linewise = n && normal[n - 1] == '\n';
     editor_put(&app->editor, normal, n, linewise, app->editor.put_after,
                app->editor.put_count ? app->editor.put_count : 1);
