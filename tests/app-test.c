@@ -429,7 +429,7 @@ static void heading_layout(void)
                     p = editor_line_end(&app.editor, p) + 1;
                 }
                 unsigned base_size = 18 * 64 * app.scale120 / 120;
-                unsigned heading_size = mode == 0 ? (base_size * 118 + 50) / 100
+                unsigned heading_size = mode == 0 ? (base_size * 135 + 50) / 100
                                        : mode == 1 ? (base_size * 190 + 50) / 100 : base_size;
                 int heading_cell = tiny_font_metrics_at(heading_size).advance;
                 unsigned target_column = mode == 1 ? 3 : 6;

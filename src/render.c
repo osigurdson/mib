@@ -276,7 +276,7 @@ static struct text_layout text_layout(const struct app *app, const struct md_cac
                                  app->line_height, 0};
     if (!cache || !cache->heading || cache->table.count) return layout;
     static const unsigned polish[] = {190, 160, 135, 118, 108, 100};
-    static const unsigned normal[] = {118, 114, 110, 106, 103, 100};
+    static const unsigned normal[] = {135, 125, 116, 110, 105, 100};
     bool reader = app->editor.render_mode == RENDER_POLISH;
     unsigned ratio = (reader ? polish : normal)[cache->heading - 1];
     layout.size = (size * ratio + 50) / 100;
