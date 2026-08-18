@@ -188,6 +188,20 @@ static void image_typing_test(const char *directory, const unsigned char *png, s
         reference = strstr(app.editor.text, "![](");
         assert(reference && media_at(&app, (size_t)(reference - app.editor.text)));
     }
+    /* Insert-mode navigation onto an image must not turn literal d into delete. */
+    assert(editor_replace(&app.editor, 0, app.editor.length, markup, strlen(markup)));
+    assert(editor_replace(&app.editor, 0, 0, "\n", 1));
+    app.editor.cursor = 0;
+    app.editor.mode = INSERT;
+    app_input(&app, KEY_DOWN, "");
+    assert(media_at(&app, app.editor.cursor));
+    app_input(&app, KEY_TEXT, "d");
+    assert(app.editor.mode == INSERT && !strncmp(app.editor.text, "\nd\n", 3));
+    reference = strstr(app.editor.text, "![](");
+    assert(reference && media_at(&app, (size_t)(reference - app.editor.text)) && exists(path));
+    app_input(&app, KEY_ESCAPE, "");
+    app_input(&app, KEY_TEXT, "u");
+    assert(app.editor.length == strlen(markup) + 1 && !strcmp(app.editor.text + 1, markup));
     for (unsigned action = 0; action < 5; ++action) {
         assert(editor_replace(&app.editor, 0, app.editor.length, markup, strlen(markup)));
         app.editor.cursor = strlen(markup) / 2;
@@ -362,9 +376,11 @@ int main(int argc, char **argv)
     char *ocr = media_ocr_text(&app, &n);
     assert(ocr && strstr(ocr, "screenshot"));
     free(ocr);
-    /* Both delete keys remove the entire image and preserve the input mode. */
+    /* Normal-mode d and Delete in either mode remove the entire image. */
     for (unsigned mode = 0; mode < 2; ++mode)
         for (unsigned del = 0; del < 2; ++del) {
+            if (mode && !del)
+                continue;
             app.editor.cursor = 0;
             app.editor.mode = mode ? INSERT : NORMAL;
             enum editor_mode expected_mode = app.editor.mode;

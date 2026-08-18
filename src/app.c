@@ -97,7 +97,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
                         !app->editor.command_active &&
                         (app->editor.mode == NORMAL || app->editor.mode == INSERT) &&
                         !app->editor.pending[0] &&
-                        (key == KEY_DELETE || (key == KEY_TEXT && text && !strcmp(text, "d")));
+                        (key == KEY_DELETE || (app->editor.mode == NORMAL && key == KEY_TEXT &&
+                                               text && !strcmp(text, "d")));
     bool insert = app->editor.mode == INSERT;
     bool image_insert = selected_image && app->editor.render_mode == RENDER_NORMAL &&
                         !app->editor.command_active && !app->editor.pending[0];
