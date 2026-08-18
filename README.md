@@ -64,9 +64,8 @@ When the compositor requires client decorations or does not support negotiation
 (as on GNOME), Jot draws a compact title bar with drag, minimize, maximize, and
 close controls. Double-click the title to maximize/restore; drag an edge to
 resize. The edges have eight-pixel grab areas and larger corner targets; resize
-cursors follow the desktop theme when cursor-shape is available. A small grip
-marks the bottom-right corner. The title bar follows the light/dark palette and
-hides in fullscreen. Floating client-decorated windows have smooth rounded
+cursors follow the desktop theme when cursor-shape is available. The title bar
+follows the light/dark palette and hides in fullscreen. Floating client-decorated windows have smooth rounded
 corners; maximized, tiled, and fullscreen windows stay square. Compositors such
 as Hyprland keep control of rounding when server-side decorations are selected.
 Rounding uses the existing four-byte pixel buffer, with no extra retained cache
