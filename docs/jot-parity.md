@@ -11,7 +11,8 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
 - Normal, insert, visual and visual-line modes; counts, documented motions,
   operators, text objects, replace/case/join/indent operations and grouped undo.
 - Incremental smart-case text/OCR search, word search, next/back/wrapping,
-  highlighted text and OCR word/phrase rectangles. A pending failed search
+  highlighted text and OCR word/phrase rectangles. Insert mode hides highlights
+  while retaining the query; a new search or `n`/`N` shows them again. A pending failed search
   retries when OCR completes; another editing/navigation key cancels the retry.
 - Ex ranges, capture substitutions, command history, save/reload/quit,
   line numbers, Markdown toggles, folder opening and zoom.

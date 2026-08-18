@@ -71,9 +71,38 @@ static void readonly_mode(void)
     expect(""); /* rejected edits did not consume or clear undo history */
 }
 
+static void search_visibility(void)
+{
+    reset("sd other sd\n");
+    keys("/sd");
+    editor_input(&ed, KEY_ENTER, "");
+    assert(!ed.search_hidden && !strcmp(ed.search, "sd"));
+    keys("i");
+    assert(ed.mode == INSERT && ed.search_hidden && !strcmp(ed.search, "sd"));
+    editor_input(&ed, KEY_ESCAPE, "");
+    assert(ed.mode == NORMAL && ed.search_hidden);
+    size_t cursor = ed.cursor;
+    keys("n");
+    assert(!ed.search_hidden && ed.cursor != cursor && !strcmp(ed.search, "sd"));
+    keys("a");
+    assert(ed.search_hidden);
+    editor_input(&ed, KEY_ESCAPE, "");
+    keys("N");
+    assert(!ed.search_hidden && !strcmp(ed.search, "sd"));
+    const char *inserts[] = {"I", "A", "o", "O", "s", "S", "cw", "cc", "C", "vc"};
+    for (unsigned i = 0; i < sizeof(inserts) / sizeof(inserts[0]); ++i) {
+        reset("sd other sd\n");
+        keys("/sd");
+        editor_input(&ed, KEY_ENTER, "");
+        keys(inserts[i]);
+        assert(ed.mode == INSERT && ed.search_hidden && !strcmp(ed.search, "sd"));
+    }
+}
+
 int main(void)
 {
     readonly_mode();
+    search_visibility();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};

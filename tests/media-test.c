@@ -354,6 +354,21 @@ int main(int argc, char **argv)
         app.editor.light = !app.editor.light;
         assert(app_paint(&app, pixels, 800, 560, 800));
         assert(pixels[(size_t)py * 800 + px] != raw); /* phrase spans the gap between words */
+        uint32_t highlighted = pixels[(size_t)py * 800 + px];
+        app.image_hit = false;
+        assert(app_paint(&app, pixels, 800, 560, 800));
+        uint32_t unhighlighted = pixels[(size_t)py * 800 + px];
+        assert(unhighlighted != highlighted);
+        app.image_hit = true;
+        app.editor.search_hidden = true;
+        assert(app_paint(&app, pixels, 800, 560, 800));
+        assert(pixels[(size_t)py * 800 + px] == unhighlighted);
+        app.editor.search_hidden = false;
+        app.editor.mode = INSERT;
+        assert(app_paint(&app, pixels, 800, 560, 800));
+        assert(pixels[(size_t)py * 800 + px] == unhighlighted);
+        app.editor.mode = NORMAL;
+        assert(app_paint(&app, pixels, 800, 560, 800));
         assert(app_hit_test(&app, 100 * 120 / scales[i], 60 * 120 / scales[i]) == 0);
         if (argc > 1) {
             char output[1024];

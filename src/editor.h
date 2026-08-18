@@ -65,7 +65,7 @@ struct editor {
     enum color_scheme colorscheme;
     bool modified, command_active, quit, crlf;
     bool light, search_forward, search_word, search_failed,
-        search_pending;
+        search_pending, search_hidden;
     char command[1024], message[256], search[256], pending[40];
     size_t command_length, anchor, visual_first, visual_last, search_origin;
     size_t match_start, match_end, desired_column;

@@ -444,7 +444,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
 }
 static bool highlight(const struct editor *ed, size_t offset)
 {
-    if (!ed->search[0])
+    if (ed->search_hidden || ed->mode == INSERT || !ed->search[0])
         return false;
     size_t n = strlen(ed->search), begin = offset >= n - 1 ? offset - n + 1 : 0;
     for (size_t p = begin; p <= offset && p + n <= ed->length; ++p)

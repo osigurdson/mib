@@ -136,7 +136,8 @@ search, selection, copying, saving, and link/image opening; switch to raw or
 normal to edit. Selections and copies still refer to the underlying Markdown
 source.
 
-Search matches stay highlighted in every mode. Use `:set background=light` or
+Search highlights turn off when you enter insert mode. The query is retained;
+`n`/`N` or a new search shows highlights again in any render mode. Use `:set background=light` or
 `:set background=dark` (`bg` also works), and `:colorscheme {name}` (`:colo`).
 Built-in schemes are `jot` (the original look), `tokyonight`, `catppuccin`,
 `kanagawa`, and `everforest`. All support light/dark backgrounds. `:colorscheme` reports the current scheme; `:set background?`

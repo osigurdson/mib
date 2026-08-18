@@ -217,6 +217,7 @@ bool editor_match_at(const struct editor *ed, size_t p)
 }
 void editor_search(struct editor *ed, bool forward, unsigned count)
 {
+    ed->search_hidden = false;
     if (!ed->search[0] || !ed->length)
         return;
     ++ed->search_serial;
@@ -619,8 +620,10 @@ static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewis
 static void prompt(struct editor *ed, char kind)
 {
     ed->command_active = true;
-    if (kind != ':')
+    if (kind != ':') {
         ed->search_word = false;
+        ed->search_hidden = false;
+    }
     ed->command_kind = kind;
     ed->command_length = 0;
     ed->command[0] = 0;
@@ -708,7 +711,7 @@ static void command_input(struct editor *ed, enum editor_key key, const char *te
         editor_search(ed, ed->command_kind == '/', 1);
     }
 }
-void editor_input(struct editor *ed, enum editor_key key, const char *text)
+static void input(struct editor *ed, enum editor_key key, const char *text)
 {
     ed->message[0] = 0;
     if (ed->command_active) {
@@ -1088,4 +1091,12 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
         ed->cursor = target;
         editor_clamp(ed);
     }
+}
+
+void editor_input(struct editor *ed, enum editor_key key, const char *text)
+{
+    bool inserting = ed->mode == INSERT;
+    input(ed, key, text);
+    if (inserting || ed->mode == INSERT)
+        ed->search_hidden = true;
 }

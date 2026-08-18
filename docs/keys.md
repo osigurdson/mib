@@ -75,8 +75,9 @@ Use these after an operator or in visual mode. `i` means inside and `a` includes
 | `n` `N` | Next or previous match |
 | `*` `#` | Search for the word under the cursor |
 
-Search matches stay highlighted. Search is case-insensitive unless your search
-contains a capital letter. It also finds text inside screenshots using Tesseract-generated OCR sidecars.
+Entering insert mode hides search highlights without clearing the query.
+Returning to normal mode keeps them hidden until `n`/`N`, `*`/`#`, or a new
+`/`/`?` search. Search is case-insensitive unless your search contains a capital letter. It also finds text inside screenshots using Tesseract-generated OCR sidecars.
 
 ## Images and links
 

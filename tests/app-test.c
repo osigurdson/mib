@@ -54,6 +54,35 @@ static void gutter_layout(void)
     app_close(&app);
 }
 
+static void search_visibility(void)
+{
+    for (unsigned raw = 0; raw < 2; ++raw) {
+        struct app app;
+        assert(app_open(&app, NULL));
+        if (raw)
+            editor_command(&app.editor, "set raw");
+        assert(editor_replace(&app.editor, 0, 0, "sd sd\n", 6));
+        app.editor.cursor = 0;
+        app_input(&app, KEY_TEXT, "/");
+        app_input(&app, KEY_TEXT, "sd");
+        app_input(&app, KEY_ENTER, "");
+        uint32_t pixels[320 * 200];
+        assert(app_paint(&app, pixels, 320, 200, 320));
+        int sample = app.padding * 320 + app.text_x;
+        assert(pixels[sample] == 0xff66502c);
+        app_input(&app, KEY_TEXT, "i");
+        assert(app_paint(&app, pixels, 320, 200, 320));
+        assert(pixels[sample] == 0xff18202b && !strcmp(app.editor.search, "sd"));
+        app_input(&app, KEY_ESCAPE, "");
+        assert(app_paint(&app, pixels, 320, 200, 320));
+        assert(pixels[sample] == 0xff18202b);
+        app_input(&app, KEY_TEXT, "n");
+        assert(app_paint(&app, pixels, 320, 200, 320));
+        assert(pixels[sample] == 0xff66502c);
+        app_close(&app);
+    }
+}
+
 static void theme_layout(void)
 {
     struct app app;
@@ -603,6 +632,7 @@ int main(void)
 {
     gutter_layout();
     theme_layout();
+    search_visibility();
     decoration_layout();
     rounded_window();
     render_modes();
