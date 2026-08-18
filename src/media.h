@@ -11,6 +11,8 @@ struct media_entry {
 };
 void media_close(struct app *app);
 void media_sync(struct app *app);
+/* Successful-save notification; removes tracked, unreferenced assets. */
+void media_saved(void *context);
 void media_tick(struct app *app);
 const struct media_entry *media_at(struct app *app, size_t position);
 int media_rows(struct app *app, size_t position, int available_width, int line_height,

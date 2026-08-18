@@ -117,3 +117,14 @@ cleanup:
     free(target); free(temporary);
     return ok;
 }
+
+bool platform_file_remove(const char *path)
+{
+    wchar_t *wide = windows_path(path);
+    if (!wide)
+        return false;
+    bool ok = DeleteFileW(wide) != 0;
+    DWORD code = GetLastError();
+    free(wide);
+    return ok || code == ERROR_FILE_NOT_FOUND || code == ERROR_PATH_NOT_FOUND;
+}

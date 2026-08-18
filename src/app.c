@@ -35,6 +35,11 @@ bool app_open(struct app *app, const char *filename)
             app->directory[0] = '.';
         app->directory[n] = 0;
     }
+    if (ok) {
+        app->editor.on_save = media_saved;
+        app->editor.on_save_data = app;
+        media_sync(app);
+    }
     return ok;
 }
 
@@ -49,6 +54,7 @@ void app_close(struct app *app)
 
 void app_input(struct app *app, enum editor_key key, const char *text)
 {
+    media_sync(app);
     app->ocr_retry = false;
     app->image_hit = false;
     uint64_t search_serial = app->editor.search_serial;

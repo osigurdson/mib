@@ -22,7 +22,13 @@ extern char **environ;
 #endif
 #define IMAGE_LIMIT 256
 #define FILE_LIMIT (32 * 1024 * 1024)
+struct asset {
+    struct asset *next;
+    char name[256];
+};
 struct media {
+    struct asset *assets;
+    unsigned asset_count;
     struct media_entry *entries;
     unsigned count;
     uint64_t revision;
@@ -34,6 +40,100 @@ struct media {
     pid_t job;
 #endif
 };
+/* Keep a bounded set of assets seen in this session, including imports deleted
+ * before their first paint. Overflow conservatively leaves extra files alone. */
+static void track_asset(struct app *app, const char *name)
+{
+    if (!app->media)
+        app->media = calloc(1, sizeof(*app->media));
+    struct media *m = app->media;
+    if (!m)
+        return;
+    for (struct asset *a = m->assets; a; a = a->next)
+        if (!strcmp(a->name, name))
+            return;
+    if (m->asset_count >= IMAGE_LIMIT)
+        return;
+    struct asset *a = malloc(sizeof(*a));
+    if (!a)
+        return;
+    strcpy(a->name, name);
+    a->next = m->assets;
+    m->assets = a;
+    ++m->asset_count;
+}
+static void stop_job(struct media *m)
+{
+    if (!m->job)
+        return;
+#ifdef _WIN32
+    TerminateProcess(m->job, 0);
+    WaitForSingleObject(m->job, INFINITE);
+    CloseHandle(m->job);
+    m->job = NULL;
+#else
+    kill(m->job, SIGTERM);
+    while (waitpid(m->job, NULL, 0) < 0 && errno == EINTR) {}
+    m->job = 0;
+#endif
+}
+void media_saved(void *context)
+{
+    struct app *app = context;
+    struct media *m = app->media;
+    if (!m)
+        return;
+    bool cleaned = false, failed = false;
+    struct asset **link = &m->assets;
+    while (*link) {
+        struct asset *a = *link;
+        /* Retain even literal/inline references and matches beyond IMAGE_LIMIT.
+         * False positives are preferable to removing a file still in use. */
+        if (strstr(app->editor.text, a->name)) {
+            link = &a->next;
+            continue;
+        }
+        if (m->job && !strcmp(m->job_name, a->name))
+            stop_job(m); /* Do not let OCR recreate sidecars after cleanup. */
+        bool removed = true;
+        const char *suffixes[] = {"", ".txt", ".tsv"};
+        for (unsigned i = 0; i < 3; ++i) {
+            char relative[272];
+            snprintf(relative, sizeof(relative), "%s%s", a->name, suffixes[i]);
+            char *path = session_path(app, relative);
+            bool ok = path && platform_file_remove(path);
+            free(path);
+            if (i == 0 && ok) {
+                cleaned = true;
+                if (app->editor.register_text && strstr(app->editor.register_text, a->name)) {
+                    free(app->editor.register_text);
+                    app->editor.register_text = NULL;
+                    app->editor.register_length = 0;
+                }
+            }
+            removed &= ok;
+            if (i == 0 && !ok)
+                break;
+        }
+        if (!removed) {
+            failed = true;
+            link = &a->next;
+            continue;
+        }
+        *link = a->next;
+        free(a);
+        --m->asset_count;
+    }
+    if (cleaned) {
+        editor_history_clear(&app->editor);
+        if (app->editor.mode == INSERT)
+            editor_change_begin(&app->editor);
+    }
+    if (cleaned || failed)
+        snprintf(app->editor.message, sizeof(app->editor.message),
+                 "Written; %s%s", cleaned ? "image cleanup reset undo/redo" : "",
+                 failed ? " (some assets could not be removed)" : "");
+}
 static bool parse(const struct editor *ed, size_t start, size_t end, char *name)
 {
     if (end - start < 14 || ed->text[start] != '!' || ed->text[start + 1] != '[' ||
@@ -124,6 +224,8 @@ void media_sync(struct app *app)
         }
         app->media = old;
     }
+    for (unsigned i = 0; i < count; ++i)
+        track_asset(app, entries[i].name);
     free(old->entries);
     old->entries = entries;
     old->count = count;
@@ -373,6 +475,7 @@ static bool store_image(struct app *app, const unsigned char *data, size_t lengt
     free(encoded);
     if (!written)
         return false;
+    track_asset(app, name);
     return true;
 }
 bool media_paste_image(struct app *app, const unsigned char *data, size_t length)
@@ -766,15 +869,11 @@ void media_close(struct app *app)
     struct media *m = app->media;
     if (!m)
         return;
-    if (m->job) {
-#ifdef _WIN32
-        TerminateProcess(m->job, 0);
-        WaitForSingleObject(m->job, 1000);
-        CloseHandle(m->job);
-#else
-        kill(m->job, SIGTERM);
-        waitpid(m->job, NULL, 0);
-#endif
+    stop_job(m);
+    while (m->assets) {
+        struct asset *next = m->assets->next;
+        free(m->assets);
+        m->assets = next;
     }
     free(m->entries);
     free(m);

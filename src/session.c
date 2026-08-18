@@ -406,6 +406,10 @@ int session_open(struct app *app, const char *name)
     free(page);
     if (!ok)
         return -1;
+    app->editor.on_save = media_saved;
+    app->editor.on_save_data = app;
+    app->media_scanned = false;
+    media_sync(app);
     app->scratch = true;
     app->editor.cursor = app->editor.length;
     char *state = session_path(app, ".tinyvi-state");

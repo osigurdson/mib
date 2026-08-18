@@ -137,6 +137,22 @@ int main(void)
         } else
             assert(app.editor.cursor == 0 && !app.image_hit);
     }
+    /* Saving a deletion stops an in-flight OCR child before removing sidecars. */
+    app.editor.mode = NORMAL;
+    assert(media_paste_image(&app, (unsigned char *)encoded, encoded_length));
+    char *removed_asset = media_target(&app);
+    assert(removed_asset && app.work_at);
+    assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
+    char *note_path = session_path(&app, "jot.md");
+    assert(note_path && editor_save(&app.editor, note_path));
+    struct timespec settle = {.tv_nsec = 350000000};
+    nanosleep(&settle, NULL);
+    for (unsigned i = 0; i < 3; ++i) {
+        char check[2400];
+        snprintf(check, sizeof(check), "%s%s", removed_asset, i == 0 ? "" : i == 1 ? ".txt" : ".tsv");
+        assert(access(check, F_OK) != 0);
+    }
+    free(removed_asset);
     free(encoded);
     assert(!setenv("PATH", saved_path, 1));
     free(saved_path);
@@ -144,6 +160,8 @@ int main(void)
     unlink(script);
     rmdir(bin);
     app_close(&app);
+    assert(!unlink(note_path));
+    free(note_path);
     snprintf(sidecar, sizeof(sidecar), "%s.txt", asset);
     unlink(sidecar);
     snprintf(sidecar, sizeof(sidecar), "%s.tsv", asset);

@@ -219,6 +219,8 @@ bool editor_save(struct editor *ed, const char *filename)
     ed->modified = false;
     ed->saved_hash = editor_hash(ed);
     snprintf(ed->message, sizeof(ed->message), "Written %zu bytes", bytes);
+    if (ed->on_save)
+        ed->on_save(ed->on_save_data);
     return true;
 }
 

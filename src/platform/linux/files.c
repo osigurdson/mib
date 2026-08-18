@@ -66,3 +66,8 @@ bool platform_file_write_atomic(const char *path, const char *data, size_t lengt
     free(target); free(temporary);
     return ok;
 }
+
+bool platform_file_remove(const char *path)
+{
+    return unlink(path) == 0 || errno == ENOENT;
+}

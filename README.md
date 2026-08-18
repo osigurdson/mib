@@ -145,6 +145,11 @@ standalone `![](assets/name.png)` lines. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.
 Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`
 sidecars used by search/highlighting. `TINYVI_OCR=0` disables automatic OCR.
+Deleting an image keeps its file until the note is successfully saved. Saving
+removes tracked images no longer mentioned in the note, along with their OCR
+sidecars. When files are cleaned up, undo/redo history is reset and any local
+register containing a removed image is cleared. Ordinary saves preserve history.
+Cleanup does not scan for older orphan files.
 
 Saves write a temporary file in the destination directory before renaming it,
 so a failed write does not truncate the original. Existing file permissions are

@@ -91,6 +91,12 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | `p`, `Ctrl+V` | Paste a screenshot from the clipboard |
 | `Ctrl+Shift+C` | Copy the image's text |
 
+Deleted image files and OCR sidecars are removed only after a successful save,
+provided their asset paths no longer appear in the note. Before saving, undo and
+quitting without saving retain the files. A save that cleans up images resets
+undo/redo history and clears a local register that refers to a removed image.
+Ordinary saves keep history. Clipboard references to removed files can expire.
+
 Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 
 ## Insert mode

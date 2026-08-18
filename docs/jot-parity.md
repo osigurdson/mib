@@ -22,7 +22,7 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
   file import, URI/file drops, inline images, image/link opening and image
   Open/Copy Text context actions. Image copy also offers plain Markdown text.
 - Mixed text/image copies between pages import new asset files using an
-  internal clipboard fragment format. Original assets remain untouched.
+  internal clipboard fragment format. Copying leaves original assets untouched.
 - Conservative Markdown colors/weight with visible syntax, fenced code,
   headings/links/lists/quotes/checked items, wrapping, mouse selection and scroll.
 - Optional, sequential Tesseract child jobs producing private `.png.txt` and
@@ -38,6 +38,27 @@ extension selects file mode for compatibility; `--file path` forces file mode,
 `--file -` starts an unnamed buffer and `--page folder` forces a scratch page.
 No argument uses `$JOT_DIR` or `~/Documents/jot/default` (`~/jot/default` without
 Documents). Other arguments follow jot's named/path page conventions.
+
+## Image deletion and saving
+
+Image deletion changes the buffer first. After a successful save, Jot removes
+tracked images whose asset paths no longer appear anywhere in the note, and
+removes their `.txt`/`.tsv` OCR sidecars. An active OCR job for a removed image is
+stopped before cleanup. Failed saves leave assets and undo history alone.
+Cleanup failures are reported after saving and retried on subsequent saves in
+the same session.
+
+A save that removes images resets the entire undo/redo history, and clears the
+local register if it references a removed image. Other saves preserve history.
+References in other notes or external clipboards do not keep a deleted image
+alive. This assumes each page owns its assets; explicit files sharing an assets
+folder need care. Before saving, undo and discarding changes still work normally.
+
+Tracking is bounded to 256 distinct asset names observed or imported during a
+session. Extra names or allocation failures conservatively leave files behind.
+Current-text reference checks cover the whole note, including raw/inline text
+and references beyond the inline image limit. Existing orphan files are not
+swept. A crash after saving but before cleanup may leave an unused asset behind.
 
 ## Deliberate limits
 
@@ -117,6 +138,16 @@ python3 tools/measure-memory.py --kind image --max-pss 4096
 # To compare a saved executable:
 python3 tools/measure-memory.py --binary /path/to/baseline
 ```
+
+## Image-cleanup verification (2026-11-02)
+
+All nine Linux Make tests, all nine Windows/Wine tests, and all nine Linux
+AddressSanitizer/UndefinedBehaviorSanitizer tests passed with the cleanup change. Regression checks cover unsaved deletion/undo/discard, raw and
+inline remaining references, failed saves, failed cleanup and retry, untracked
+files, import/delete/save-and-quit, and stopping an active OCR job without
+recreating sidecars. The Linux executable measured 773,448 bytes with debug
+information, or 188,280 bytes stripped; Windows measured 266,752 bytes. Three
+empty-page Wayland launches measured 742–750 KiB idle PSS, below 1 MiB.
 
 ## Verification
 

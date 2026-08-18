@@ -12,6 +12,137 @@
 #else
 #include <unistd.h>
 #endif
+static bool exists(const char *path)
+{
+    bool missing;
+    char error[128];
+    FILE *f = platform_file_open_read(path, &missing, error, sizeof(error));
+    if (f)
+        fclose(f);
+    return f != NULL;
+}
+static void cleanup_test(const char *root, const unsigned char *png, size_t bytes)
+{
+    char directory[1200];
+    snprintf(directory, sizeof(directory), "%s/cleanup", root);
+    struct app app;
+    assert(app_open(&app, NULL));
+    assert(session_open(&app, directory) == 1);
+    assert(media_paste_image(&app, png, bytes));
+    media_sync(&app);
+    const struct media_entry *e = media_at(&app, 0);
+    assert(e);
+    char name[256];
+    snprintf(name, sizeof(name), "%s", e->name);
+    char *path = session_path(&app, name);
+    char side[272];
+    snprintf(side, sizeof(side), "%s.txt", name);
+    char *txt = session_path(&app, side);
+    snprintf(side, sizeof(side), "%s.tsv", name);
+    char *tsv = session_path(&app, side);
+    assert(session_write_new(txt, "text", 4));
+    assert(session_write_new(tsv, "tsv", 3));
+    app_input(&app, KEY_CTRL_S, "");
+    assert(exists(path) && app.editor.history); /* Ordinary save keeps undo. */
+    /* Unsaved deletion must not damage the saved note, even across closing. */
+    app.editor.cursor = 0;
+    app.editor.mode = NORMAL;
+    app_input(&app, KEY_DELETE, "");
+    assert(exists(path) && exists(txt) && exists(tsv));
+    editor_undo(&app.editor, false);
+    assert(strstr(app.editor.text, name));
+    app.editor.cursor = 0;
+    app_input(&app, KEY_DELETE, "");
+    app_close(&app);
+    assert(exists(path));
+    assert(app_open(&app, NULL));
+    assert(session_open(&app, directory) == 1);
+    assert(strstr(app.editor.text, name));
+    /* A remaining inline reference retains the asset, even in raw mode. */
+    char reference[300];
+    snprintf(reference, sizeof(reference), "inline ![](%s) text\n", name);
+    assert(editor_replace(&app.editor, 0, app.editor.length, reference, strlen(reference)));
+    app.editor.render_mode = RENDER_RAW;
+    app_input(&app, KEY_CTRL_S, "");
+    assert(exists(path) && app.editor.history);
+    assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
+    /* Failed saves retain the asset and history. */
+    char *filename = app.editor.filename;
+    app.editor.filename = directory;
+    app_input(&app, KEY_CTRL_S, "");
+    assert(app.editor.modified && exists(path) && exists(txt) && app.editor.history);
+    app.editor.filename = filename;
+    /* Untracked files are not swept from assets. */
+    char *orphan = session_path(&app, "assets/untracked.png");
+    assert(session_write_new(orphan, "unused", 6));
+    /* A directory in place of the image makes unlink fail deterministically. */
+    assert(platform_file_remove(path));
+    assert(session_mkdir(path));
+    app_input(&app, KEY_CTRL_S, "");
+    assert(!app.editor.modified && exists(txt) && app.editor.history);
+    assert(strstr(app.editor.message, "could not be removed"));
+#ifdef _WIN32
+    wchar_t *blocked = windows_path(path);
+    assert(RemoveDirectoryW(blocked));
+    free(blocked);
+#else
+    assert(!rmdir(path));
+#endif
+    assert(session_write_new(path, (const char *)png, bytes));
+    app_input(&app, KEY_CTRL_S, "");
+    assert(!exists(path) && !exists(txt) && !exists(tsv));
+    assert(exists(orphan) && !app.editor.modified && !app.editor.history);
+    app_input(&app, KEY_TEXT, "u");
+    assert(!strstr(app.editor.text, name));
+    /* Saving an image deletion in insert mode starts a fresh grouped edit. */
+    app.editor.render_mode = RENDER_NORMAL;
+    assert(media_paste_image(&app, png, bytes));
+    app.editor.mode = INSERT;
+    app.editor.cursor = 0;
+    app_input(&app, KEY_DELETE, "");
+    app_input(&app, KEY_CTRL_S, "");
+    app_input(&app, KEY_TEXT, "a");
+    app_input(&app, KEY_TEXT, "b");
+    app_input(&app, KEY_ESCAPE, "");
+    app_input(&app, KEY_TEXT, "u");
+    assert(!app.editor.length);
+    /* Imported images removed before saving are cleaned by :wq as well. */
+    assert(media_paste_image(&app, png, bytes));
+    e = media_at(&app, 0);
+    assert(e);
+    char *imported = session_path(&app, e->name);
+    assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
+    app_input(&app, KEY_TEXT, ":");
+    app_input(&app, KEY_TEXT, "wq");
+    app_input(&app, KEY_ENTER, "");
+    assert(!app.running && !exists(imported));
+    free(imported);
+    app_close(&app);
+    assert(platform_file_remove(orphan));
+    free(orphan);
+    free(path);
+    free(txt);
+    free(tsv);
+    /* Leave no temporary page files behind. */
+    const char *files[] = {"jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", ".tinyvi-state"};
+    for (unsigned i = 0; i < sizeof(files) / sizeof(files[0]); ++i) {
+        char full[1400];
+        snprintf(full, sizeof(full), "%s/%s", directory, files[i]);
+        assert(platform_file_remove(full));
+    }
+#ifdef _WIN32
+    char assets[1300];
+    snprintf(assets, sizeof(assets), "%s/assets", directory);
+    wchar_t *wa = windows_path(assets), *wd = windows_path(directory);
+    assert(RemoveDirectoryW(wa) && RemoveDirectoryW(wd));
+    free(wa);
+    free(wd);
+#else
+    char assets[1300];
+    snprintf(assets, sizeof(assets), "%s/assets", directory);
+    assert(!rmdir(assets) && !rmdir(directory));
+#endif
+}
 int main(int argc, char **argv)
 {
     char directory[1024];
@@ -39,6 +170,7 @@ int main(int argc, char **argv)
     size_t bytes;
     unsigned char *png = image_png(rgba, 320, 180, &bytes);
     assert(png);
+    cleanup_test(directory, png, bytes);
     int w, h;
     assert(image_info(png, bytes, &w, &h) && w == 320 && h == 180);
     struct image image = {0};
