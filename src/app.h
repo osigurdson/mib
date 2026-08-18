@@ -17,7 +17,7 @@ struct app {
     char *directory, *clipboard_image;
     uint64_t media_revision;
     bool media_scanned, image_hit, ocr_retry;
-    bool scratch, maximized, context_menu, client_decorated;
+    bool scratch, maximized, context_menu, client_decorated, tiled;
     int context_x, context_y, context_choice;
     enum app_title_action title_hover, title_pressed;
     int owner_fd, activation_fd;
@@ -38,6 +38,8 @@ int app_view_rows(struct app *app, size_t start);
 /* Physical pixels occupied by the visual row beginning at this source offset. */
 int app_view_height(struct app *app, size_t start);
 size_t app_row_next(const struct editor *ed, size_t start, unsigned columns);
+/* Rounded CSD radius in the requested pixel scale; zero for square windows. */
+int app_corner_radius(const struct app *app, int width, int height, uint32_t scale120);
 enum app_title_action app_title_hit(const struct app *app, int logical_x, int logical_y);
 size_t app_hit_test(struct app *app, int logical_x, int logical_y);
 void app_scroll(struct app *app, int rows);
@@ -48,6 +50,6 @@ bool app_open(struct app *app, const char *filename);
 void app_close(struct app *app);
 void app_input(struct app *app, enum editor_key key, const char *text);
 void app_request_close(struct app *app);
-/* Top-down 0xFFRRGGBB pixels; stride is in uint32_t pixels, not bytes. */
+/* Top-down premultiplied ARGB8888 pixels; stride is in uint32_t pixels, not bytes. */
 bool app_paint(struct app *app, uint32_t *pixels, int width, int height, int stride);
 #endif

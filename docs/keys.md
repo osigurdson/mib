@@ -149,7 +149,9 @@ to raw or normal to edit. Copies retain the selected Markdown source.
 On Wayland, a title bar appears when the compositor needs client-side window
 controls. Drag it to move the window, double-click it to maximize/restore, or
 use its minimize, maximize and close buttons. Drag an edge or corner to resize;
-right-click the title for the compositor's window menu.
+right-click the title for the compositor's window menu. Floating windows with
+client-side controls have rounded corners. They become square when maximized,
+tiled, or fullscreen; server-decorated windows follow the compositor's styling.
 
 This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
 [parity report](jot-parity.md). Native presentation differs. Search selects an

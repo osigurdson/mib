@@ -139,6 +139,40 @@ python3 tools/measure-memory.py --kind image --max-pss 4096
 python3 tools/measure-memory.py --binary /path/to/baseline
 ```
 
+## Rounded client decorations (2026-11-02)
+
+Floating Wayland windows with client-side decorations now have 12-logical-pixel
+rounded corners. Maximized/fullscreen windows and windows reported as tiled
+remain square. Server-side decoration behavior is unchanged, allowing Hyprland
+and other compositors to supply their own rounding/shadows. The backend now
+negotiates xdg-shell version 2 for tiled-edge states, with a version 1 fallback.
+Windows continues to use its native window frame.
+
+Only rounded windows use ARGB8888; other windows retain XRGB8888. Both buffers
+use four bytes per pixel. The renderer supersamples the four corner squares
+without another buffer or cache, and premultiplies their alpha. The backend
+sends a conservative opaque region and curved input region, including a small
+fringe for fractional scaling and resize targets. Regions are updated only when
+window dimensions or corner radius change. There are no client-drawn shadows,
+new runtime dependencies, extra redraws, or changes to the 30 FPS cap.
+
+All nine Linux tests, nine Windows/Wine tests, and nine Linux ASan/UBSan tests
+passed. Checks cover transparent/antialiased/premultiplied corners, pitched and
+tiny buffers, square window states, and real Wayland region requests with
+visible-pixel/input coverage and opaque-pixel assertions at 100/125/150/200%.
+A light render preview was inspected. A native GNOME run accepted the ARGB
+buffer and surface regions, with zero process CPU ticks over two idle seconds.
+A separate 20,000-iteration corner-mask measurement at 150% averaged about
+0.007 ms per frame on this host; this excludes the rest of painting.
+
+The Linux executable is 784,328 bytes with debug information, or 192,376 bytes
+stripped (4,096 bytes above the preceding image-cleanup build). Windows remains
+266,752 bytes. The first three empty-page GNOME samples measured 736–740 KiB
+idle PSS, versus 724–733 KiB immediately before the change. Code residency and
+shared-library usage affect PSS; these measurements remain below 1 MiB. Final verification samples measured 735–743 KiB PSS. The
+existing four-byte buffer sizes, two-buffer limit, and idle pixel unmapping are
+unchanged. These are editor-process measurements, excluding compositor memory.
+
 ## Image-cleanup verification (2026-11-02)
 
 All nine Linux Make tests, all nine Windows/Wine tests, and all nine Linux

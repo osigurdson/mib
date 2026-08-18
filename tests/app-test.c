@@ -128,7 +128,8 @@ static void decoration_layout(void)
         assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
         int h = app.title_height, y = h / 2 * 120 / (int)scales[i];
         assert(h == app.line_height + app.padding && app.editor.viewport_rows < rows);
-        assert(pixels[0] == (app.editor.light ? 0xfff2f1ee : 0xff1d2733));
+        assert(pixels[0] == 0);
+        assert(pixels[WIDTH / 2] == (app.editor.light ? 0xfff2f1ee : 0xff1d2733));
         assert(app_title_hit(&app, 20, y) == TITLE_MOVE);
         assert(app_title_hit(&app, (WIDTH - 5 * h / 2) * 120 / (int)scales[i], y) == TITLE_MINIMIZE);
         assert(app_title_hit(&app, (WIDTH - 3 * h / 2) * 120 / (int)scales[i], y) == TITLE_MAXIMIZE);
@@ -150,7 +151,7 @@ static void decoration_layout(void)
             assert(pixels[h / 2 * WIDTH + sample] == pressed);
             app.title_hover = TITLE_NONE;
             assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
-            assert(pixels[h / 2 * WIDTH + sample] == pixels[0]);
+            assert(pixels[h / 2 * WIDTH + sample] == pixels[WIDTH / 2]);
             app.title_pressed = TITLE_NONE;
             app.maximized = false;
         }
@@ -166,6 +167,64 @@ static void decoration_layout(void)
         assert(app_title_hit(&app, 20, y) == TITLE_NONE);
     }
     free(pixels);
+    app_close(&app);
+}
+
+static void rounded_window(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    app.client_decorated = true;
+    enum { WIDTH = 321, HEIGHT = 201, STRIDE = 328 };
+    uint32_t pixels[STRIDE * HEIGHT];
+    const unsigned scales[] = {120, 150, 180, 240};
+    for (unsigned i = 0; i < sizeof(scales) / sizeof(scales[0]); ++i) {
+        app.scale120 = scales[i];
+        app.editor.light = i % 2 != 0;
+        for (int p = 0; p < STRIDE * HEIGHT; ++p)
+            pixels[p] = 0x12345678;
+        assert(app_paint(&app, pixels, WIDTH, HEIGHT, STRIDE));
+        assert(app_corner_radius(&app, WIDTH, HEIGHT, scales[i]) == (int)(12 * scales[i] / 120));
+        bool partial = false;
+        for (int y = 0; y < HEIGHT; ++y) {
+            for (int x = 0; x < WIDTH; ++x) {
+                uint32_t pixel = pixels[y * STRIDE + x];
+                unsigned alpha = pixel >> 24;
+                assert(alpha == (pixels[y * STRIDE + WIDTH - 1 - x] >> 24));
+                assert(alpha == (pixels[(HEIGHT - 1 - y) * STRIDE + x] >> 24));
+                assert(((pixel >> 16) & 255) <= alpha);
+                assert(((pixel >> 8) & 255) <= alpha && (pixel & 255) <= alpha);
+                partial |= alpha > 0 && alpha < 255;
+            }
+            for (int x = WIDTH; x < STRIDE; ++x)
+                assert(pixels[y * STRIDE + x] == 0x12345678);
+        }
+        assert(partial && pixels[0] == 0 && pixels[WIDTH - 1] == 0);
+        assert(pixels[(HEIGHT - 1) * STRIDE] == 0);
+        assert(pixels[(HEIGHT - 1) * STRIDE + WIDTH - 1] == 0);
+        assert((pixels[WIDTH / 2] >> 24) == 255);
+        for (unsigned state = 0; state < 3; ++state) {
+            app.maximized = state == 0;
+            app.tiled = state == 1;
+            app.client_decorated = state != 2;
+            assert(app_paint(&app, pixels, WIDTH, HEIGHT, STRIDE));
+            assert((pixels[0] >> 24) == 255);
+            assert(app_corner_radius(&app, WIDTH, HEIGHT, scales[i]) == 0);
+        }
+        app.maximized = app.tiled = false;
+        app.client_decorated = true;
+    }
+    /* No corner overlap, out-of-bounds writes, or invalid alpha on tiny buffers. */
+    app.scale120 = 120;
+    for (int h = 1; h < 27; ++h)
+        for (int w = 1; w < 27; ++w) {
+            for (int p = 0; p < STRIDE * HEIGHT; ++p)
+                pixels[p] = 0x12345678;
+            assert(app_paint(&app, pixels, w, h, STRIDE));
+            for (int y = 0; y < h; ++y)
+                assert(pixels[y * STRIDE + w] == 0x12345678);
+            assert(pixels[h * STRIDE] == 0x12345678);
+        }
     app_close(&app);
 }
 
@@ -526,7 +585,7 @@ static void colorschemes(void)
                 assert(app_paint(&app, pixels, 400, 300, 400));
                 int top = app.title_height + app.padding;
                 assert(pixels[top * 400] == backgrounds[scheme][light]);
-                assert(pixels[299 * 400] == status_backgrounds[scheme][light]);
+                assert(pixels[299 * 400 + 200] == status_backgrounds[scheme][light]);
                 assert(pixels[top * 400 + app.text_x] == searches[scheme][light]);
                 bool ink = false;
                 for (int y = top; y < top + app.line_height; ++y)
@@ -545,6 +604,7 @@ int main(void)
     gutter_layout();
     theme_layout();
     decoration_layout();
+    rounded_window();
     render_modes();
     markdown_notes();
     markdown_tables();

@@ -66,7 +66,11 @@ close controls. Double-click the title to maximize/restore; drag an edge to
 resize. The edges have eight-pixel grab areas and larger corner targets; resize
 cursors follow the desktop theme when cursor-shape is available. A small grip
 marks the bottom-right corner. The title bar follows the light/dark palette and
-hides in fullscreen.
+hides in fullscreen. Floating client-decorated windows have smooth rounded
+corners; maximized, tiled, and fullscreen windows stay square. Compositors such
+as Hyprland keep control of rounding when server-side decorations are selected.
+Rounding uses the existing four-byte pixel buffer, with no extra retained cache
+or client-drawn shadow.
 
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.
@@ -196,11 +200,11 @@ see the parity report for their coverage and limits.
 
 ## Current footprint
 
-The jot feature port is **159,320 bytes stripped on Linux** and **246,272 bytes
-on Windows**. An empty page measured **777–792 KiB PSS** (660–664 KiB private),
-while total RSS including shared libraries was 2,936–3,000 KiB. A large inline
-image returned to 805–824 KiB PSS after painting, with a transient decoding peak
-around 41 MiB. See [the feature scope, bounds, tests and before/after report](docs/jot-parity.md).
+The current executable measures **192,376 bytes stripped on Linux** and
+**266,752 bytes on Windows**. An empty page recently measured **735–743 KiB
+PSS** (688–696 KiB private), with 3,032–3,040 KiB total RSS including shared
+libraries. Both executable size and idle PSS remain below 1 MiB. See
+[the feature scope, bounds, tests and historical image/before-and-after measurements](docs/jot-parity.md).
 
 ## Font assets and historical measurements
 

@@ -38,6 +38,7 @@ struct wayland_client {
     bool pending_csd, fullscreen;
     uint32_t title_click;
     int title_click_x, title_click_y;
+    int region_width, region_height, region_radius;
     struct wp_viewporter *viewporter;
     struct wp_viewport *viewport;
     struct wp_fractional_scale_manager_v1 *scale_manager;
@@ -96,6 +97,62 @@ static int redraw_delay(const struct wayland_client *client, uint64_t now)
     return remaining > INT_MAX ? INT_MAX : (int)remaining;
 }
 
+static uint32_t window_buffer_format(const struct app *app)
+{
+    return app_corner_radius(app, app->width, app->height, 120) > 0
+               ? WL_SHM_FORMAT_ARGB8888 : WL_SHM_FORMAT_XRGB8888;
+}
+static bool update_surface_regions(struct wayland_client *client)
+{
+    const struct app *app = client->app;
+    int w = app->width, h = app->height;
+    int r = app_corner_radius(app, w, h, 120);
+    if (client->region_width == w && client->region_height == h && client->region_radius == r)
+        return true;
+    struct wl_region *opaque = wl_compositor_create_region(client->compositor);
+    struct wl_region *input = r ? wl_compositor_create_region(client->compositor) : NULL;
+    if (!opaque || (r && !input)) {
+        if (opaque)
+            wl_region_destroy(opaque);
+        return false;
+    }
+    if (!r) {
+        wl_region_add(opaque, 0, 0, w, h);
+    } else {
+        /* A conservative cross excludes all antialiased corner pixels, including
+         * fractional viewport filtering. The remainder can be composed opaquely. */
+        int inset = r + 1;
+        if (w > 2 * inset)
+            wl_region_add(opaque, inset, 0, w - 2 * inset, h);
+        if (h > 2 * inset)
+            wl_region_add(opaque, 0, inset, w, h - 2 * inset);
+        if (h > 2 * r)
+            wl_region_add(input, 0, r, w, h - 2 * r);
+        for (int y = 0; y < r; ++y) {
+            int x = 0, dy = r - y - 2;
+            if (dy < 0)
+                dy = 0;
+            /* Include intersecting cells plus a one-logical-pixel fringe for
+             * fractional buffer rounding/filtering and usable resize edges. */
+            while ((r - x - 1) * (r - x - 1) + dy * dy >= r * r)
+                ++x;
+            if (x > 0)
+                --x;
+            wl_region_add(input, x, y, w - 2 * x, 1);
+            wl_region_add(input, x, h - 1 - y, w - 2 * x, 1);
+        }
+    }
+    wl_surface_set_opaque_region(client->surface, opaque);
+    wl_surface_set_input_region(client->surface, input);
+    wl_region_destroy(opaque);
+    if (input)
+        wl_region_destroy(input);
+    client->region_width = w;
+    client->region_height = h;
+    client->region_radius = r;
+    return true;
+}
+
 static bool draw(struct wayland_client *client)
 {
     /* Coalesce edits, cap redraws, and bound outstanding compositor buffers. */
@@ -143,8 +200,8 @@ static bool draw(struct wayland_client *client)
     }
     struct wl_shm_pool *pool = wl_shm_create_pool(client->shm, fd, size);
     struct wl_buffer *buffer =
-        pool ? wl_shm_pool_create_buffer(pool, 0, width, height, stride, WL_SHM_FORMAT_XRGB8888)
-             : NULL;
+        pool ? wl_shm_pool_create_buffer(pool, 0, width, height, stride,
+                                         window_buffer_format(client->app)) : NULL;
     if (pool)
         wl_shm_pool_destroy(pool);
     /* The compositor keeps its own mapping; our pixels are never reused. */
@@ -152,6 +209,10 @@ static bool draw(struct wayland_client *client)
     close(fd);
     if (!buffer) {
         fprintf(stderr, "Could not create a Wayland shared-memory buffer\n");
+        return false;
+    }
+    if (!update_surface_regions(client)) {
+        wl_buffer_destroy(buffer);
         return false;
     }
     wl_buffer_add_listener(buffer, &buffer_listener, client);
@@ -270,12 +331,16 @@ static void toplevel_configure(void *data, struct xdg_toplevel *toplevel, int32_
     struct wayland_client *client = data;
     bool maximized = false;
     client->fullscreen = false;
+    client->app->tiled = false;
     uint32_t *state;
     wl_array_for_each(state, states) {
         if (*state == XDG_TOPLEVEL_STATE_MAXIMIZED)
             maximized = true;
         if (*state == XDG_TOPLEVEL_STATE_FULLSCREEN)
             client->fullscreen = true;
+        if (*state == XDG_TOPLEVEL_STATE_TILED_LEFT || *state == XDG_TOPLEVEL_STATE_TILED_RIGHT ||
+            *state == XDG_TOPLEVEL_STATE_TILED_TOP || *state == XDG_TOPLEVEL_STATE_TILED_BOTTOM)
+            client->app->tiled = true;
     }
     if (maximized && !client->app->maximized) {
         client->app->restore_width = client->app->width;
@@ -841,7 +906,9 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
         client->decoration_manager =
             wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-        client->wm = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+        /* Version 2 adds tiled-edge states; keep compatibility with version 1. */
+        client->wm =
+            wl_registry_bind(registry, name, &xdg_wm_base_interface, version < 2 ? version : 2);
         xdg_wm_base_add_listener(client->wm, &wm_listener, client);
     }
 }

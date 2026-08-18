@@ -891,6 +891,51 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y)
     }
     return p;
 }
+int app_corner_radius(const struct app *app, int width, int height, uint32_t scale120)
+{
+    if (!app->client_decorated || app->maximized || app->tiled || !scale120 ||
+        (uint64_t)width * 120 < (uint64_t)scale120 * 2 ||
+        (uint64_t)height * 120 < (uint64_t)scale120 * 2)
+        return 0;
+    int radius = (int)((UINT64_C(12) * scale120 + 60) / 120);
+    if (radius > width / 2)
+        radius = width / 2;
+    if (radius > height / 2)
+        radius = height / 2;
+    return radius;
+}
+static uint32_t corner_pixel(uint32_t pixel, unsigned coverage)
+{
+    uint32_t result = 0;
+    for (unsigned shift = 0; shift < 32; shift += 8)
+        result |= ((((pixel >> shift) & 255) * coverage + 8) / 16) << shift;
+    return result;
+}
+static void window_corners(struct app *app, uint32_t *pixels, int width, int height, int stride)
+{
+    int radius = app_corner_radius(app, width, height, app->scale120);
+    /* Supersample only the corner squares, with no extra buffer or retained cache.
+     * All four corners share the coverage; output is premultiplied for Wayland. */
+    int64_t rr = (int64_t)radius * radius * 64;
+    for (int y = 0; y < radius; ++y)
+        for (int x = 0; x < radius; ++x) {
+            unsigned coverage = 0;
+            for (int sy = 1; sy < 8; sy += 2)
+                for (int sx = 1; sx < 8; sx += 2) {
+                    int64_t dx = (int64_t)(radius - x) * 8 - sx;
+                    int64_t dy = (int64_t)(radius - y) * 8 - sy;
+                    coverage += dx * dx + dy * dy <= rr;
+                }
+            if (coverage == 16)
+                continue;
+            size_t offsets[] = {(size_t)y * stride + x,
+                                (size_t)y * stride + width - 1 - x,
+                                (size_t)(height - 1 - y) * stride + x,
+                                (size_t)(height - 1 - y) * stride + width - 1 - x};
+            for (unsigned i = 0; i < 4; ++i)
+                pixels[offsets[i]] = corner_pixel(pixels[offsets[i]], coverage);
+        }
+}
 bool app_paint(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
     if (!pixels || width < 1 || height < 1 || stride < width)
@@ -900,6 +945,8 @@ bool app_paint(struct app *app, uint32_t *pixels, int width, int height, int str
     if (!app->font)
         return false;
     bool ok = paint(app, pixels, width, height, stride);
+    if (ok)
+        window_corners(app, pixels, width, height, stride);
     tiny_font_end_frame(app->font);
     return ok;
 }

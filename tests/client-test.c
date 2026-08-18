@@ -53,13 +53,23 @@ static void decorations(void)
     assert(app.client_decorated); /* mode is deferred until xdg_surface.configure */
     apply_decorations(&client);
     assert(!app.client_decorated);
+    assert(window_buffer_format(&app) == WL_SHM_FORMAT_XRGB8888);
     decoration_configure(&client, NULL, ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE);
     apply_decorations(&client);
     assert(app.client_decorated);
+    assert(window_buffer_format(&app) == WL_SHM_FORMAT_ARGB8888);
+    uint32_t tile = XDG_TOPLEVEL_STATE_TILED_LEFT;
+    struct wl_array states = {.size = sizeof(tile), .alloc = sizeof(tile), .data = &tile};
+    toplevel_configure(&client, NULL, 800, 560, &states);
+    assert(app.tiled && window_buffer_format(&app) == WL_SHM_FORMAT_XRGB8888);
+    states.size = 0;
+    toplevel_configure(&client, NULL, 800, 560, &states);
+    assert(!app.tiled && window_buffer_format(&app) == WL_SHM_FORMAT_ARGB8888);
     assert(resize_edge(&client, 1, 1) == XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT);
     assert(resize_edge(&client, 799, 559) == XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT);
     assert(resize_edge(&client, 200, 20) == XDG_TOPLEVEL_RESIZE_EDGE_NONE);
     app.maximized = true;
+    assert(window_buffer_format(&app) == WL_SHM_FORMAT_XRGB8888);
     assert(resize_edge(&client, 1, 1) == XDG_TOPLEVEL_RESIZE_EDGE_NONE);
     app.maximized = false;
     client.fullscreen = true;
@@ -201,11 +211,137 @@ static void resize_protocol(void)
     app_close(&app);
 }
 
+/* Capture real wl_region requests on an isolated in-process protocol peer. */
+struct shape_region { bool pixels[32 * 32]; };
+struct shape_requests {
+    struct shape_region opaque, input;
+    unsigned creates, updates;
+};
+static void shape_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+    (void)client;
+    wl_resource_destroy(resource);
+}
+static void shape_freed(struct wl_resource *resource)
+{
+    free(wl_resource_get_user_data(resource));
+}
+static void shape_add(struct wl_client *client, struct wl_resource *resource,
+                      int32_t x, int32_t y, int32_t width, int32_t height)
+{
+    (void)client;
+    assert(x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 32 && y + height <= 32);
+    struct shape_region *region = wl_resource_get_user_data(resource);
+    for (int row = y; row < y + height; ++row)
+        for (int col = x; col < x + width; ++col)
+            region->pixels[row * 32 + col] = true;
+}
+static const struct wl_region_interface shape_region_impl = {
+    .destroy = shape_destroy, .add = shape_add,
+};
+static void shape_create(struct wl_client *client, struct wl_resource *compositor, uint32_t id)
+{
+    struct shape_requests *requests = wl_resource_get_user_data(compositor);
+    ++requests->creates;
+    struct wl_resource *region = wl_resource_create(client, &wl_region_interface, 1, id);
+    struct shape_region *data = calloc(1, sizeof(*data));
+    assert(region && data);
+    wl_resource_set_implementation(region, &shape_region_impl, data, shape_freed);
+}
+static void shape_opaque(struct wl_client *client, struct wl_resource *surface, struct wl_resource *region)
+{
+    (void)client;
+    struct shape_requests *requests = wl_resource_get_user_data(surface);
+    assert(region);
+    requests->opaque = *(struct shape_region *)wl_resource_get_user_data(region);
+    ++requests->updates;
+}
+static void shape_input(struct wl_client *client, struct wl_resource *surface, struct wl_resource *region)
+{
+    (void)client;
+    struct shape_requests *requests = wl_resource_get_user_data(surface);
+    if (region)
+        requests->input = *(struct shape_region *)wl_resource_get_user_data(region);
+    else
+        for (unsigned i = 0; i < 32 * 32; ++i)
+            requests->input.pixels[i] = true;
+}
+static void region_protocol(void)
+{
+    int sockets[2];
+    assert(!socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockets));
+    struct wl_display *server = wl_display_create();
+    assert(server);
+    struct wl_client *peer = wl_client_create(server, sockets[0]);
+    struct wl_display *display = wl_display_connect_to_fd(sockets[1]);
+    assert(peer && display);
+    struct wl_proxy *compositor = wl_proxy_create((struct wl_proxy *)display, &wl_compositor_interface);
+    struct wl_proxy *surface = wl_proxy_create((struct wl_proxy *)display, &wl_surface_interface);
+    assert(compositor && surface);
+    struct wl_resource *cr = wl_resource_create(peer, &wl_compositor_interface, 1, wl_proxy_get_id(compositor));
+    struct wl_resource *sr = wl_resource_create(peer, &wl_surface_interface, 1, wl_proxy_get_id(surface));
+    struct shape_requests requests = {0};
+    const struct wl_compositor_interface ci = {.create_region = shape_create};
+    const struct wl_surface_interface si = {.set_opaque_region = shape_opaque, .set_input_region = shape_input};
+    assert(cr && sr);
+    wl_resource_set_implementation(cr, &ci, &requests, NULL);
+    wl_resource_set_implementation(sr, &si, &requests, NULL);
+    struct app app;
+    assert(app_open(&app, NULL));
+    app.width = 32;
+    app.height = 28;
+    struct wayland_client client = {.app = &app, .compositor = (struct wl_compositor *)compositor,
+                                     .surface = (struct wl_surface *)surface};
+    for (unsigned state = 0; state < 5; ++state) {
+        app.client_decorated = state != 3;
+        app.maximized = state == 1;
+        app.tiled = state == 2;
+        if (state == 4) {
+            app.width = 24;
+            app.height = 18;
+        }
+        unsigned updates = requests.updates;
+        assert(update_surface_regions(&client));
+        assert(update_surface_regions(&client)); /* cached until shape changes */
+        assert(wl_display_flush(display) >= 0);
+        assert(wl_event_loop_dispatch(wl_display_get_event_loop(server), 0) >= 0);
+        if (state != 2 && state != 3)
+            assert(requests.updates == updates + 1);
+        else
+            assert(requests.updates == updates); /* same square region */
+        bool rounded = state == 0 || state == 4;
+        assert(requests.input.pixels[0] != rounded && requests.opaque.pixels[0] != rounded);
+        assert(requests.input.pixels[12]);
+        const unsigned scales[] = {120, 150, 180, 240};
+        uint32_t pixels[64 * 64];
+        for (unsigned i = 0; i < sizeof(scales) / sizeof(scales[0]); ++i) {
+            app.scale120 = scales[i];
+            int width = (app.width * (int)scales[i] + 60) / 120;
+            int height = (app.height * (int)scales[i] + 60) / 120;
+            assert(app_paint(&app, pixels, width, height, 64));
+            for (int y = 0; y < height; ++y)
+                for (int x = 0; x < width; ++x) {
+                    int lx = x * 120 / (int)scales[i], ly = y * 120 / (int)scales[i];
+                    unsigned alpha = pixels[y * 64 + x] >> 24;
+                    assert(!requests.opaque.pixels[ly * 32 + lx] || alpha == 255);
+                    assert(!alpha || requests.input.pixels[ly * 32 + lx]);
+                }
+        }
+    }
+    wl_proxy_destroy(surface);
+    wl_proxy_destroy(compositor);
+    wl_display_disconnect(display);
+    wl_display_destroy_clients(server);
+    wl_display_destroy(server);
+    app_close(&app);
+}
+
 int main(int argc, char **argv)
 {
     frame_limit();
     decorations();
     resize_protocol();
+    region_protocol();
     struct app app = {.width = 800, .height = 560, .scale120 = 180, .running = true};
     char path[] = "/tmp/jot-integration-XXXXXX";
     int fd = mkstemp(path); assert(fd >= 0); close(fd);
