@@ -119,7 +119,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:set polish` | Read-only reading view; conceal supported markers and hide the gutter |
 | `:set background=light`, `:set background=dark` | Set the background option (`bg` is an alias) |
 | `:set background?` | Show the background setting |
-| `:colorscheme {name}`, `:colo {name}` | Choose jot, default, desert, evening, or peachpuff |
+| `:colorscheme {name}`, `:colo {name}` | Choose jot, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
 | `:Ex` | Open the page's folder in your file manager |
 | `:e!` | Reload the page from disk |

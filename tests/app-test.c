@@ -482,20 +482,32 @@ static void heading_layout(void)
 static void colorschemes(void)
 {
     const uint32_t backgrounds[COLOR_COUNT][2] = {
-        {0xff18202b, 0xfffaf9f6}, {0xff000000, 0xffffffff},
-        {0xff333333, 0xff333333}, {0xff333333, 0xff333333}, {0xffffdab9, 0xffffdab9}
+        {0xff18202b, 0xfffaf9f6},
+        {0xff1a1b26, 0xffe1e2e7},
+        {0xff1e1e2e, 0xffeff1f5},
+        {0xff1f1f28, 0xfff2ecbc},
+        {0xff2d353b, 0xfffdf6e3}
     };
     const uint32_t searches[COLOR_COUNT][2] = {
-        {0xff66502c, 0xfff5dc8e}, {0xffffff00, 0xffffff00},
-        {0xff7f7f8c, 0xff7f7f8c}, {0xffffff00, 0xffffff00}, {0xffcd00cd, 0xffcd00cd}
+        {0xff66502c, 0xfff5dc8e},
+        {0xff3d59a1, 0xff7890dd},
+        {0xff3e5767, 0xffa8daf0},
+        {0xff2d4f67, 0xffb5cbd2},
+        {0xffa7c080, 0xff8da101}
     };
     const uint32_t search_text[COLOR_COUNT][2] = {
-        {0xffe5edf5, 0xff263342}, {0xff000000, 0xff000000},
-        {0xfff0e68c, 0xfff0e68c}, {0xff000000, 0xff000000}, {0xffffdab9, 0xffffdab9}
+        {0xffe5edf5, 0xff263342},
+        {0xffc0caf5, 0xff3760bf},
+        {0xffcdd6f4, 0xff4c4f69},
+        {0xffdcd7ba, 0xff545464},
+        {0xff2d353b, 0xfffdf6e3}
     };
     const uint32_t status_backgrounds[COLOR_COUNT][2] = {
-        {0xff283443, 0xffe5e8eb}, {0xffffffff, 0xff000000},
-        {0xffc2bfa5, 0xffc2bfa5}, {0xffffffff, 0xffffffff}, {0xff000000, 0xff000000}
+        {0xff283443, 0xffe5e8eb},
+        {0xff16161e, 0xffd0d5e3},
+        {0xff181825, 0xffe6e9ef},
+        {0xff16161d, 0xffd5cea3},
+        {0xff3d484d, 0xffefebd4}
     };
     struct app app;
     assert(app_open(&app, NULL));

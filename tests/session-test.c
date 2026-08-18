@@ -161,6 +161,19 @@ int main(void)
             app_close(&app);
         }
     }
+    /* Removed palettes do not get reinterpreted as a different enum value. */
+    const char *retired[] = {"default", "desert", "evening", "peachpuff"};
+    for (unsigned i = 0; i < sizeof(retired) / sizeof(retired[0]); ++i) {
+        char legacy_state[128];
+        snprintf(legacy_state, sizeof(legacy_state), "800 600 18 1 1 0 1 %s\n", retired[i]);
+        char filename[1200];
+        snprintf(filename, sizeof(filename), "%s/.tinyvi-state", directory);
+        assert(platform_file_write_atomic(filename, legacy_state, strlen(legacy_state), error, sizeof(error)));
+        assert(app_open(&app, NULL));
+        assert(session_open(&app, directory) == 1);
+        assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
+        app_close(&app);
+    }
     free(page);
     free(agents);
     /* Remove only the known files in this unique test directory. */

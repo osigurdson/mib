@@ -87,7 +87,7 @@ int main(void)
     editor_command(&ed, "set normal");
     assert(ed.render_mode == RENDER_NORMAL);
     uint64_t revision = ed.revision;
-    const char *schemes[] = {"jot", "default", "desert", "evening", "peachpuff"};
+    const char *schemes[] = {"jot", "tokyonight", "catppuccin", "kanagawa", "everforest"};
     for (unsigned i = 0; i < COLOR_COUNT; ++i) {
         char command[80];
         snprintf(command, sizeof(command), "colorscheme %s", schemes[i]);
@@ -113,8 +113,16 @@ int main(void)
     editor_command(&ed, "set background=invalid");
     assert(strstr(ed.message, "Unknown command") && !ed.light);
     editor_command(&ed, "set polish");
-    editor_command(&ed, "colorscheme peachpuff");
-    assert(ed.colorscheme == COLOR_PEACHPUFF && ed.light && ed.render_mode == RENDER_POLISH);
+    editor_command(&ed, "set bg=light");
+    editor_command(&ed, "colorscheme catppuccin");
+    assert(ed.colorscheme == COLOR_CATPPUCCIN && ed.light && ed.render_mode == RENDER_POLISH);
+    const char *retired[] = {"default", "desert", "evening", "peachpuff"};
+    for (unsigned i = 0; i < sizeof(retired) / sizeof(retired[0]); ++i) {
+        char command[80];
+        snprintf(command, sizeof(command), "colorscheme %s", retired[i]);
+        editor_command(&ed, command);
+        assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_CATPPUCCIN);
+    }
     editor_command(&ed, "colorscheme jot");
     editor_command(&ed, "set normal");
     reset("one two three\nfour five\nsix\n");

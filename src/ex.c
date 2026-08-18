@@ -6,7 +6,7 @@
 
 const char *editor_colorscheme_name(enum color_scheme scheme)
 {
-    static const char *const names[] = {"jot", "default", "desert", "evening", "peachpuff"};
+    static const char *const names[] = {"jot", "tokyonight", "catppuccin", "kanagawa", "everforest"};
     return (unsigned)scheme < COLOR_COUNT ? names[scheme] : "jot";
 }
 bool editor_colorscheme(struct editor *ed, const char *name)
@@ -14,8 +14,6 @@ bool editor_colorscheme(struct editor *ed, const char *name)
     for (unsigned i = 0; i < COLOR_COUNT; ++i) {
         if (strcmp(name, editor_colorscheme_name((enum color_scheme)i))) continue;
         ed->colorscheme = (enum color_scheme)i;
-        if (i == COLOR_DESERT || i == COLOR_EVENING) ed->light = false;
-        else if (i == COLOR_PEACHPUFF) ed->light = true;
         return true;
     }
     return false;

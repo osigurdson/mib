@@ -1,11 +1,7 @@
 #ifndef JOT_COLORS_H
 #define JOT_COLORS_H
 #include <stdint.h>
-/* Vim GUI highlight colors mapped to Jot's presentation roles.
- * Imported from Vim 9.2 colors/{default,desert,evening,peachpuff}.vim.
- * Upstream: https://github.com/vim/colorschemes (same license as Vim).
- * See third_party/vim-LICENSE and docs/colors.md for mapping and provenance.
- */
+/* Jot colors and fixed-size upstream palettes; see docs/colors.md. */
 struct palette {
     uint32_t background, text, dim, link, heading, quote, done, italic;
     uint32_t code, search, selection, cursor, status, menu, menu_selected, handle;
@@ -28,39 +24,5 @@ static const struct palette light = {
     0xfff2f1ee, 0xffdeded8, 0xffe0e2df, 0xffcdd3d0,
     0xff263342, 0xff263342, 0xff263342, 0xff263342, 0xff263342,
 };
-static const struct palette vim_default_dark = {
-    0xff000000, 0xffffffff, 0xffffff00, 0xffffffff, 0xffff00ff,
-    0xffffffff, 0xffffffff, 0xffffffff, 0xff666666, 0xffffff00,
-    0xff575757, 0xffffffff, 0xffffffff, 0xffff00ff, 0xffa9a9a9,
-    0xffffffff, 0xff0a0a0a, 0xff2b2b2b, 0xff191919, 0xff2b2b2b,
-    0xff000000, 0xffd3d3d3, 0xff000000, 0xffffffff, 0xffffffff,
-};
-static const struct palette vim_default_light = {
-    0xffffffff, 0xff000000, 0xffa52a2a, 0xff000000, 0xffff00ff,
-    0xff000000, 0xff000000, 0xff000000, 0xffe5e5e5, 0xffffff00,
-    0xffd3d3d3, 0xff000000, 0xff000000, 0xffff8bff, 0xffbebebe,
-    0xff000000, 0xfff4f4f4, 0xffd3d3d3, 0xffe5e5e5, 0xffd3d3d3,
-    0xff000000, 0xff000000, 0xffffffff, 0xff000000, 0xff000000,
-};
-static const struct palette vim_desert = {
-    0xff333333, 0xffffffff, 0xff666666, 0xff75a0ff, 0xffcd5c5c,
-    0xff6dceeb, 0xff6dceeb, 0xffffde9b, 0xff666666, 0xff7f7f8c,
-    0xff6b8e24, 0xfff0e68c, 0xffc2bfa5, 0xff666666, 0xfff0e68c,
-    0xffffffff, 0xff3b3b3b, 0xff555555, 0xff474747, 0xff555555,
-    0xfff0e68c, 0xfff0e68c, 0xff333333, 0xffffffff, 0xff333333,
-};
-static const struct palette vim_evening = {
-    0xff333333, 0xffffffff, 0xffffff00, 0xff80a0ff, 0xffff80ff,
-    0xff80a0ff, 0xff80a0ff, 0xffffa500, 0xff666666, 0xffffff00,
-    0xff999999, 0xff00ff00, 0xffffffff, 0xff4d4d4d, 0xffbebebe,
-    0xffffffff, 0xff3b3b3b, 0xff555555, 0xff474747, 0xff555555,
-    0xff000000, 0xffffffff, 0xff333333, 0xffffffff, 0xff000000,
-};
-static const struct palette vim_peachpuff = {
-    0xffffdab9, 0xff000000, 0xffcd0000, 0xff6a5acd, 0xffcd00cd,
-    0xff406090, 0xff406090, 0xff6a5acd, 0xfff5c195, 0xffcd00cd,
-    0xffcccccc, 0xff000000, 0xff000000, 0xffffaf87, 0xfff5c195,
-    0xff000000, 0xfff4d1b1, 0xffd3b499, 0xffe5c4a6, 0xffd3b499,
-    0xffffdab9, 0xff000000, 0xffffffff, 0xff000000, 0xff000000,
-};
+#include "theme-palettes.h"
 #endif

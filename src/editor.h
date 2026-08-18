@@ -54,7 +54,7 @@ enum editor_request {
     ED_ZOOM_OUT = 256,
     ED_ZOOM_RESET = 512
 };
-enum color_scheme { COLOR_JOT, COLOR_DEFAULT, COLOR_DESERT, COLOR_EVENING, COLOR_PEACHPUFF, COLOR_COUNT };
+enum color_scheme { COLOR_JOT, COLOR_TOKYONIGHT, COLOR_CATPPUCCIN, COLOR_KANAGAWA, COLOR_EVERFOREST, COLOR_COUNT };
 const char *editor_colorscheme_name(enum color_scheme scheme);
 struct edit_history;
 struct editor {

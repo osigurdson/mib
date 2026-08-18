@@ -9,10 +9,10 @@
 static const struct palette *colors(const struct app *app)
 {
     switch (app->editor.colorscheme) {
-    case COLOR_DEFAULT: return app->editor.light ? &vim_default_light : &vim_default_dark;
-    case COLOR_DESERT: return &vim_desert;
-    case COLOR_EVENING: return &vim_evening;
-    case COLOR_PEACHPUFF: return &vim_peachpuff;
+    case COLOR_TOKYONIGHT: return app->editor.light ? &theme_tokyonight_light : &theme_tokyonight_dark;
+    case COLOR_CATPPUCCIN: return app->editor.light ? &theme_catppuccin_light : &theme_catppuccin_dark;
+    case COLOR_KANAGAWA: return app->editor.light ? &theme_kanagawa_light : &theme_kanagawa_dark;
+    case COLOR_EVERFOREST: return app->editor.light ? &theme_everforest_light : &theme_everforest_dark;
     default: return app->editor.light ? &light : &dark;
     }
 }

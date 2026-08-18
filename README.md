@@ -135,8 +135,8 @@ source.
 
 Search matches stay highlighted in every mode. Use `:set background=light` or
 `:set background=dark` (`bg` also works), and `:colorscheme {name}` (`:colo`).
-Built-in schemes are `jot` (the original look), `default`, `desert`, `evening`,
-and `peachpuff`. `:colorscheme` reports the current scheme; `:set background?`
+Built-in schemes are `jot` (the original look), `tokyonight`, `catppuccin`,
+`kanagawa`, and `everforest`. All support light/dark backgrounds. `:colorscheme` reports the current scheme; `:set background?`
 reports the background setting. Scratch pages remember render mode, background,
 and colorscheme when closed. Jot with a dark background is the default.
 See [colorscheme behavior and provenance](docs/colors.md). Saves always use the current page or file.
