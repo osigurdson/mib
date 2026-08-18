@@ -75,15 +75,16 @@ int main(void)
 {
     readonly_mode();
     reset("notes");
-    const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch"};
+    const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
+                             "set md", "set nomd"};
     for (unsigned i = 0; i < sizeof(removed) / sizeof(removed[0]); ++i) {
         editor_command(&ed, removed[i]);
         assert(strstr(ed.message, "Unknown command"));
         expect("notes");
     }
-    editor_command(&ed, "set nomd");
+    editor_command(&ed, "set raw");
     assert(ed.render_mode == RENDER_RAW);
-    editor_command(&ed, "set md");
+    editor_command(&ed, "set normal");
     assert(ed.render_mode == RENDER_NORMAL);
     reset("one two three\nfour five\nsix\n");
     keys("2dw");

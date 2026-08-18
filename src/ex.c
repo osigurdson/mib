@@ -115,11 +115,10 @@ void editor_command(struct editor *ed, const char *command)
     else if (!strcmp(p, "Ex"))
         ed->requests |= ED_OPEN_DIRECTORY;
     else if (!strcmp(p, "set") && argument) {
-        if (!strcmp(argument, "raw") || !strcmp(argument, "nomd") ||
-            !strcmp(argument, "normal") || !strcmp(argument, "md") ||
+        if (!strcmp(argument, "raw") || !strcmp(argument, "normal") ||
             !strcmp(argument, "polish")) {
             editor_change_end(ed);
-            ed->render_mode = !strcmp(argument, "raw") || !strcmp(argument, "nomd") ? RENDER_RAW
+            ed->render_mode = !strcmp(argument, "raw") ? RENDER_RAW
                               : !strcmp(argument, "polish") ? RENDER_POLISH : RENDER_NORMAL;
             ed->mode = NORMAL;
             ed->pending[0] = 0;

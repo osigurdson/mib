@@ -517,7 +517,7 @@ int main(void)
     int status_y = HEIGHT - app.line_height - 2 * app.padding;
     assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
     app_input(&app, KEY_TEXT, ":");
-    app_input(&app, KEY_TEXT, "set md");
+    app_input(&app, KEY_TEXT, "set normal");
     assert(app_paint(&app, padded, WIDTH, HEIGHT, STRIDE));
     assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
     bool status_changed = false;

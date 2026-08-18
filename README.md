@@ -131,8 +131,7 @@ Choose a render mode with `:set raw`, `:set normal`, or `:set polish`:
 Raw and normal remain editable and show line numbers. Polish keeps navigation,
 search, selection, copying, saving, and link/image opening; switch to raw or
 normal to edit. Selections and copies still refer to the underlying Markdown
-source. These modes use the existing Markdown parser; no new Markdown syntax
-is introduced. `:set md` and `:set nomd` remain aliases for normal and raw.
+source.
 
 Search matches stay highlighted in every mode. `:set light` and `:set dark`
 choose the color palette. Scratch pages remember both render mode and palette

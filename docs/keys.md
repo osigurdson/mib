@@ -117,7 +117,6 @@ Press `:` to open it. Up and Down browse your history.
 | `:set raw` | Editable plain source, with no Markdown styling or inline images |
 | `:set normal` | Editable styled source with inline images (default) |
 | `:set polish` | Read-only reading view; conceal supported markers and hide the gutter |
-| `:set md`, `:set nomd` | Aliases for normal and raw |
 | `:set light`, `:set dark` | Choose the light or dark palette (remembered per page) |
 | `:Ex` | Open the page's folder in your file manager |
 | `:e!` | Reload the page from disk |
