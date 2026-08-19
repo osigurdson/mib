@@ -8,6 +8,9 @@ the beginning. The bottom line shows the line and column, plus `RAW` or
 
 Counts work with motions and operators, such as `3w`, `5j`, `d3j` and `2dd`.
 
+An unsupported command is discarded with a message, so the keys that follow it
+run as normal commands. Macros (`q`, `@`) aren't supported.
+
 ## Modes
 
 | Keys | Action |
@@ -48,6 +51,7 @@ Counts work with motions and operators, such as `3w`, `5j`, `d3j` and `2dd`.
 | `J` | Join lines |
 | `r` | Replace a character |
 | `~` | Toggle case |
+| `gu` `gU` `g~` | Lowercase, uppercase or toggle case: follow with a motion or text object, or double the last key (`gUU`) for the line |
 | `u` `Ctrl+R` | Undo, redo (one insert session is one undo step) |
 
 In visual mode, `d` `y` `c` `<` `>` act on the selection, `J` joins, `u` `U` `~` change case, `p` replaces, and `o` jumps to the other end.
@@ -156,6 +160,7 @@ to raw or normal to edit. Copies retain the selected Markdown source.
 |---|---|
 | `Ctrl+S` | Save now |
 | `Ctrl+Q` | Quit |
+| `ZZ`, `ZQ` | Save and close, or close without saving |
 | `Ctrl +`, `Ctrl -`, `Ctrl 0` | Zoom in, zoom out, reset |
 
 On Wayland, a title bar appears when the compositor needs client-side window

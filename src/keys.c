@@ -460,6 +460,7 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
                 }
             } while (p < ed->length && !editor_heading(ed, p));
         } else {
+            snprintf(ed->message, sizeof(ed->message), "Unknown command: %.30s", m);
             *valid = false;
             break;
         }
@@ -864,15 +865,20 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         count = 1;
     bool visual = ed->mode == VISUAL || ed->mode == VISUAL_LINE;
     if (ed->render_mode == RENDER_POLISH &&
-        ((!visual && strchr("dc><iaIAoOsSxXDCJr~pPu", *p)) ||
+        ((!visual && (strchr("dc><iaIAoOsSxXDCJr~pPu", *p) ||
+                      (p[0] == 'g' && p[1] && strchr("uU~", p[1])))) ||
          (visual && strchr("dc><JuU~xspP", *p)))) {
         editor_can_edit(ed);
         ed->pending[0] = 0;
         return;
     }
     char op = 0;
-    if (strchr("dyc><", *p) && !visual) {
-        op = *p++;
+    const char *op_keys = p;
+    size_t op_length = 0;
+    if (!visual && (strchr("dyc><", *p) || (p[0] == 'g' && p[1] && strchr("uU~", p[1])))) {
+        op_length = *p == 'g' ? 2 : 1;
+        op = p[op_length - 1];
+        p += op_length;
         unsigned inner = 0;
         while (isdigit((unsigned char)*p) && (*p != '0' || inner))
             inner = min(100000, inner * 10 + (unsigned)(*p++ - '0'));
@@ -881,16 +887,28 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         if (!*p)
             return;
     }
-    if ((*p == 'g' || *p == 'z' || *p == '[' || *p == ']' || strchr("fFtTr", *p) ||
+    if ((strchr("gz[]fFtTr'`", *p) || (!op && strchr("qZ@m", *p)) ||
          (op && (*p == 'i' || *p == 'a'))) &&
         !p[1])
         return;
     if (visual && (*p == 'i' || *p == 'a') && !p[1])
         return;
-    char seq[40];
+    char seq[40], keys_op[3] = {0};
     snprintf(seq, sizeof(seq), "%s", p);
+    memcpy(keys_op, op_keys, op_length);
     ed->pending[0] = 0;
     p = seq;
+    if (!op && (*p == 'q' || *p == '@')) {
+        snprintf(ed->message, sizeof(ed->message), "Macros are not supported");
+        return;
+    }
+    if (!op && *p == 'Z') {
+        if (p[1] == 'Z' || p[1] == 'Q')
+            editor_command(ed, p[1] == 'Z' ? "x" : "q!");
+        else
+            snprintf(ed->message, sizeof(ed->message), "Unknown command: %.30s", p);
+        return;
+    }
     if (!op && !strcmp(p, ":")) {
         prompt(ed, ':');
         return;
@@ -953,7 +971,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         operate(ed, *p == 'x' ? 'd' : *p == 's' ? 'c' : *p, a, b, linewise);
         return;
     }
-    if (op && *p == op) {
+    if (op && (!strcmp(p, op_length == 1 ? keys_op : keys_op + 1) || !strcmp(p, keys_op))) {
         a = editor_line_start(ed, ed->cursor);
         b = editor_line_end(ed, vertical(ed, a, count - 1));
         if (b < ed->length)
@@ -981,6 +999,10 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         return;
     }
     if (!op && p[0] == 'z') {
+        if (!strchr("ztb", p[1])) {
+            snprintf(ed->message, sizeof(ed->message), "Unknown command: %.30s", p);
+            return;
+        }
         size_t line = editor_line_number(ed, ed->cursor),
                rows = ed->viewport_rows ? ed->viewport_rows : 24;
         size_t back = p[1] == 'z' ? rows / 2 : p[1] == 'b' ? rows - 1 : 0;

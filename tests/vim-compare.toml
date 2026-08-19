@@ -213,12 +213,10 @@ keys = "dw.u"
 [[case]]
 name = "gUiw"
 keys = "gUiw"
-status = "gap"
 
 [[case]]
 name = "gUU"
 keys = "gUU"
-status = "gap"
 
 [[case]]
 name = "guu after VU"
@@ -227,17 +225,14 @@ keys = "VUguu"
 [[case]]
 name = "g~w"
 keys = "g~w"
-status = "gap"
 
 [[case]]
 name = "gUj"
 keys = "gUj"
-status = "gap"
 
 [[case]]
 name = "g~~"
 keys = "jg~~"
-status = "gap"
 
 # Unsupported commands don't run their remaining keys
 
@@ -254,14 +249,14 @@ vim_keys = "x"
 [[case]]
 name = "macro record keys"
 keys = "qaA;<Esc>jq2@a"
+vim_keys = "A;<Esc>jA;<Esc>jA;<Esc>"
 status = "gap"
-note = "Macros are not supported; Jot discards qa, q and @a, so only the plain edits run"
+note = "Macros are not supported; Jot discards qa, q2 and @a. :normal can't record, so vim_keys spells out the result"
 
 [[case]]
 name = "macro run keys"
 keys = "@ax"
 vim_keys = "x"
-status = "gap"
 
 # Dot repeat
 
@@ -429,7 +424,6 @@ status = "gap"
 name = "unset mark"
 keys = "'zx"
 vim_keys = "x"
-status = "gap"
 
 # gq formatting
 

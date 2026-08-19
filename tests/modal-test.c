@@ -122,11 +122,52 @@ static void insert_end(void)
     expect("caf\xc3\xa9!");
 }
 
+static void case_operators(void)
+{
+    reset("one two\nthree\n");
+    keys("gUiw");
+    expect("ONE two\nthree\n");
+    keys("wg~e");
+    expect("ONE TWO\nthree\n");
+    keys("guu");
+    expect("one two\nthree\n");
+    keys("gUj");
+    expect("ONE TWO\nTHREE\n");
+    keys("gugu");
+    expect("one two\nTHREE\n");
+    keys("jg~~");
+    expect("one two\nthree\n");
+    keys("u");
+    expect("one two\nTHREE\n");
+    editor_command(&ed, "set polish");
+    keys("gU");
+    expect("one two\nTHREE\n");
+    assert(strstr(ed.message, "read-only") && !ed.pending[0]);
+}
+
+static void unknown_commands(void)
+{
+    /* Unsupported commands consume their own keys and leave the text alone. */
+    reset("abc def\n");
+    const char *ignored[] = {"gZ", "zq", "qa", "@a", "Zx", "dZ", "R"};
+    for (unsigned i = 0; i < sizeof(ignored) / sizeof(ignored[0]); ++i) {
+        keys(ignored[i]);
+        expect("abc def\n");
+        assert(ed.mode == NORMAL && !ed.pending[0] && ed.message[0]);
+    }
+    keys("x");
+    expect("bc def\n");
+    keys("zz");
+    assert(!ed.message[0]);
+}
+
 int main(void)
 {
     readonly_mode();
     search_visibility();
     insert_end();
+    case_operators();
+    unknown_commands();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};
