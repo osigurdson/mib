@@ -57,6 +57,11 @@ enum editor_request {
 enum color_scheme { COLOR_JOT, COLOR_TOKYONIGHT, COLOR_CATPPUCCIN, COLOR_KANAGAWA, COLOR_EVERFOREST, COLOR_COUNT };
 const char *editor_colorscheme_name(enum color_scheme scheme);
 struct edit_history;
+struct editor_register {
+    char *text;
+    size_t length;
+    bool linewise;
+};
 struct editor {
     char *text, *filename;
     size_t length, capacity, cursor, top, left;
@@ -72,8 +77,12 @@ struct editor {
     unsigned viewport_rows, viewport_columns;
     unsigned requests, put_count;
     bool put_after, register_linewise;
+    /* The unnamed register mirrors the system clipboard. registers[] holds "0 then "a to "z;
+     * register_name is the "x prefix of the command being run, or 0. */
     char *register_text;
     size_t register_length;
+    char register_name;
+    struct editor_register registers[27];
     uint32_t find_char;
     char find_kind, command_kind, find_text[5];
     uint64_t revision, saved_hash, search_serial;
@@ -96,6 +105,8 @@ char editor_fence(const struct editor *ed, size_t position);
 bool editor_heading(const struct editor *ed, size_t position);
 void editor_search(struct editor *ed, bool forward, unsigned count);
 bool editor_selection(const struct editor *ed, size_t *from, size_t *to, bool *linewise);
+/* Drop register contents that mention text, such as a deleted image's asset name. */
+void editor_forget_registers(struct editor *ed, const char *text);
 /* Report read-only polish mode before starting an edit or import. */
 bool editor_colorscheme(struct editor *ed, const char *name);
 bool editor_can_edit(struct editor *ed);

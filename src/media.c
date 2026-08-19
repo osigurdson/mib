@@ -105,11 +105,7 @@ void media_saved(void *context)
             free(path);
             if (i == 0 && ok) {
                 cleaned = true;
-                if (app->editor.register_text && strstr(app->editor.register_text, a->name)) {
-                    free(app->editor.register_text);
-                    app->editor.register_text = NULL;
-                    app->editor.register_length = 0;
-                }
+                editor_forget_registers(&app->editor, a->name);
             }
             removed &= ok;
             if (i == 0 && !ok)

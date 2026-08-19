@@ -46,6 +46,16 @@ name = "dw"
 keys = "dw"
 
 [[case]]
+name = "dw at line end"
+keys = "wwdw"
+status = "gap"
+
+[[case]]
+name = "yw at line end"
+keys = "wwywP"
+status = "gap"
+
+[[case]]
 name = "de"
 keys = "de"
 
@@ -331,47 +341,46 @@ note = "Insert counts are not supported"
 [[case]]
 name = "named register"
 keys = "\"ayyjj\"ap"
-status = "gap"
 
 [[case]]
 name = "append register"
 keys = "\"ayyj\"Ayyjj\"ap"
-status = "gap"
 
 [[case]]
 name = "register 0 after delete"
 keys = "yyjdd\"0p"
-status = "gap"
 
 [[case]]
 name = "black hole"
 keys = "yyj\"_ddp"
-status = "gap"
 
 [[case]]
 name = "named register dw"
 keys = "\"bdwj\"bP"
-status = "gap"
 
 [[case]]
 name = "named register visual"
 keys = "vey\"cyy\"cp"
-status = "gap"
 
 [[case]]
 name = "unnamed after named"
 keys = "\"ayyjddp"
-status = "gap"
 
 [[case]]
 name = "visual put register"
 keys = "\"ayiwwviw\"ap"
-status = "gap"
+
+[[case]]
+name = "p after named yank"
+keys = "\"ayyjp"
+
+[[case]]
+name = "append charwise to linewise"
+keys = "\"ayyw\"Ayw\"aP"
 
 [[case]]
 name = "count with register"
 keys = "\"ayy2\"ap"
-status = "gap"
 
 # Marks and jumps
 

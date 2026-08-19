@@ -54,6 +54,19 @@ run as normal commands. Macros (`q`, `@`) aren't supported.
 | `gu` `gU` `g~` | Lowercase, uppercase or toggle case: follow with a motion or text object, or double the last key (`gUU`) for the line |
 | `u` `Ctrl+R` | Undo, redo (one insert session is one undo step) |
 
+## Registers
+
+Put `"` and a register name before a yank, delete, change or put, such as `"ayy`,
+`"ap` or `"_dd`. Without one, yanks and deletes copy to the system clipboard and
+`p` pastes from it.
+
+| Register | Holds |
+|---|---|
+| `"a` to `"z` | Named text; `"A` to `"Z` append to it. Yanking or deleting into one also copies it to the clipboard |
+| `"0` | The last yank made without a register name |
+| `"_` | Nothing: deletes into it leave the clipboard and other registers alone |
+| `"+` `"*` `""` | The system clipboard, the same as no register |
+
 In visual mode, `d` `y` `c` `<` `>` act on the selection, `J` joins, `u` `U` `~` change case, `p` replaces, and `o` jumps to the other end.
 
 ## Text objects

@@ -7,7 +7,8 @@ uint64_t editor_hash(const struct editor *ed);
 bool editor_change_active(const struct editor *ed);
 void editor_history_clear(struct editor *ed);
 void editor_clamp(struct editor *ed);
-void editor_yank(struct editor *ed, size_t from, size_t to, bool linewise);
+/* Store text in the command's register; yanks without a register also fill "0. */
+void editor_yank(struct editor *ed, size_t from, size_t to, bool linewise, bool yank);
 void editor_indent(struct editor *ed, size_t first, size_t last, bool right);
 void editor_join(struct editor *ed, size_t first, size_t last);
 void editor_substitute(struct editor *ed, const char *command, size_t first, size_t last);

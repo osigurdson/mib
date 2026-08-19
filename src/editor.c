@@ -102,6 +102,8 @@ void editor_destroy(struct editor *ed)
 {
     editor_history_clear(ed);
     free(ed->register_text);
+    for (unsigned i = 0; i < sizeof(ed->registers) / sizeof(ed->registers[0]); ++i)
+        free(ed->registers[i].text);
     for (unsigned i = 0; i < ed->history_count; ++i)
         free(ed->command_history[i]);
     free(ed->text);

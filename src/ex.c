@@ -166,7 +166,7 @@ void editor_command(struct editor *ed, const char *command)
         } else {
             if (b < ed->length)
                 ++b;
-            editor_yank(ed, a, b, true);
+            editor_yank(ed, a, b, true, *p == 'y');
             if (*p == 'd') {
                 if (b == ed->length && a)
                     --a;

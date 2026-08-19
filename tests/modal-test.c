@@ -161,6 +161,43 @@ static void unknown_commands(void)
     assert(!ed.message[0]);
 }
 
+static void registers(void)
+{
+    reset("one\ntwo\nthree\n");
+    keys("\"ayy");
+    assert(ed.registers[1].text && !strcmp(ed.registers[1].text, "one\n") && ed.registers[1].linewise);
+    assert(!ed.registers[0].text && (ed.requests & ED_COPY));
+    ed.requests = 0;
+    keys("j\"Ayiw");
+    assert(!strcmp(ed.registers[1].text, "one\ntwo\n") && ed.registers[1].linewise);
+    keys("G\"ap");
+    assert(!(ed.requests & ED_PASTE));
+    expect("one\ntwo\nthree\none\ntwo\n");
+    /* "_ leaves the clipboard alone; plain yanks fill "0 and deletes don't. */
+    reset("one\ntwo\n");
+    keys("\"_dd");
+    expect("two\n");
+    assert(!(ed.requests & ED_COPY) && !ed.register_text);
+    keys("yiw");
+    assert(!strcmp(ed.registers[0].text, "two") && !ed.registers[0].linewise);
+    keys("x\"0P");
+    expect("twowo\n");
+    /* Empty and unsupported registers report themselves. */
+    keys("\"zp");
+    assert(strstr(ed.message, "Nothing in register z"));
+    keys("\"1");
+    assert(strstr(ed.message, "not supported") && !ed.pending[0]);
+    /* Plain p and "+p still go through the clipboard. */
+    ed.requests = 0;
+    keys("\"+p");
+    assert(ed.requests & ED_PASTE);
+    /* Deleting an image clears registers that refer to it. */
+    reset("![](assets/a.png)\nx\n");
+    keys("\"byy");
+    editor_forget_registers(&ed, "assets/a.png");
+    assert(!ed.registers[1].text && !ed.register_text);
+}
+
 int main(void)
 {
     readonly_mode();
@@ -168,6 +205,7 @@ int main(void)
     insert_end();
     case_operators();
     unknown_commands();
+    registers();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};

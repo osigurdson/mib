@@ -54,9 +54,52 @@ bool editor_selection(const struct editor *ed, size_t *a, size_t *b, bool *linew
         *b = editor_next(ed, *b);
     return true;
 }
-void editor_yank(struct editor *ed, size_t a, size_t b, bool linewise)
+/* "0 is slot 0 and "a to "z (or "A to "Z, which append) are slots 1 to 26. */
+static int register_slot(char name)
 {
-    if (b <= a)
+    if (name == '0')
+        return 0;
+    if (name >= 'a' && name <= 'z')
+        return 1 + name - 'a';
+    if (name >= 'A' && name <= 'Z')
+        return 1 + name - 'A';
+    return -1;
+}
+static struct editor_register *named_register(struct editor *ed, char name)
+{
+    int slot = register_slot(name);
+    return slot < 0 ? NULL : &ed->registers[slot];
+}
+static bool register_supported(char name)
+{
+    return register_slot(name) >= 0 || (name && strchr("\"_+*", name));
+}
+/* Store or append text; appending mixes characterwise and linewise text the way Vim does. */
+static bool store(struct editor_register *r, const char *text, size_t n, bool linewise,
+                  bool append)
+{
+    size_t old = append && r->text ? r->length : 0;
+    bool before = old && !r->linewise && linewise, after = old && r->linewise && !linewise;
+    char *data = malloc(old + before + n + after + 1);
+    if (!data)
+        return false;
+    if (old)
+        memcpy(data, r->text, old);
+    if (before)
+        data[old] = '\n';
+    memcpy(data + old + before, text, n);
+    if (after)
+        data[old + before + n] = '\n';
+    free(r->text);
+    r->text = data;
+    r->length = old + before + n + after;
+    r->text[r->length] = 0;
+    r->linewise = old ? r->linewise || linewise : linewise;
+    return true;
+}
+void editor_yank(struct editor *ed, size_t a, size_t b, bool linewise, bool yank)
+{
+    if (b <= a || ed->register_name == '_')
         return;
     char *copy = malloc(b - a + 2);
     if (!copy)
@@ -66,11 +109,54 @@ void editor_yank(struct editor *ed, size_t a, size_t b, bool linewise)
     if (linewise && copy[n - 1] != '\n')
         copy[n++] = '\n';
     copy[n] = 0;
+    struct editor_register *named = named_register(ed, ed->register_name);
+    if (named) {
+        bool ok = store(named, copy, n, linewise, isupper((unsigned char)ed->register_name));
+        free(copy);
+        /* Like Vim, the unnamed register also gets what was stored. */
+        if (!ok || !(copy = malloc(named->length + 1)))
+            return;
+        memcpy(copy, named->text, named->length + 1);
+        n = named->length;
+        linewise = named->linewise;
+    } else if (yank)
+        store(&ed->registers[0], copy, n, linewise, false);
     free(ed->register_text);
     ed->register_text = copy;
     ed->register_length = n;
     ed->register_linewise = linewise;
     ed->requests |= ED_COPY;
+}
+void editor_forget_registers(struct editor *ed, const char *text)
+{
+    if (ed->register_text && strstr(ed->register_text, text)) {
+        free(ed->register_text);
+        ed->register_text = NULL;
+        ed->register_length = 0;
+    }
+    for (unsigned i = 0; i < sizeof(ed->registers) / sizeof(ed->registers[0]); ++i)
+        if (ed->registers[i].text && strstr(ed->registers[i].text, text)) {
+            free(ed->registers[i].text);
+            ed->registers[i] = (struct editor_register){0};
+        }
+}
+/* p and P: named registers are put directly; the unnamed one goes through the clipboard. */
+static void put(struct editor *ed, bool after, unsigned count)
+{
+    struct editor_register *named = named_register(ed, ed->register_name);
+    if (ed->register_name == '_')
+        return;
+    if (named) {
+        if (!named->text)
+            snprintf(ed->message, sizeof(ed->message), "Nothing in register %c",
+                     ed->register_name);
+        else
+            editor_put(ed, named->text, named->length, named->linewise, after, count);
+        return;
+    }
+    ed->put_after = after;
+    ed->put_count = count;
+    ed->requests |= ED_PASTE;
 }
 void editor_put(struct editor *ed, const char *text, size_t length, bool linewise, bool after,
                 unsigned count)
@@ -593,10 +679,10 @@ static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewis
     }
     ed->mode = NORMAL;
     if (op == 'y') {
-        editor_yank(ed, a, b, linewise);
+        editor_yank(ed, a, b, linewise, true);
         ed->cursor = a;
     } else if (op == 'd' || op == 'c') {
-        editor_yank(ed, a, b, linewise);
+        editor_yank(ed, a, b, linewise, false);
         bool own = !editor_change_active(ed);
         editor_change_begin(ed);
         if (linewise && op == 'c') {
@@ -860,6 +946,26 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     }
     if (!*p)
         return;
+    char name = 0;
+    if (*p == '"') {
+        if (!p[1])
+            return;
+        name = p[1];
+        if (!register_supported(name)) {
+            snprintf(ed->message, sizeof(ed->message), "Register %.4s is not supported", p + 1);
+            ed->pending[0] = 0;
+            return;
+        }
+        p += 2;
+        unsigned more = 0;
+        while (*p >= '0' && *p <= '9' && (*p != '0' || more))
+            more = min(100000, more * 10 + (unsigned)(*p++ - '0'));
+        if (more)
+            count = !count ? more : count > 100000 / more ? 100000 : count * more;
+        if (!*p)
+            return;
+    }
+    ed->register_name = name;
     bool explicit_count = count != 0;
     if (!count)
         count = 1;
@@ -963,9 +1069,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     if (visual && strchr("dyc><JuU~xspP", *p)) {
         editor_selection(ed, &a, &b, &linewise);
         if (*p == 'p' || *p == 'P') {
-            ed->put_after = false;
-            ed->put_count = count;
-            ed->requests |= ED_PASTE;
+            put(ed, false, count);
             return;
         }
         operate(ed, *p == 'x' ? 'd' : *p == 's' ? 'c' : *p, a, b, linewise);
@@ -989,9 +1093,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         return;
     }
     if (!op && (*p == 'p' || *p == 'P')) {
-        ed->put_after = *p == 'p';
-        ed->put_count = count;
-        ed->requests |= ED_PASTE;
+        put(ed, *p == 'p', count);
         return;
     }
     if (!op && (!strcmp(p, "gx"))) {
@@ -1046,7 +1148,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
             else
                 for (unsigned i = 0; i < count && b < editor_line_end(ed, a); ++i)
                     b = editor_next(ed, b);
-            editor_yank(ed, a, b, false);
+            editor_yank(ed, a, b, false, false);
             editor_replace(ed, a, b, "", 0);
         }
         ed->mode = INSERT;
@@ -1121,7 +1223,9 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
 void editor_input(struct editor *ed, enum editor_key key, const char *text)
 {
     bool inserting = ed->mode == INSERT;
+    ed->register_name = 0;
     input(ed, key, text);
+    ed->register_name = 0;
     if (inserting || ed->mode == INSERT)
         ed->search_hidden = true;
 }
