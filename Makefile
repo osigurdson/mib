@@ -38,7 +38,7 @@ FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
 FONT_DATA := $(GEN)/font-data.h
 
-.PHONY: all run install windows run-windows test-windows clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
+.PHONY: all run install windows run-windows test-windows test-linux-e2e clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
 all: jot
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -165,6 +165,10 @@ test: editor-test client-test font-test app-test modal-test session-test media-t
 	cd "$(TEST_BIN)" && ./client-test
 	cd "$(TEST_BIN)" && ./font-test
 	cd "$(TEST_BIN)" && ./app-test
+
+# Optional native workflows in an isolated GNOME/Mutter compositor.
+test-linux-e2e: jot
+	$(PYTHON) tools/test-linux-e2e.py --binary "$(LINUX_BUILD_DIR)/jot" --output "$(LINUX_BUILD_DIR)/e2e" $(ARGS)
 
 page-preview: $(TOOL_BIN)/page-preview
 

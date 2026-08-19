@@ -99,10 +99,34 @@ static void search_visibility(void)
     }
 }
 
+static void insert_end(void)
+{
+    reset("abc\n");
+    keys("i");
+    editor_input(&ed, KEY_END, "");
+    keys("!");
+    expect("abc!\n");
+    editor_input(&ed, KEY_ESCAPE, "");
+    keys("u");
+    expect("abc\n");
+    reset("before\nlast\n");
+    ed.cursor = 7;
+    keys("dd");
+    expect("before\n");
+    keys("uGdd");
+    expect("before\nlast");
+    reset("caf\xc3\xa9");
+    keys("i");
+    editor_input(&ed, KEY_END, "");
+    keys("!");
+    expect("caf\xc3\xa9!");
+}
+
 int main(void)
 {
     readonly_mode();
     search_visibility();
+    insert_end();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};

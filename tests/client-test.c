@@ -336,9 +336,48 @@ static void region_protocol(void)
     app_close(&app);
 }
 
+static void count_buffer_destroy(struct wl_resource *resource)
+{
+    unsigned *destroyed = wl_resource_get_user_data(resource);
+    ++*destroyed;
+}
+static void pending_buffer_cleanup(void)
+{
+    int sockets[2];
+    assert(!socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockets));
+    struct wl_display *server = wl_display_create();
+    assert(server);
+    struct wl_client *peer = wl_client_create(server, sockets[0]);
+    struct wl_display *display = wl_display_connect_to_fd(sockets[1]);
+    assert(peer && display);
+    unsigned destroyed = 0;
+    struct wayland_client client = {.pending_buffers = 2};
+    const struct wl_buffer_interface implementation = {.destroy = shape_destroy};
+    for (unsigned i = 0; i < 2; ++i) {
+        struct wl_proxy *proxy = wl_proxy_create((struct wl_proxy *)display, &wl_buffer_interface);
+        assert(proxy);
+        struct wl_resource *resource = wl_resource_create(peer, &wl_buffer_interface, 1, wl_proxy_get_id(proxy));
+        assert(resource);
+        wl_resource_set_implementation(resource, &implementation, &destroyed, count_buffer_destroy);
+        client.buffers[i] = (struct wl_buffer *)proxy;
+    }
+    buffer_release(&client, client.buffers[0]);
+    assert(!client.buffers[0] && client.pending_buffers == 1);
+    destroy_buffers(&client); /* Quit before the compositor releases the other frame. */
+    assert(!client.buffers[1] && client.pending_buffers == 0);
+    destroy_buffers(&client);
+    assert(wl_display_flush(display) >= 0);
+    assert(wl_event_loop_dispatch(wl_display_get_event_loop(server), 0) >= 0);
+    assert(destroyed == 2);
+    wl_display_disconnect(display);
+    wl_display_destroy_clients(server);
+    wl_display_destroy(server);
+}
+
 int main(int argc, char **argv)
 {
     frame_limit();
+    pending_buffer_cleanup();
     decorations();
     resize_protocol();
     region_protocol();

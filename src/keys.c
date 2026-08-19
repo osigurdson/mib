@@ -601,7 +601,8 @@ static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewis
         if (linewise && op == 'c') {
             if (b && ed->text[b - 1] == '\n')
                 --b;
-        } else if (linewise && b == ed->length && a && ed->text[a - 1] == '\n')
+        } else if (linewise && b == ed->length && a && ed->text[a - 1] == '\n' &&
+                   (a == b || ed->text[b - 1] != '\n'))
             --a;
         editor_replace(ed, a, b, "", 0);
         ed->cursor = a;
@@ -833,7 +834,9 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
                         : key == KEY_END   ? "$"
                                            : NULL;
     if (ed->mode == INSERT) {
-        if (arrow) {
+        if (key == KEY_END)
+            ed->cursor = editor_line_end(ed, ed->cursor);
+        else if (arrow) {
             bool l, i, v;
             ed->cursor = motion(ed, arrow, 1, false, &l, &i, &v);
         }

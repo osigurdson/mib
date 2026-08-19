@@ -89,15 +89,18 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | `gx`, double-click | Open the image in your image viewer |
 | `gx`, `Ctrl`+click | Open the link under the cursor |
 | `yy` | Copy the image, ready to paste into other apps |
-| `d` | Delete the selected image in normal mode |
+| `d`, `x` | Delete the selected image in normal mode |
 | `Delete` | Delete the selected image in normal or insert mode |
+| `Backspace`, `Ctrl+W`, `Ctrl+U` | In insert mode, delete a selected image as a whole block |
 | `p`, `Ctrl+V` | Paste a screenshot from the clipboard |
 | `Ctrl+Shift+C` | Copy the image's text |
 
 In normal rendering, typed and pasted text stays on a separate line from an
 image. Pasting an image in insert mode places the cursor after it so you can
 continue typing. In insert mode, `d` types text like any other letter. Raw mode
-still edits the literal Markdown source.
+still edits the literal Markdown source. In normal rendering, Backspace from the
+start of text after an image and Delete from the end of text before an image
+remove that image block, preserving the neighboring text and line boundary.
 
 Deleted image files and OCR sidecars are removed only after a successful save,
 provided their asset paths no longer appear in the note. Before saving, undo and
@@ -111,6 +114,7 @@ Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 
 | Keys | Action |
 |---|---|
+| `Home`, `End` | Move to the line start or the insertion point after its last character |
 | `Ctrl+W` | Delete the previous word |
 | `Ctrl+U` | Delete back to the line's start |
 | `Ctrl+V` | Paste text or a screenshot |

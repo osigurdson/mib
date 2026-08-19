@@ -225,6 +225,33 @@ static void image_typing_test(const char *directory, const unsigned char *png, s
         app_input(&app, KEY_TEXT, "u");
         assert(!strcmp(app.editor.text, markup));
     }
+    /* Editing across image boundaries must remove a block, never half its source. */
+    char surrounded[512];
+    snprintf(surrounded, sizeof(surrounded), "before\n%safter", markup);
+    const enum editor_key deletes[] = {KEY_BACKSPACE, KEY_DELETE, KEY_BACKSPACE,
+                                       KEY_CTRL_W, KEY_CTRL_U, KEY_TEXT};
+    for (unsigned i = 0; i < sizeof(deletes) / sizeof(deletes[0]); ++i) {
+        assert(editor_replace(&app.editor, 0, app.editor.length, surrounded, strlen(surrounded)));
+        app.editor.mode = i == 5 ? NORMAL : INSERT;
+        app.editor.cursor = i == 0 ? 7 + strlen(markup) : i == 1 ? 6 : 10;
+        app_input(&app, deletes[i], i == 5 ? "x" : "");
+        assert(!strcmp(app.editor.text, "before\nafter") && exists(path));
+        app_input(&app, KEY_ESCAPE, "");
+        app_input(&app, KEY_TEXT, "u");
+        assert(!strcmp(app.editor.text, surrounded));
+    }
+    /* Pasting another image while the caret is inside hidden source is atomic. */
+    assert(editor_replace(&app.editor, 0, app.editor.length, markup, strlen(markup)));
+    app.editor.mode = INSERT;
+    app.editor.cursor = 2;
+    assert(media_paste_image(&app, png, bytes));
+    media_sync(&app);
+    const struct media_entry *first = media_at(&app, 0);
+    assert(first);
+    size_t next_image = first->end + 1;
+    assert(media_at(&app, next_image) && !strcmp(app.editor.text + next_image, markup));
+    app_input(&app, KEY_ESCAPE, "");
+    assert(editor_replace(&app.editor, 0, app.editor.length, markup, strlen(markup)));
     /* Raw mode continues to edit the literal source, without image redirects. */
     app.editor.render_mode = RENDER_RAW;
     app.editor.cursor = 0;

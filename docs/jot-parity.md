@@ -12,8 +12,8 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
   operators, text objects, replace/case/join/indent operations and grouped undo.
 - Incremental smart-case text/OCR search, word search, next/back/wrapping,
   highlighted text and OCR word/phrase rectangles. Insert mode hides highlights
-  while retaining the query; a new search or `n`/`N` shows them again. A pending failed search
-  retries when OCR completes; another editing/navigation key cancels the retry.
+  while retaining the query; a new search or `n`/`N` shows them again. A pending
+  failed search retries when OCR completes; another editing/navigation key cancels the retry.
 - Ex ranges, capture substitutions, command history, save/reload/quit,
   line numbers, Markdown toggles, folder opening and zoom.
 - Default/named/path scratch pages, private Linux folders, agent instructions
@@ -139,6 +139,55 @@ python3 tools/measure-memory.py --kind image --max-pss 4096
 # To compare a saved executable:
 python3 tools/measure-memory.py --binary /path/to/baseline
 ```
+
+## Native Linux editing audit (2026-11-02)
+
+`make test-linux-e2e` now launches the real Linux executable in a private headless
+Mutter compositor, private D-Bus session, and isolated runtime/config/data
+folders. Test-only Python/Gio code creates a virtual keyboard and owns a PNG or
+text clipboard in that compositor. It does not inject keys into the user's
+desktop, replace the user's clipboard, or add automation hooks to Jot.
+
+Ten real-app workflows check End-key insertion, Unicode/CRLF text clipboard,
+search with `n`/`N`, undo/redo, image paste/typing/navigation, save/reopen,
+image-boundary deletion, repeated image paste, and normal-mode `x`. A seeded
+500-action insert-mode run compares saved text with an independent Python
+Unicode-string model at 25-action checkpoints, then checks whole-session
+undo/redo. A large note contains 10,000 populated text lines, 50 standalone
+distinct 512×256 PNGs, and 711,400 UTF-8 source bytes. It visits all 50 images by search,
+performs 250 insert/undo/redo transactions, checks that edits do not autosave,
+then explicitly saves and reloads and verifies text and asset files.
+
+These workflows exposed and now cover incorrect insert-mode End placement,
+image references split by Backspace/Delete or another image paste, normal-mode
+`x` deleting only a marker, and last-line deletion consuming a preceding newline.
+Normal rendering now deletes selected/adjacent images as blocks for these keys;
+raw mode still permits literal source editing. The real-app sanitizer run also
+found a pending Wayland buffer proxy left allocated on quit. Both in-flight
+buffers are now tracked and destroyed on shutdown; a private protocol test
+covers release of one frame followed by shutdown with the other still pending.
+
+All nine Linux Make tests, all nine Windows/Wine tests, and all ten Linux
+ASan/UBSan CTest tests (including the native workflows) passed. For CMake, opt
+in with `-DJOT_LINUX_E2E=ON`; the native test timeout is 120 seconds. The optional
+suite requires `mutter`, `dbus-run-session`, Python PyGObject/Gio, and a working
+headless Mutter/EGL setup (verified with Mutter 51.1). Use `make test-linux-e2e ARGS=--quick` to skip the large
+note. Logs and fixture notes remain in `.build/linux/e2e/run-*` (CMake uses its
+build directory's `e2e/`). The checks inspect saved documents, clipboard
+transfers, process exits, and compositor protocol traffic; they do not compare
+live screenshots or cover every GNOME Shell interaction or other compositor.
+OCR is disabled in these native fixtures; the separate real-Tesseract test
+continues to cover OCR.
+
+The final normal-build large-note run measured 1,511 KiB idle PSS, with zero
+process CPU ticks during the idle check. Image pixels are decoded for rendering
+and released; 50 decoded images are not retained. These are editor-process
+figures excluding the compositor and optional OCR children. They do not measure
+transient decode peaks or represent 50 large screenshots. Sanitizer builds have
+substantial instrumentation/quarantine overhead and are not footprint measures.
+The empty-page target remains below 1 MiB: three fresh normal-build runs measured
+742–747 KiB PSS (688–692 KiB private). The Linux executable is 789,208 bytes with
+debug information or 192,376 bytes stripped; Windows remains 266,752 bytes.
 
 ## Typing around images (2026-11-02)
 

@@ -493,6 +493,11 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
     size_t p = ed->cursor, a, b;
     bool lines;
     bool visual = editor_selection(ed, &a, &b, &lines), own = !editor_change_active(ed);
+    if (!visual && ed->mode == INSERT && ed->render_mode == RENDER_NORMAL) {
+        const struct media_entry *image = media_at(app, p);
+        if (image)
+            p = image->start;
+    }
     editor_change_begin(ed);
     if (visual) {
         editor_replace(ed, a, b, "", 0);

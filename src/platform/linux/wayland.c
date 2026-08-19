@@ -67,6 +67,7 @@ struct wayland_client {
     uint32_t repeat_key;
     int repeat_rate, repeat_delay;
     int64_t repeat_at;
+    struct wl_buffer *buffers[2];
     unsigned pending_buffers;
     bool configured;
 };
@@ -78,8 +79,21 @@ static void update_cursor(struct wayland_client *client);
 static void buffer_release(void *data, struct wl_buffer *buffer)
 {
     struct wayland_client *client = data;
+    for (unsigned i = 0; i < 2; ++i)
+        if (client->buffers[i] == buffer)
+            client->buffers[i] = NULL;
     --client->pending_buffers;
     wl_buffer_destroy(buffer);
+}
+
+static void destroy_buffers(struct wayland_client *client)
+{
+    for (unsigned i = 0; i < 2; ++i)
+        if (client->buffers[i]) {
+            wl_buffer_destroy(client->buffers[i]);
+            client->buffers[i] = NULL;
+        }
+    client->pending_buffers = 0;
 }
 
 static const struct wl_buffer_listener buffer_listener = {
@@ -215,6 +229,14 @@ static bool draw(struct wayland_client *client)
         wl_buffer_destroy(buffer);
         return false;
     }
+    unsigned slot = 0;
+    while (slot < 2 && client->buffers[slot])
+        ++slot;
+    if (slot == 2) {
+        wl_buffer_destroy(buffer);
+        return false;
+    }
+    client->buffers[slot] = buffer;
     wl_buffer_add_listener(buffer, &buffer_listener, client);
     ++client->pending_buffers;
     if (client->viewport) {
@@ -1063,6 +1085,7 @@ int platform_run(struct app *app)
     status = client->app->failed ? EXIT_FAILURE : EXIT_SUCCESS;
 
 cleanup:
+    destroy_buffers(client);
     receive_end(client, false);
     offer_unref(client->pending_offer);
     offer_unref(client->selection_offer);

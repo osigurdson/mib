@@ -191,6 +191,8 @@ fonts, glyphs, or sizes used.
 
 ```sh
 make test
+# Optional real-app Linux workflows (Mutter, dbus-run-session, Python PyGObject):
+make test-linux-e2e
 # Optional render preview, written as PPM:
 ./.build/linux/tests/client-test /tmp/jot.ppm
 make clean
@@ -199,13 +201,21 @@ make clean
 Tests cover modal editing, grouped undo, regex captures/ranges, UTF-8 boundaries,
 safe file saves, page ownership/manual saves/reload, image round trips, OCR sidecar
 search, input translation, DPI rendering and small-window wrapping. Private native clipboard integration tests avoid replacing the desktop clipboard;
-see the parity report for their coverage and limits.
+see the parity report for their coverage and limits. The optional native Linux
+suite starts a private headless Mutter compositor and D-Bus session, launches the
+actual editor, and drives real keyboard and text/PNG clipboard input. It includes
+500 mixed edits checked against an independent text model, plus 10,000 populated
+text lines and 50 images with explicit-save/reload and 250 undo/redo cycles.
+It leaves your desktop and clipboard alone. Logs and test notes remain under
+`.build/linux/e2e/`; `ARGS=--quick` skips the large-note workload. CMake users can
+enable the same test with `-DJOT_LINUX_E2E=ON`. These tools are test-only
+dependencies; the Jot executable still uses the native C/Wayland backend.
 
 ## Current footprint
 
 The current executable measures **192,376 bytes stripped on Linux** and
-**266,752 bytes on Windows**. An empty page recently measured **762–765 KiB
-PSS** (692–696 KiB private), with 2,968–2,976 KiB total RSS including shared
+**266,752 bytes on Windows**. An empty page recently measured **742–747 KiB
+PSS** (688–692 KiB private), with 3,028–3,036 KiB total RSS including shared
 libraries. Both executable size and idle PSS remain below 1 MiB. See
 [the feature scope, bounds, tests and historical image/before-and-after measurements](docs/jot-parity.md).
 

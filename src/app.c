@@ -81,6 +81,18 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     }
     const struct media_entry *selected_image = app->editor.render_mode == RENDER_RAW ? NULL
                                                : media_at(app, app->editor.cursor);
+    /* Images are atomic blocks in normal rendering. Do not join a neighboring
+     * text line into the source reference when deleting across its boundary. */
+    if (!selected_image && app->editor.render_mode == RENDER_NORMAL &&
+        app->editor.mode == INSERT && !app->editor.command_active) {
+        size_t cursor = app->editor.cursor;
+        if (key == KEY_BACKSPACE && cursor &&
+            app->editor.text[cursor - 1] == '\n')
+            selected_image = media_at(app, cursor - 1);
+        else if (key == KEY_DELETE && cursor < app->editor.length &&
+                 app->editor.text[cursor] == '\n')
+            selected_image = media_at(app, cursor + 1);
+    }
     char image_name[256] = {0}, image_markup[280] = {0};
     if (selected_image) {
         size_t n = selected_image->end - selected_image->start;
@@ -93,13 +105,16 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         snprintf(image_name, sizeof(image_name), "%s", selected_image->name);
     app->editor.extra_search = app->editor.render_mode == RENDER_RAW ? NULL : media_search;
     app->editor.extra_search_data = app;
+    bool insert = app->editor.mode == INSERT;
+    bool block_view = app->editor.render_mode == RENDER_NORMAL;
+    bool block_delete_key = key == KEY_DELETE ||
+        (block_view && insert && (key == KEY_BACKSPACE || key == KEY_CTRL_W || key == KEY_CTRL_U)) ||
+        (app->editor.mode == NORMAL && key == KEY_TEXT && text &&
+         (!strcmp(text, "d") || (block_view && !strcmp(text, "x"))));
     bool delete_image = selected_image && app->editor.render_mode != RENDER_POLISH &&
                         !app->editor.command_active &&
-                        (app->editor.mode == NORMAL || app->editor.mode == INSERT) &&
-                        !app->editor.pending[0] &&
-                        (key == KEY_DELETE || (app->editor.mode == NORMAL && key == KEY_TEXT &&
-                                               text && !strcmp(text, "d")));
-    bool insert = app->editor.mode == INSERT;
+                        (app->editor.mode == NORMAL || insert) &&
+                        !app->editor.pending[0] && block_delete_key;
     bool image_insert = selected_image && app->editor.render_mode == RENDER_NORMAL &&
                         !app->editor.command_active && !app->editor.pending[0];
     if (image_insert && app->editor.mode == NORMAL && key == KEY_TEXT && text) {
@@ -118,10 +133,18 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     }
     if (delete_image) {
         /* Reuse line deletion, including its register and clipboard behavior. */
+        size_t cursor = app->editor.cursor, start = selected_image->start;
+        size_t before = app->editor.length;
         editor_change_end(&app->editor);
+        app->editor.cursor = start;
         editor_input(&app->editor, KEY_CUT, "");
         editor_change_end(&app->editor);
         if (insert) {
+            size_t removed = before - app->editor.length;
+            app->editor.cursor = cursor < start ? cursor :
+                                 cursor >= start + removed ? cursor - removed : start;
+            if (app->editor.cursor > app->editor.length)
+                app->editor.cursor = app->editor.length;
             app->editor.mode = INSERT;
             editor_change_begin(&app->editor);
         }
