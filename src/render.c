@@ -95,14 +95,6 @@ static bool label(struct app *app, uint32_t *pixels, int width, int height, int 
     return true;
 }
 
-static const char *leaf_name(const char *path)
-{
-    const char *slash = strrchr(path, '/'), *back = strrchr(path, '\\');
-    if (back && (!slash || back > slash))
-        slash = back;
-    return slash ? slash + 1 : path;
-}
-
 static void title_bar(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
     const struct palette *theme = colors(app);
@@ -788,13 +780,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     rectangle(pixels, width, height, stride, 0, status_y, width, status_line + 2 * padding,
               theme->status);
     char status[512];
-    const char *mode = polish ? "POLISH [read only]"
-                       : ed->render_mode == RENDER_RAW ? (ed->mode == INSERT ? "RAW INSERT" : "RAW")
-                       : ed->mode == INSERT        ? "INSERT"
-                       : ed->mode == VISUAL      ? "VISUAL"
-                       : ed->mode == VISUAL_LINE ? "VISUAL LINE"
-                                                 : "NORMAL";
-    const char *filename = ed->filename ? leaf_name(ed->filename) : "[No Name]";
+    /* Vim modes, the file name and pending keys stay out of the status line; only
+     * non-default render modes are worth calling out. */
+    const char *mode = polish ? "POLISH [read only]" : ed->render_mode == RENDER_RAW ? "RAW" : "";
     int baseline = status_y + padding + ascender;
     if (ed->command_active) {
         char prompt[1100];
@@ -807,11 +795,10 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         snprintf(position, sizeof(position), "%zu:%zu", editor_line_number(ed, ed->cursor) + 1,
                  editor_column(ed, ed->cursor) + 1);
         int position_x = width - padding - (int)strlen(position) * cell;
-        snprintf(status, sizeof(status), "%s  %s%s%s%s", mode, filename,
-                 ed->modified ? " [+]" : "", ed->pending[0] ? "  " : "", ed->pending);
+        snprintf(status, sizeof(status), "%s", mode);
         if (app->work_at && !ed->message[0]) {
             size_t n = strlen(status);
-            snprintf(status + n, sizeof(status) - n, "  indexing image");
+            snprintf(status + n, sizeof(status) - n, "%sindexing image", n ? "  " : "");
         }
         if (!label(app, pixels, position_x - cell, height, stride,
                    ed->message[0] ? ed->message : status, padding, baseline, cell, theme->status_text) ||

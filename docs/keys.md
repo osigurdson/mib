@@ -3,8 +3,8 @@
 Raw and normal modes show line numbers. The gutter reserves four digits and grows
 for longer notes, with two character cells between the numbers and text. Scratch
 pages open in normal mode with the cursor at the end; explicit files start at
-the beginning. The bottom line shows the current mode, any keys you've typed so
-far, and the line and column.
+the beginning. The bottom line shows the line and column, plus `RAW` or
+`POLISH [read only]` outside normal rendering, and messages.
 
 Counts work with motions and operators, such as `3w`, `5j`, `d3j` and `2dd`.
 
