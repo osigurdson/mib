@@ -193,6 +193,8 @@ fonts, glyphs, or sizes used.
 make test
 # Optional real-app Linux workflows (Mutter, dbus-run-session, Python PyGObject):
 make test-linux-e2e
+# Optional Vim parity check (the same tools plus Vim):
+make vim-compare
 # Optional render preview, written as PPM:
 ./.build/linux/tests/client-test /tmp/jot.ppm
 make clean
@@ -210,6 +212,13 @@ It leaves your desktop and clipboard alone. Logs and test notes remain under
 `.build/linux/e2e/`; `ARGS=--quick` skips the large-note workload. CMake users can
 enable the same test with `-DJOT_LINUX_E2E=ON`. These tools are test-only
 dependencies; the Jot executable still uses the native C/Wayland backend.
+
+`make vim-compare` uses the same private compositor to type each case in
+`tests/vim-compare.toml` into Jot and into Vim, then compares the saved files.
+Cases marked `status = "gap"` are known differences. The run fails when a passing
+case regresses or a gap starts matching Vim. `ARGS="--only REGEX"` runs a subset,
+`ARGS=--show` prints diffs for gaps, and `ARGS=--vim` prints Vim's results without
+starting Jot.
 
 ## Current footprint
 

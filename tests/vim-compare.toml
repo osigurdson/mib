@@ -1,0 +1,532 @@
+# Vim parity cases for tools/vim-compare.py (`make vim-compare`).
+#
+# Each case types `keys` into Jot and into Vim, starting from the same seed with the cursor on
+# line 1, column 1, then compares the saved files. Keys use Vim notation: <Esc> <CR> <BS> <Tab>
+# <Del> <Up> <Down> <Left> <Right> <Home> <End> <lt> and <C-x>.
+#
+# Only file contents are compared. For a motion-only case, finish with an edit such as `x` or
+# `iX<Esc>` so the cursor position shows up in the file.
+#
+# `vim_keys` replaces the keys Vim runs. Use it where :normal differs from typing: after a
+# failing command, :normal drops the rest of the keys, while interactive Vim beeps and carries on.
+#
+# status = "gap" marks a known difference from Vim; add a `note` saying why. The run fails when
+# a passing case stops matching or when a gap starts matching (so the status gets updated).
+
+[seeds]
+default = """
+alpha beta gamma
+one two three
+foo(bar, baz)
+x = 1;
+count 7
+
+last para line
+end
+"""
+indented = """
+def main():
+    first()
+    second()
+
+done
+"""
+long = """
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+Ut enim ad minim veniam,
+quis nostrud exercitation.
+
+    Indented paragraph that is also quite long and should wrap once it passes the seventy-nine column limit.
+"""
+
+# Basic operators and motions
+
+[[case]]
+name = "dw"
+keys = "dw"
+
+[[case]]
+name = "de"
+keys = "de"
+
+[[case]]
+name = "d2w"
+keys = "d2w"
+
+[[case]]
+name = "cw"
+keys = "cwnew<Esc>"
+
+[[case]]
+name = "ciw"
+keys = "ciwZED<Esc>"
+
+[[case]]
+name = "daw"
+keys = "wdaw"
+
+[[case]]
+name = "dap"
+keys = "dap"
+
+[[case]]
+name = "dt,"
+keys = "jjdt,"
+
+[[case]]
+name = "ct;"
+keys = "3jct;y<Esc>"
+
+[[case]]
+name = "ci( inside"
+keys = "jjfaci(Q<Esc>"
+
+[[case]]
+name = "ci( before parens"
+keys = "jjci(Q<Esc>"
+status = "gap"
+note = "Vim 9.1+ jumps forward to the next pair on the line"
+
+[[case]]
+name = "dG"
+keys = "jdG"
+
+[[case]]
+name = "dgg"
+keys = "jjdgg"
+
+[[case]]
+name = "cc"
+keys = "jccnew<Esc>"
+
+[[case]]
+name = "S"
+keys = "jSnew<Esc>"
+
+[[case]]
+name = "J"
+keys = "J"
+
+[[case]]
+name = "gJ"
+keys = "gJ"
+status = "gap"
+
+[[case]]
+name = "xp"
+keys = "xp"
+
+[[case]]
+name = "xp at end"
+keys = "$xp"
+
+[[case]]
+name = "ddp"
+keys = "ddp"
+
+[[case]]
+name = "yy p"
+keys = "yyjp"
+
+[[case]]
+name = "3~"
+keys = "3~"
+
+[[case]]
+name = "3rz"
+keys = "3rz"
+
+[[case]]
+name = "R replace mode"
+keys = "Rxyz<Esc>"
+status = "gap"
+
+[[case]]
+name = ">ip"
+keys = ">ip"
+
+[[case]]
+name = "V>"
+keys = "Vj>"
+
+[[case]]
+name = "<< in code"
+keys = "jj<<"
+seed = "indented"
+
+[[case]]
+name = "o keeps indent"
+keys = "jonext()<Esc>"
+seed = "indented"
+
+[[case]]
+name = "insert count"
+keys = "3ix<Esc>"
+status = "gap"
+
+[[case]]
+name = "Ctrl-A"
+keys = "4j<C-a>"
+status = "gap"
+
+[[case]]
+name = "Ctrl-X count"
+keys = "4j3<C-x>"
+status = "gap"
+
+[[case]]
+name = "visual block insert"
+keys = "<C-v>jjI# <Esc>"
+status = "gap"
+note = "Ctrl+V pastes in Jot"
+
+[[case]]
+name = "gv"
+keys = "vjy<Esc>gvd"
+status = "gap"
+
+[[case]]
+name = "gi"
+keys = "A!<Esc>gggiY<Esc>"
+status = "gap"
+
+[[case]]
+name = "cgn"
+keys = "/two<CR>cgnTWO<Esc>"
+status = "gap"
+
+[[case]]
+name = "d/search"
+keys = "d/three<CR>"
+status = "gap"
+
+[[case]]
+name = "* then n"
+keys = "*ggnD"
+
+[[case]]
+name = "undo after dot"
+keys = "dw.u"
+
+# Case operators
+
+[[case]]
+name = "gUiw"
+keys = "gUiw"
+status = "gap"
+
+[[case]]
+name = "gUU"
+keys = "gUU"
+status = "gap"
+
+[[case]]
+name = "guu after VU"
+keys = "VUguu"
+
+[[case]]
+name = "g~w"
+keys = "g~w"
+status = "gap"
+
+[[case]]
+name = "gUj"
+keys = "gUj"
+status = "gap"
+
+[[case]]
+name = "g~~"
+keys = "jg~~"
+status = "gap"
+
+# Unsupported commands don't run their remaining keys
+
+[[case]]
+name = "unknown g command"
+keys = "gZx"
+vim_keys = "x"
+
+[[case]]
+name = "unknown z command"
+keys = "zqx"
+vim_keys = "x"
+
+[[case]]
+name = "macro record keys"
+keys = "qaA;<Esc>jq2@a"
+status = "gap"
+note = "Macros are not supported; Jot discards qa, q and @a, so only the plain edits run"
+
+[[case]]
+name = "macro run keys"
+keys = "@ax"
+vim_keys = "x"
+status = "gap"
+
+# Dot repeat
+
+[[case]]
+name = "dw.."
+keys = "dw.."
+status = "gap"
+
+[[case]]
+name = "dd 2."
+keys = "dd2."
+status = "gap"
+
+[[case]]
+name = "ciw ."
+keys = "ciwZ<Esc>w."
+status = "gap"
+
+[[case]]
+name = "A ."
+keys = "A!<Esc>j."
+status = "gap"
+
+[[case]]
+name = "o ."
+keys = "onew<Esc>."
+status = "gap"
+
+[[case]]
+name = "x 3."
+keys = "x3."
+status = "gap"
+
+[[case]]
+name = ">> ."
+keys = ">>j."
+status = "gap"
+
+[[case]]
+name = "r ."
+keys = "rQw."
+status = "gap"
+
+[[case]]
+name = "cw then n ."
+keys = "/two<CR>cwTWO<Esc>/three<CR>."
+status = "gap"
+
+[[case]]
+name = "p ."
+keys = "yyp."
+status = "gap"
+
+[[case]]
+name = "gUiw ."
+keys = "gUiww."
+status = "gap"
+
+[[case]]
+name = "dot after yank"
+keys = "dwyy."
+status = "gap"
+
+[[case]]
+name = "ix<Esc> 3."
+keys = "ix<Esc>3."
+status = "gap"
+note = "Insert counts are not supported"
+
+# Registers
+
+[[case]]
+name = "named register"
+keys = "\"ayyjj\"ap"
+status = "gap"
+
+[[case]]
+name = "append register"
+keys = "\"ayyj\"Ayyjj\"ap"
+status = "gap"
+
+[[case]]
+name = "register 0 after delete"
+keys = "yyjdd\"0p"
+status = "gap"
+
+[[case]]
+name = "black hole"
+keys = "yyj\"_ddp"
+status = "gap"
+
+[[case]]
+name = "named register dw"
+keys = "\"bdwj\"bP"
+status = "gap"
+
+[[case]]
+name = "named register visual"
+keys = "vey\"cyy\"cp"
+status = "gap"
+
+[[case]]
+name = "unnamed after named"
+keys = "\"ayyjddp"
+status = "gap"
+
+[[case]]
+name = "visual put register"
+keys = "\"ayiwwviw\"ap"
+status = "gap"
+
+[[case]]
+name = "count with register"
+keys = "\"ayy2\"ap"
+status = "gap"
+
+# Marks and jumps
+
+[[case]]
+name = "mark linewise"
+keys = "majjd'a"
+status = "gap"
+
+[[case]]
+name = "mark exact"
+keys = "wmbjj`bx"
+status = "gap"
+
+[[case]]
+name = "mark backtick op"
+keys = "wmajjd`a"
+status = "gap"
+
+[[case]]
+name = "mark follows edits"
+keys = "jjmakkOnew<Esc>'ax"
+status = "gap"
+
+[[case]]
+name = "'' jump back"
+keys = "G''x"
+status = "gap"
+
+[[case]]
+name = "`` jump back"
+keys = "wwG``x"
+status = "gap"
+
+[[case]]
+name = "Ctrl-O jump"
+keys = "Gx<C-o>x"
+status = "gap"
+
+[[case]]
+name = "Ctrl-O Tab"
+keys = "G/two<CR><C-o><C-o><Tab>x"
+status = "gap"
+
+[[case]]
+name = "Ctrl-O after search"
+keys = "/count<CR>x<C-o>x"
+status = "gap"
+
+[[case]]
+name = "unset mark"
+keys = "'zx"
+vim_keys = "x"
+status = "gap"
+
+# gq formatting
+
+[[case]]
+name = "gqip"
+keys = "gqip"
+seed = "long"
+status = "gap"
+
+[[case]]
+name = "gqq"
+keys = "gqq"
+seed = "long"
+status = "gap"
+
+[[case]]
+name = "gqG"
+keys = "gqG"
+seed = "long"
+status = "gap"
+
+[[case]]
+name = "gq indented"
+keys = "Gkgqip"
+seed = "long"
+status = "gap"
+
+[[case]]
+name = "gqj joins short lines"
+keys = "jgqj"
+seed = "long"
+status = "gap"
+
+[[case]]
+name = "Vgq"
+keys = "Vjjgq"
+seed = "long"
+status = "gap"
+
+[[case]]
+name = "gqip ."
+keys = "gqipG."
+seed = "long"
+status = "gap"
+
+# Ex commands
+
+[[case]]
+name = ":s///g"
+keys = ":%s/a/A/g<CR>"
+
+[[case]]
+name = ":2,3d"
+keys = ":2,3d<CR>"
+
+[[case]]
+name = ":g/pat/d"
+keys = ":g/o/d<CR>"
+status = "gap"
+
+[[case]]
+name = ":v/pat/d"
+keys = ":v/o/d<CR>"
+status = "gap"
+
+[[case]]
+name = ":norm"
+keys = ":%norm A;<CR>"
+status = "gap"
+
+[[case]]
+name = ":sort"
+keys = ":sort<CR>"
+status = "gap"
+
+[[case]]
+name = ":m+1"
+keys = ":m+1<CR>"
+status = "gap"
+
+[[case]]
+name = ":t."
+keys = ":t.<CR>"
+status = "gap"
+
+# Insert mode keys
+
+[[case]]
+name = "insert Ctrl-W"
+keys = "A<C-w>x<Esc>"
+
+[[case]]
+name = "insert Ctrl-R"
+keys = "A <C-r>\"<Esc>"
+status = "gap"
+
+[[case]]
+name = "insert Ctrl-O"
+keys = "A<C-o>0X<Esc>"
+status = "gap"
