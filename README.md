@@ -47,6 +47,8 @@ make install
 `make install` builds the editor first. Override `PREFIX` (default `$(HOME)/.local`)
 or `BINDIR` (default `$(PREFIX)/bin`) to choose the destination. `DESTDIR` adds a
 staging root for packaging, for example `make install DESTDIR=/tmp/jot-package`.
+The installed binary is stripped of debug info (about 190 KB instead of 770 KB);
+pass `INSTALL_STRIP=` to keep it.
 Installation also adds a **Jot** launcher entry at
 `~/.local/share/applications/dev.jot.Jot.desktop`. Its executable path follows
 `BINDIR`; override `DATADIR` or `APPLICATIONSDIR` to choose where the desktop entry
