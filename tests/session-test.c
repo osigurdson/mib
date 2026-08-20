@@ -113,7 +113,8 @@ static void rooms(const char *parent)
     assert(app.room_map);
     uint32_t pixels[640 * 480];
     assert(app_paint(&app, pixels, 640, 480, 640));
-    assert(app.map_width > 0 && app.map_height > 0);
+    assert(app.map_width > 0 && app.map_width == app.map_height);
+    assert(app_paint(&app, pixels, 120, 90, 120)); /* too small for keys: draws none */
     type(&app, "x");
     assert(app.room_map && !strcmp(app.editor.text, "one\ntwo"));
     type(&app, "3");

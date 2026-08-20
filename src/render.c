@@ -36,17 +36,28 @@ static void rectangle(uint32_t *pixels, int width, int height, int stride, int x
             pixels[(size_t)row * (size_t)stride + (size_t)col] = color;
 }
 
+/* A filled w×h box with corners of the given radius. */
+static void rounded_box(uint32_t *pixels, int width, int height, int stride, int x, int y, int w,
+                        int h, int radius, uint32_t color)
+{
+    if (radius > w / 2)
+        radius = w / 2;
+    if (radius > h / 2)
+        radius = h / 2;
+    for (int row = 0; row < h; ++row) {
+        int dy = row < radius ? radius - row - 1
+                 : row >= h - radius ? row - (h - radius) : 0;
+        int inset = 0;
+        while (inset < radius && (radius - inset) * (radius - inset) + dy * dy > radius * radius)
+            ++inset;
+        rectangle(pixels, width, height, stride, x + inset, y + row, w - 2 * inset, 1, color);
+    }
+}
+
 static void rounded_rectangle(uint32_t *pixels, int width, int height, int stride,
                                int x, int y, int size, int radius, uint32_t color)
 {
-    for (int row = 0; row < size; ++row) {
-        int dy = row < radius ? radius - row - 1
-                 : row >= size - radius ? row - (size - radius) : 0;
-        int inset = 0;
-        while ((radius - inset) * (radius - inset) + dy * dy > radius * radius)
-            ++inset;
-        rectangle(pixels, width, height, stride, x + inset, y + row, size - 2 * inset, 1, color);
-    }
+    rounded_box(pixels, width, height, stride, x, y, size, size, radius, color);
 }
 
 static bool styled_glyph(struct app *app, uint32_t *pixels, int width, int height, int stride,
@@ -561,65 +572,110 @@ static size_t table_hit(const struct app *app, const struct md_cache *cache, int
     }
     return end;
 }
-/* The :map overlay: nine rooms in numeric keypad order, each labeled with its number and
- * first H1. The shown room uses the selected menu colors. */
-static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t *pixels, int width,
-                     int height, int stride, int top, int bottom, int cell, int line_height,
-                     int ascender, int padding)
+/* Bytes in the first columns codepoints of text. */
+static size_t room_prefix(const char *text, size_t length, int columns)
 {
-    int gap = padding / 2 > 1 ? padding / 2 : 1;
-    int cell_width = 24 * cell, cell_height = 2 * line_height + 2 * padding;
-    int room_x = (width - 2 * padding - 2 * gap) / 3, room_y = (bottom - top - 2 * padding - 2 * gap) / 3;
-    if (cell_width > room_x)
-        cell_width = room_x;
-    if (cell_height > room_y)
-        cell_height = room_y;
-    if (cell_width < cell || cell_height < line_height)
+    size_t offset = 0;
+    for (int i = 0; i < columns && offset < length; ++i)
+        editor_codepoint(text, length, &offset);
+    return offset;
+}
+/* Split a room heading into at most lines rows of columns cells, breaking at a space where
+ * possible and ending a cut heading with an ellipsis. */
+static unsigned room_label(const char *heading, int columns, unsigned lines, char out[2][256])
+{
+    size_t length = strlen(heading);
+    unsigned count = 0;
+    while (length && count < lines && columns > 1) {
+        size_t fit = room_prefix(heading, length, columns), next = fit;
+        if (fit < length && count + 1 < lines) {
+            size_t space = fit;
+            while (space && heading[space] != ' ')
+                --space;
+            if (space)
+                fit = next = space;
+        } else if (fit < length) {
+            fit = room_prefix(heading, length, columns - 1);
+            next = length;
+        }
+        memcpy(out[count], heading, fit);
+        out[count][fit] = 0;
+        if (next == length && fit < length)
+            strcat(out[count], "\xe2\x80\xa6");
+        heading += next;
+        length -= next;
+        while (length && *heading == ' ')
+            ++heading, --length;
+        ++count;
+    }
+    return count;
+}
+static int room_columns(const char *text)
+{
+    int columns = 0;
+    for (size_t offset = 0, length = strlen(text); offset < length; ++columns)
+        editor_codepoint(text, length, &offset);
+    return columns;
+}
+/* The :map overlay, drawn as a numeric keypad: nine square keys, each with its room number
+ * and the room's first H1 underneath. The shown room's key uses the selected menu colors. */
+static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t *pixels,
+                          int width, int height, int stride, int top, int bottom, int padding)
+{
+    unsigned base = base_font_size(app), big = base * 2, small = base * 4 / 5;
+    if (big > 127 * 64)
+        big = 127 * 64;
+    struct tiny_font_metrics digit = tiny_font_metrics_at(big), text = tiny_font_metrics_at(small);
+    int gap = padding, edge = padding / 3 > 2 ? padding / 3 : 2, frame = padding * 3 / 2;
+    int side = 12 * text.advance, fit_x = (width - 2 * frame - 2 * gap - 2 * padding) / 3,
+        fit_y = (bottom - top - 2 * frame - 2 * gap - 2 * padding) / 3;
+    if (side > fit_x)
+        side = fit_x;
+    if (side > fit_y)
+        side = fit_y;
+    if (side < digit.line_height + edge)
         return true;
-    int grid_width = 3 * cell_width + 2 * gap, grid_height = 3 * cell_height + 2 * gap;
-    int x0 = (width - grid_width) / 2, y0 = top + (bottom - top - grid_height) / 2;
+    int grid = 3 * side + 2 * gap;
+    int x0 = (width - grid) / 2, y0 = top + (bottom - top - grid) / 2;
     app->map_x = x0;
     app->map_y = y0;
-    app->map_width = cell_width;
-    app->map_height = cell_height;
+    app->map_width = app->map_height = side;
     app->map_gap = gap;
-    rectangle(pixels, width, height, stride, x0 - padding, y0 - padding, grid_width + 2 * padding,
-              grid_height + 2 * padding, theme->status);
-    int columns = (cell_width - 2 * padding) / cell;
+    rounded_box(pixels, width, height, stride, x0 - frame, y0 - frame, grid + 2 * frame,
+                grid + 2 * frame, frame + padding / 2, theme->status);
+    int face = side - edge, columns = (side - padding) / text.advance;
+    unsigned lines = (unsigned)((face - digit.line_height - padding / 2) / text.line_height);
+    if (lines > 2)
+        lines = 2;
     for (unsigned room = 0; room < ROOM_COUNT; ++room) {
-        int column = (int)room % 3, row = 2 - (int)room / 3;
-        int x = x0 + column * (cell_width + gap), y = y0 + row * (cell_height + gap);
+        int x = x0 + (int)(room % 3) * (side + gap), y = y0 + (2 - (int)(room / 3)) * (side + gap);
         bool shown = room == app->room;
-        uint32_t text = shown ? theme->menu_selected_text : theme->menu_text;
-        rectangle(pixels, width, height, stride, x, y, cell_width, cell_height,
-                  shown ? theme->menu_selected : theme->menu);
-        char number[4], heading[256], line[256];
-        snprintf(number, sizeof(number), "%u", room + 1);
+        uint32_t key = shown ? theme->menu_selected : theme->menu;
+        uint32_t ink = shown ? theme->menu_selected_text : theme->menu_text;
+        int radius = padding;
+        rounded_box(pixels, width, height, stride, x, y, side, side, radius,
+                    blend(key, app->editor.light ? 40 : 96, 0xff000000));
+        rounded_box(pixels, width, height, stride, x, y, side, face, radius, key);
+        char heading[256], label_lines[2][256], number[2] = {(char)('1' + room), 0};
         app_room_heading(app, room, heading, sizeof(heading));
-        /* Fit the heading to the cell by codepoints, ending a cut one with an ellipsis. */
-        size_t length = strlen(heading), offset = 0, used = 0;
-        int count = 0;
-        while (offset < length && count < columns) {
-            size_t next = offset;
-            editor_codepoint(heading, length, &next);
-            if (++count == columns && next < length) {
-                memcpy(line + used, "\xe2\x80\xa6", 3);
-                used += 3;
-                break;
-            }
-            memcpy(line + used, heading + offset, next - offset);
-            used += next - offset;
-            offset = next;
-        }
-        line[used] = 0;
-        int right = x + cell_width - padding + cell;
-        if (!label(app, pixels, right, height, stride, number, x + padding,
-                   y + padding + ascender, cell, shown ? text : theme->dim) ||
-            !label(app, pixels, right, height, stride, line, x + padding,
-                   y + padding + line_height + ascender, cell, text))
+        unsigned count = room_label(heading, columns, lines, label_lines);
+        int block = digit.line_height + (int)count * text.line_height;
+        int line_y = y + (face - block) / 2;
+        if (!tiny_font_set_size(app->font, big) ||
+            !label(app, pixels, width, height, stride, number, x + (side - digit.advance) / 2,
+                   line_y + digit.ascender, digit.advance, ink))
             return false;
+        line_y += digit.line_height;
+        if (count && !tiny_font_set_size(app->font, small))
+            return false;
+        for (unsigned i = 0; i < count; ++i, line_y += text.line_height) {
+            int span = room_columns(label_lines[i]) * text.advance;
+            if (!label(app, pixels, width, height, stride, label_lines[i], x + (side - span) / 2,
+                       line_y + text.ascender, text.advance, ink))
+                return false;
+        }
     }
-    return true;
+    return tiny_font_set_size(app->font, base);
 }
 static bool paint(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
@@ -893,8 +949,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                    app->context_choice == 1 ? theme->menu_selected_text : theme->menu_text))
             return false;
     }
-    if (app->room_map && !draw_room_map(app, theme, pixels, width, height, stride, top, status_y,
-                                        cell, status_line, ascender, padding))
+    if (app->room_map &&
+        !draw_room_map(app, theme, pixels, width, height, stride, top, status_y, padding))
         return false;
     return true;
 }
