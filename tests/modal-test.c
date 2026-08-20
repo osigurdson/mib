@@ -161,6 +161,22 @@ static void unknown_commands(void)
     assert(!ed.message[0]);
 }
 
+static void word_at_line_end(void)
+{
+    reset("one two\n  three\n");
+    keys("wdw");
+    expect("one \n  three\n");
+    reset("one two\n  three\n");
+    keys("w\"ayw$\"ap");
+    expect("one twotwo\n  three\n");
+    reset("one two\n  three four\n");
+    keys("d3w");
+    expect("four\n");
+    reset("last word\n");
+    keys("wdw");
+    expect("last \n");
+}
+
 static void registers(void)
 {
     reset("one\ntwo\nthree\n");
@@ -206,6 +222,7 @@ int main(void)
     case_operators();
     unknown_commands();
     registers();
+    word_at_line_end();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};

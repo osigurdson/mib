@@ -48,12 +48,10 @@ keys = "dw"
 [[case]]
 name = "dw at line end"
 keys = "wwdw"
-status = "gap"
 
 [[case]]
 name = "yw at line end"
 keys = "wwywP"
-status = "gap"
 
 [[case]]
 name = "de"

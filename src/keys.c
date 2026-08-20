@@ -1209,6 +1209,12 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
                 ++b;
         } else if (inclusive)
             b = editor_next(ed, b);
+        /* Like Vim, an operator whose last word ends a line stops there instead of reaching
+         * into the next line (dw on a line's last word keeps the line break). */
+        if ((*p == 'w' || *p == 'W') && !linewise && b > a &&
+            editor_line_number(ed, b) > editor_line_number(ed, a) &&
+            b <= first_nonblank(ed, b))
+            b = editor_line_start(ed, b) - 1;
         /* cw changes the current word, leaving its following whitespace. */
         if (op == 'c' && (*p == 'w' || *p == 'W'))
             while (b > a && space(ed->text[b - 1]))
