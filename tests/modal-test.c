@@ -1,6 +1,7 @@
 #include "editor.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 static struct editor ed;
 static void keys(const char *s)
@@ -19,6 +20,10 @@ static void reset(const char *s)
     editor_input(&ed, KEY_TEXT, s);
     editor_input(&ed, KEY_ESCAPE, "");
     ed.cursor = 0;
+    /* Start with no change to repeat, as in a freshly opened file. */
+    free(ed.dot);
+    ed.dot = NULL;
+    ed.dot_length = 0;
 }
 static void expect(const char *s)
 {
@@ -177,6 +182,56 @@ static void word_at_line_end(void)
     expect("last \n");
 }
 
+static void dot_repeat(void)
+{
+    reset("a b c d e f g h\n");
+    keys(".");
+    expect("a b c d e f g h\n");
+    keys("dw..");
+    expect("d e f g h\n");
+    keys("2.");
+    expect("f g h\n");
+    keys(".");
+    expect("h\n");
+    /* Inserts repeat with their typed keys, including Enter and Backspace. */
+    reset("one\ntwo\n");
+    keys("A!");
+    editor_input(&ed, KEY_BACKSPACE, "");
+    keys("?");
+    editor_input(&ed, KEY_ENTER, "");
+    keys("x");
+    editor_input(&ed, KEY_ESCAPE, "");
+    keys("j.");
+    expect("one?\nx\ntwo?\nx\n");
+    keys("u");
+    expect("one?\nx\ntwo\n");
+    /* Yanks, motions, undo, searches and : commands leave the last change alone. */
+    reset("aaa bbb ccc\n");
+    keys("ciwX");
+    editor_input(&ed, KEY_ESCAPE, "");
+    keys("wyiw");
+    editor_command(&ed, "s/c/C/");
+    expect("X bbb Ccc\n");
+    keys("0w.");
+    expect("X X Ccc\n");
+    keys("u");
+    expect("X bbb Ccc\n");
+    keys("0w.");
+    expect("X X Ccc\n");
+    /* The register is part of the change. */
+    reset("one\ntwo\nthree\n");
+    keys("\"Add.");
+    assert(!strcmp(ed.registers[1].text, "one\ntwo\n"));
+    expect("three\n");
+    /* Read-only polish blocks the repeat. */
+    reset("abc\n");
+    keys("x");
+    editor_command(&ed, "set polish");
+    keys(".");
+    expect("bc\n");
+    assert(strstr(ed.message, "read-only"));
+}
+
 static void registers(void)
 {
     reset("one\ntwo\nthree\n");
@@ -223,6 +278,7 @@ int main(void)
     unknown_commands();
     registers();
     word_at_line_end();
+    dot_repeat();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};

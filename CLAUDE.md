@@ -35,8 +35,10 @@ Use `make vim-compare` when adding or changing Vim behaviour:
 4. The Vim reference runs `vim -u NONE -es` with Jot's conventions (4-space `expandtab`,
    `autoindent`, `ignorecase smartcase`, `nojoinspaces`, `textwidth=79`). If a difference is a
    deliberate Jot choice, keep it as a gap with a `note`.
-5. `:normal` drops the remaining keys after a failing command, but typed Vim beeps and
-   continues. Give such cases a `vim_keys` field with what interactive Vim effectively runs.
+5. `:normal` differs from typing in a few ways: it drops the remaining keys after a failing
+   command (typed Vim beeps and continues), `u` undoes everything since `:normal` started, and
+   `q` can't record. Give such cases a `vim_keys` field with what interactive Vim effectively
+   runs. A case that passes because both sides did nothing is worth a second look.
 
 Failing runs keep each case's Jot file, Vim file and client log under
 `.build/linux/vim-compare/run-*/`.

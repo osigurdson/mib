@@ -8,7 +8,8 @@
 # `iX<Esc>` so the cursor position shows up in the file.
 #
 # `vim_keys` replaces the keys Vim runs. Use it where :normal differs from typing: after a
-# failing command, :normal drops the rest of the keys, while interactive Vim beeps and carries on.
+# failing command, :normal drops the rest of the keys, while interactive Vim beeps and carries on;
+# u undoes everything since the start of :normal; and q can't record a macro.
 #
 # status = "gap" marks a known difference from Vim; add a `note` saying why. The run fails when
 # a passing case stops matching or when a gap starts matching (so the status gets updated).
@@ -215,6 +216,7 @@ keys = "*ggnD"
 [[case]]
 name = "undo after dot"
 keys = "dw.u"
+vim_keys = "dw"
 
 # Case operators
 
@@ -271,62 +273,50 @@ vim_keys = "x"
 [[case]]
 name = "dw.."
 keys = "dw.."
-status = "gap"
 
 [[case]]
 name = "dd 2."
 keys = "dd2."
-status = "gap"
 
 [[case]]
 name = "ciw ."
 keys = "ciwZ<Esc>w."
-status = "gap"
 
 [[case]]
 name = "A ."
 keys = "A!<Esc>j."
-status = "gap"
 
 [[case]]
 name = "o ."
 keys = "onew<Esc>."
-status = "gap"
 
 [[case]]
 name = "x 3."
 keys = "x3."
-status = "gap"
 
 [[case]]
 name = ">> ."
 keys = ">>j."
-status = "gap"
 
 [[case]]
 name = "r ."
 keys = "rQw."
-status = "gap"
 
 [[case]]
 name = "cw then n ."
 keys = "/two<CR>cwTWO<Esc>/three<CR>."
-status = "gap"
 
 [[case]]
 name = "p ."
 keys = "yyp."
-status = "gap"
 
 [[case]]
 name = "gUiw ."
 keys = "gUiww."
-status = "gap"
 
 [[case]]
 name = "dot after yank"
 keys = "dwyy."
-status = "gap"
 
 [[case]]
 name = "ix<Esc> 3."

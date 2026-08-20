@@ -53,6 +53,7 @@ run as normal commands. Macros (`q`, `@`) aren't supported.
 | `~` | Toggle case |
 | `gu` `gU` `g~` | Lowercase, uppercase or toggle case: follow with a motion or text object, or double the last key (`gUU`) for the line |
 | `u` `Ctrl+R` | Undo, redo (one insert session is one undo step) |
+| `.` | Repeat the last change, including any text typed in insert mode; a count replaces the original one |
 
 ## Registers
 
@@ -67,7 +68,7 @@ Put `"` and a register name before a yank, delete, change or put, such as `"ayy`
 | `"_` | Nothing: deletes into it leave the clipboard and other registers alone |
 | `"+` `"*` `""` | The system clipboard, the same as no register |
 
-In visual mode, `d` `y` `c` `<` `>` act on the selection, `J` joins, `u` `U` `~` change case, `p` replaces, and `o` jumps to the other end.
+In visual mode, `d` `y` `c` `<` `>` act on the selection, `J` joins, `u` `U` `~` change case, `p` replaces, and `o` jumps to the other end. `.` doesn't repeat changes made in visual mode.
 
 ## Text objects
 

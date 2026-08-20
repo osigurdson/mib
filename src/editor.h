@@ -91,6 +91,12 @@ struct editor {
     void (*on_save)(void *);
     void *on_save_data;
     struct edit_history *history;
+    /* Dot repeat: the keys of the last change, and of the command being typed. */
+    unsigned char *dot, *dot_record;
+    size_t dot_length, dot_record_length, dot_record_capacity;
+    uint64_t dot_revision;
+    unsigned char dot_state;
+    bool dot_replaying;
     char *command_history[32];
     unsigned history_count, history_position;
 };

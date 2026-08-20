@@ -799,6 +799,7 @@ static void command_input(struct editor *ed, enum editor_key key, const char *te
         editor_search(ed, ed->command_kind == '/', 1);
     }
 }
+static void repeat(struct editor *ed, unsigned count);
 static void input(struct editor *ed, enum editor_key key, const char *text)
 {
     ed->message[0] = 0;
@@ -1092,6 +1093,10 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         editor_undo(ed, false);
         return;
     }
+    if (!op && !strcmp(p, ".")) {
+        repeat(ed, explicit_count ? count : 0);
+        return;
+    }
     if (!op && (*p == 'p' || *p == 'P')) {
         put(ed, *p == 'p', count);
         return;
@@ -1226,12 +1231,190 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     }
 }
 
+/* Dot repeat records each event as a key byte, a 4-byte length and the text. */
+enum { DOT_IDLE, DOT_COMMAND, DOT_INSERT, DOT_DISCARD };
+#define DOT_LIMIT (1024 * 1024)
+static void record(struct editor *ed, enum editor_key key, const char *text)
+{
+    size_t n = text ? strlen(text) : 0, need = ed->dot_record_length + 5 + n;
+    if (need > DOT_LIMIT) {
+        ed->dot_state = DOT_DISCARD;
+        return;
+    }
+    if (need > ed->dot_record_capacity) {
+        size_t capacity = ed->dot_record_capacity ? ed->dot_record_capacity : 64;
+        while (capacity < need)
+            capacity *= 2;
+        unsigned char *data = realloc(ed->dot_record, capacity);
+        if (!data) {
+            ed->dot_state = DOT_DISCARD;
+            return;
+        }
+        ed->dot_record = data;
+        ed->dot_record_capacity = capacity;
+    }
+    unsigned char *at = ed->dot_record + ed->dot_record_length;
+    at[0] = (unsigned char)key;
+    for (unsigned i = 0; i < 4; ++i)
+        at[1 + i] = (unsigned char)(n >> (8 * i));
+    memcpy(at + 5, text, n);
+    ed->dot_record_length = need;
+}
+static size_t event(const unsigned char *data, size_t at, enum editor_key *key, const char **text,
+                    size_t *n)
+{
+    *key = (enum editor_key)data[at];
+    *n = 0;
+    for (unsigned i = 0; i < 4; ++i)
+        *n |= (size_t)data[at + 1 + i] << (8 * i);
+    *text = (const char *)data + at + 5;
+    return at + 5 + *n;
+}
+/* The recorded command's typed text, without its count or register, such as "dw" or "u". */
+static void recorded_command(const struct editor *ed, char *out, size_t size)
+{
+    size_t used = 0;
+    for (size_t at = 0; at < ed->dot_record_length && used + 1 < size;) {
+        enum editor_key key;
+        const char *text;
+        size_t n;
+        at = event(ed->dot_record, at, &key, &text, &n);
+        if (key != KEY_TEXT || used + n + 1 > size) {
+            if (!used)
+                out[used++] = 1; /* A non-text key started it: never a change to repeat. */
+            break;
+        }
+        memcpy(out + used, text, n);
+        used += n;
+    }
+    out[used] = 0;
+    char *p = out;
+    for (bool skipped = true; skipped;) {
+        skipped = false;
+        while (*p >= '1' && *p <= '9') {
+            while (isdigit((unsigned char)*p))
+                ++p;
+            skipped = true;
+        }
+        if (p[0] == '"' && p[1]) {
+            p += 2;
+            skipped = true;
+        }
+    }
+    memmove(out, p, strlen(p) + 1);
+}
+static void finish_record(struct editor *ed, bool keep)
+{
+    unsigned char *copy;
+    if (keep && ed->dot_state != DOT_DISCARD && (copy = malloc(ed->dot_record_length))) {
+        memcpy(copy, ed->dot_record, ed->dot_record_length);
+        free(ed->dot);
+        ed->dot = copy;
+        ed->dot_length = ed->dot_record_length;
+    }
+    ed->dot_record_length = 0;
+    ed->dot_state = DOT_IDLE;
+}
+static void after_input(struct editor *ed)
+{
+    if (ed->dot_state == DOT_INSERT || ed->dot_state == DOT_DISCARD) {
+        if (ed->mode != INSERT)
+            finish_record(ed, ed->dot_state == DOT_INSERT);
+        return;
+    }
+    if (ed->dot_state != DOT_COMMAND || ed->pending[0])
+        return;
+    char command[64];
+    recorded_command(ed, command, sizeof(command));
+    bool repeatable = command[0] && command[0] != 1 && !strchr("u.:/?", command[0]);
+    if (ed->command_active || !repeatable)
+        finish_record(ed, false);
+    else if (ed->mode == INSERT)
+        ed->dot_state = DOT_INSERT;
+    else
+        finish_record(ed, ed->revision != ed->dot_revision || (ed->requests & ED_PASTE));
+}
+/* Replays the last change; a count replaces the one it was typed with. */
+static void repeat(struct editor *ed, unsigned count)
+{
+    if (!ed->dot_length || ed->dot_replaying)
+        return;
+    size_t length = ed->dot_length;
+    unsigned char *keys = malloc(length + 16);
+    if (!keys)
+        return;
+    size_t used = 0, at = 0;
+    if (count) {
+        char digits[12];
+        int n = snprintf(digits, sizeof(digits), "%u", count);
+        /* Drop the recorded leading count, then prefix the new one. */
+        while (at < length) {
+            enum editor_key key;
+            const char *text;
+            size_t size;
+            size_t next = event(ed->dot, at, &key, &text, &size);
+            if (key != KEY_TEXT || size != 1 || !isdigit((unsigned char)*text) ||
+                (at == 0 && *text == '0'))
+                break;
+            at = next;
+        }
+        keys[used] = KEY_TEXT;
+        keys[used + 1] = (unsigned char)n;
+        keys[used + 2] = keys[used + 3] = keys[used + 4] = 0;
+        memcpy(keys + used + 5, digits, (size_t)n);
+        used += 5 + (size_t)n;
+    }
+    memcpy(keys + used, ed->dot + at, length - at);
+    used += length - at;
+    if (count) {
+        /* Later repeats use the new count too, as in Vim. */
+        unsigned char *copy = malloc(used);
+        if (copy) {
+            memcpy(copy, keys, used);
+            free(ed->dot);
+            ed->dot = copy;
+            ed->dot_length = used;
+        }
+    }
+    ed->dot_replaying = true;
+    for (size_t i = 0; i < used;) {
+        enum editor_key key;
+        const char *text;
+        size_t n;
+        size_t next = event(keys, i, &key, &text, &n);
+        char buffer[64];
+        char *value = n < sizeof(buffer) ? buffer : malloc(n + 1);
+        if (!value)
+            break;
+        memcpy(value, text, n);
+        value[n] = 0;
+        input(ed, key, value);
+        if (value != buffer)
+            free(value);
+        i = next;
+    }
+    /* Leave insert mode if the recording was cut short. */
+    if (ed->mode == INSERT)
+        input(ed, KEY_ESCAPE, "");
+    ed->dot_replaying = false;
+    free(keys);
+}
+
 void editor_input(struct editor *ed, enum editor_key key, const char *text)
 {
     bool inserting = ed->mode == INSERT;
+    if (!ed->dot_replaying && ed->dot_state == DOT_IDLE && ed->mode == NORMAL &&
+        !ed->command_active && !ed->pending[0]) {
+        ed->dot_state = DOT_COMMAND;
+        ed->dot_record_length = 0;
+        ed->dot_revision = ed->revision;
+    }
+    if (ed->dot_state != DOT_IDLE && ed->dot_state != DOT_DISCARD)
+        record(ed, key, text);
     ed->register_name = 0;
     input(ed, key, text);
     ed->register_name = 0;
+    after_input(ed);
     if (inserting || ed->mode == INSERT)
         ed->search_hidden = true;
 }
