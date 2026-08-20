@@ -97,6 +97,12 @@ status = "gap"
 note = "Vim 9.1+ jumps forward to the next pair on the line"
 
 [[case]]
+name = "G to last line"
+keys = "Gx"
+status = "gap"
+note = "Jot shows the final line break as an empty last line, and G goes there"
+
+[[case]]
 name = "dG"
 keys = "jdG"
 
@@ -375,47 +381,58 @@ keys = "\"ayy2\"ap"
 [[case]]
 name = "mark linewise"
 keys = "majjd'a"
-status = "gap"
 
 [[case]]
 name = "mark exact"
 keys = "wmbjj`bx"
-status = "gap"
 
 [[case]]
 name = "mark backtick op"
 keys = "wmajjd`a"
-status = "gap"
 
 [[case]]
 name = "mark follows edits"
 keys = "jjmakkOnew<Esc>'ax"
-status = "gap"
 
 [[case]]
 name = "'' jump back"
-keys = "G''x"
-status = "gap"
+keys = "8G''x"
 
 [[case]]
 name = "`` jump back"
-keys = "wwG``x"
-status = "gap"
+keys = "ww8G``x"
 
 [[case]]
 name = "Ctrl-O jump"
-keys = "Gx<C-o>x"
-status = "gap"
+keys = "8Gx<C-o>x"
 
 [[case]]
 name = "Ctrl-O Tab"
-keys = "G/two<CR><C-o><C-o><Tab>x"
-status = "gap"
+keys = "8G/two<CR><C-o><C-o><Tab>x"
 
 [[case]]
 name = "Ctrl-O after search"
 keys = "/count<CR>x<C-o>x"
-status = "gap"
+
+[[case]]
+name = "'' after search"
+keys = "/count<CR>''x"
+
+[[case]]
+name = "'' after :n"
+keys = ":5<CR>''x"
+
+[[case]]
+name = "Ctrl-O after %"
+keys = "jj$%<C-o>x"
+
+[[case]]
+name = "Ctrl-O twice then Ctrl-I"
+keys = "3G5G7G<C-o><C-o><C-i>x"
+
+[[case]]
+name = "y'a"
+keys = "jmajj\"ay'aG\"ap"
 
 [[case]]
 name = "unset mark"

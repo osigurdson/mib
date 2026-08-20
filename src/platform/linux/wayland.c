@@ -473,6 +473,12 @@ static void handle_key(struct wayland_client *client, uint32_t key)
         case XKB_KEY_f:
             action = KEY_CTRL_F;
             break;
+        case XKB_KEY_i:
+            action = KEY_CTRL_I;
+            break;
+        case XKB_KEY_o:
+            action = KEY_CTRL_O;
+            break;
         case XKB_KEY_q:
             action = KEY_CTRL_Q;
             break;

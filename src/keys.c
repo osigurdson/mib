@@ -140,6 +140,68 @@ void editor_forget_registers(struct editor *ed, const char *text)
             ed->registers[i] = (struct editor_register){0};
         }
 }
+static size_t shifted(size_t mark, size_t from, size_t to, size_t length)
+{
+    if (!mark || mark - 1 < from)
+        return mark;
+    if (mark - 1 >= to)
+        return mark - (to - from) + length;
+    return from + 1; /* Inside the replaced text: keep it at the start. */
+}
+void editor_shift_marks(struct editor *ed, size_t from, size_t to, size_t length)
+{
+    for (unsigned i = 0; i < 26; ++i)
+        ed->marks[i] = shifted(ed->marks[i], from, to, length);
+    ed->context = shifted(ed->context, from, to, length);
+    for (unsigned i = 0; i < ed->jump_count; ++i)
+        ed->jumps[i] = shifted(ed->jumps[i], from, to, length);
+}
+/* Append a jump-list entry. A new jump drops older entries on its line, as Vim does; the spot
+ * Ctrl-O saves before stepping back keeps them. */
+static void push_jump(struct editor *ed, size_t position, bool dedupe)
+{
+    size_t line = editor_line_number(ed, position);
+    unsigned kept = 0;
+    for (unsigned i = 0; i < ed->jump_count; ++i)
+        if (!dedupe || editor_line_number(ed, min(ed->jumps[i] - 1, ed->length)) != line)
+            ed->jumps[kept++] = ed->jumps[i];
+    if (kept == sizeof(ed->jumps) / sizeof(ed->jumps[0])) {
+        memmove(ed->jumps, ed->jumps + 1, (kept - 1) * sizeof(ed->jumps[0]));
+        --kept;
+    }
+    ed->jumps[kept++] = position + 1;
+    ed->jump_count = ed->jump_index = kept;
+}
+void editor_jump_from(struct editor *ed, size_t origin)
+{
+    ed->context = origin + 1;
+    push_jump(ed, origin, true);
+}
+/* Ctrl-O and Ctrl-I: walk the jump list, saving the current spot before the first step back. */
+static void jump_list(struct editor *ed, bool older)
+{
+    if (older) {
+        if (ed->jump_index == ed->jump_count) {
+            push_jump(ed, ed->cursor, false);
+            ed->jump_index = ed->jump_count - 1;
+        }
+        if (!ed->jump_index)
+            return;
+        --ed->jump_index;
+    } else {
+        if (ed->jump_index + 1 >= ed->jump_count)
+            return;
+        ++ed->jump_index;
+    }
+    ed->cursor = min(ed->jumps[ed->jump_index] - 1, ed->length);
+    editor_clamp(ed);
+}
+static bool jump_motion(const char *m)
+{
+    return strchr("GHLM%{}nN'`", m[0]) || !strcmp(m, "gg") || !strcmp(m, "[[") ||
+           !strcmp(m, "]]");
+}
+
 /* p and P: named registers are put directly; the unnamed one goes through the clipboard. */
 static void put(struct editor *ed, bool after, unsigned count)
 {
@@ -352,6 +414,22 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
     char c = *m;
     *linewise = *inclusive = false;
     *valid = true;
+    if ((c == '\'' || c == '`') && m[1]) {
+        size_t mark = m[1] == '\'' || m[1] == '`'   ? ed->context
+                      : m[1] >= 'a' && m[1] <= 'z' ? ed->marks[m[1] - 'a']
+                                                   : 0;
+        *valid = mark != 0;
+        if (!mark) {
+            snprintf(ed->message, sizeof(ed->message), "Mark not set: %.4s", m + 1);
+            return p;
+        }
+        p = min(mark - 1, ed->length);
+        if (c == '\'') {
+            *linewise = true;
+            return first_nonblank(ed, p);
+        }
+        return p;
+    }
     if (c == 'G' || !strcmp(m, "gg")) {
         *linewise = true;
         return editor_line_at(ed,
@@ -758,6 +836,8 @@ static void command_input(struct editor *ed, enum editor_key key, const char *te
                 snprintf(ed->search, sizeof(ed->search), "%.255s", ed->command);
             ed->search_forward = ed->command_kind == '/';
             editor_search(ed, ed->search_forward, 1);
+            if (!ed->search_failed && ed->cursor != ed->search_origin)
+                editor_jump_from(ed, ed->search_origin);
         }
         return;
     }
@@ -863,6 +943,11 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     }
     if (key == KEY_CTRL_R) {
         editor_undo(ed, true);
+        return;
+    }
+    if (ed->mode != INSERT && (key == KEY_CTRL_O || key == KEY_CTRL_I || key == KEY_TAB)) {
+        ed->pending[0] = 0;
+        jump_list(ed, key == KEY_CTRL_O);
         return;
     }
     if (key == KEY_CTRL_D || (key == KEY_CTRL_U && ed->mode != INSERT) || key == KEY_CTRL_F ||
@@ -1036,7 +1121,10 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         ed->search[bytes] = 0;
         ed->search_word = true;
         ed->search_forward = *p == '*';
+        size_t origin = ed->cursor;
         editor_search(ed, ed->search_forward, count);
+        if (ed->cursor != origin)
+            editor_jump_from(ed, origin);
         return;
     }
     if (!op && (!strcmp(p, "v") || !strcmp(p, "V"))) {
@@ -1091,6 +1179,13 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     }
     if (!op && !strcmp(p, "u")) {
         editor_undo(ed, false);
+        return;
+    }
+    if (!op && *p == 'm') {
+        if (p[1] >= 'a' && p[1] <= 'z')
+            ed->marks[p[1] - 'a'] = ed->cursor + 1;
+        else
+            snprintf(ed->message, sizeof(ed->message), "Mark %.4s is not supported", p + 1);
         return;
     }
     if (!op && !strcmp(p, ".")) {
@@ -1226,8 +1321,11 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
                 --b;
         operate(ed, op, a, b, linewise);
     } else {
+        size_t origin = ed->cursor;
         ed->cursor = target;
         editor_clamp(ed);
+        if (jump_motion(p) && ed->cursor != origin)
+            editor_jump_from(ed, origin);
     }
 }
 

@@ -28,6 +28,8 @@ enum editor_key {
     KEY_CTRL_D,
     KEY_CTRL_E,
     KEY_CTRL_F,
+    KEY_CTRL_I,
+    KEY_CTRL_O,
     KEY_CTRL_Q,
     KEY_CTRL_R,
     KEY_CTRL_S,
@@ -97,6 +99,10 @@ struct editor {
     uint64_t dot_revision;
     unsigned char dot_state;
     bool dot_replaying;
+    /* Marks 'a to 'z, the '' context mark and the jump list hold positions plus one, so 0
+     * means unset. Edits shift them with the text. */
+    size_t marks[26], context, jumps[100];
+    unsigned jump_count, jump_index;
     char *command_history[32];
     unsigned history_count, history_position;
 };

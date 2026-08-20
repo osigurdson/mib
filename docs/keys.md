@@ -39,6 +39,19 @@ run as normal commands. Macros (`q`, `@`) aren't supported.
 | `Ctrl+E` `Ctrl+Y` | Scroll without moving the cursor |
 | `zz` `zt` `zb` | Put the cursor line in the middle, at the top or at the bottom |
 
+## Marks and jumps
+
+| Keys | Action |
+|---|---|
+| `m{a-z}` | Set a mark at the cursor |
+| `'{a-z}`, `` `{a-z} `` | Jump to the mark's line, or to its exact position; also motions for operators, such as `d'a` |
+| `''`, ``` `` ``` | Jump back to the line, or the exact spot, before the latest jump |
+| `Ctrl+O`, `Ctrl+I` or `Tab` | Go to an older or newer position in the jump list |
+
+Jumps are `G`, `gg`, `/`, `?`, `n`, `N`, `*`, `#`, `%`, `{`, `}`, `[[`, `]]`,
+`H`, `M`, `L`, mark jumps and `:{n}`. Marks move with the text as you edit, and
+are forgotten when the page is reloaded.
+
 ## Editing
 
 | Keys | Action |

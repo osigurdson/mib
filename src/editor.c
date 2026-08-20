@@ -273,6 +273,9 @@ bool editor_reload(struct editor *ed)
     ed->saved_hash = other.saved_hash;
     ed->modified = false;
     ++ed->revision;
+    memset(ed->marks, 0, sizeof(ed->marks));
+    ed->context = 0;
+    ed->jump_count = ed->jump_index = 0;
     editor_history_clear(ed);
     editor_destroy(&other);
     editor_clamp(ed);

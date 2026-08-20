@@ -74,6 +74,8 @@ static void codepoint(struct windows_window *window, uint32_t cp, unsigned repea
         key = KEY_CTRL_E;
     else if (cp == 6)
         key = KEY_CTRL_F;
+    else if (cp == 15)
+        key = KEY_CTRL_O;
     else if (cp == 17)
         key = KEY_CTRL_Q;
     else if (cp == 18)

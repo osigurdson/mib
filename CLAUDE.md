@@ -10,6 +10,8 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `src/app.c`, `src/media.c`: app-level input (images, clipboard paste), shared by both platforms.
 - `src/platform/linux/wayland.c` and `src/platform/windows/window.c` map keys to `enum editor_key`.
   A new Ctrl key needs an entry in `src/editor.h` and in both platform files.
+- Every text change goes through `editor_raw_replace` in `src/history.c`, which also shifts
+  marks and jump-list positions.
 - The unnamed register is the system clipboard: yanks and deletes copy to it, and `p` pastes
   from it through the platform's `ED_PASTE` handler.
 

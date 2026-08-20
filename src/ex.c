@@ -86,6 +86,7 @@ void editor_command(struct editor *ed, const char *command)
     while (*p == ' ')
         ++p;
     if (!*p && range) {
+        editor_jump_from(ed, ed->cursor);
         ed->cursor = editor_line_at(ed, last);
         editor_clamp(ed);
         return;

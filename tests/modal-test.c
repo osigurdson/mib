@@ -232,6 +232,63 @@ static void dot_repeat(void)
     assert(strstr(ed.message, "read-only"));
 }
 
+static void marks_and_jumps(void)
+{
+    reset("one\ntwo\nthree\nfour\n");
+    keys("jlma");
+    assert(ed.marks[0] == 6);
+    /* Marks follow insertions and deletions before them. */
+    keys("ggOzero");
+    editor_input(&ed, KEY_ESCAPE, "");
+    keys("gg`ax");
+    expect("zero\none\nto\nthree\nfour\n");
+    keys("ggdd'ax");
+    expect("one\no\nthree\nfour\n");
+    keys("u");
+    /* Deleting the text a mark sits in keeps it at the start of the deletion. */
+    reset("abc def\n");
+    keys("lma0dw`ax");
+    expect("ef\n");
+    /* '' and `` return to where a jump started; Ctrl-O and Ctrl-I walk the list. */
+    reset("1\n2\n3\n4\n5\n");
+    keys("3G''");
+    assert(editor_line_number(&ed, ed.cursor) == 0);
+    keys("''");
+    assert(editor_line_number(&ed, ed.cursor) == 2);
+    keys("5G");
+    editor_input(&ed, KEY_CTRL_O, "");
+    assert(editor_line_number(&ed, ed.cursor) == 2);
+    editor_input(&ed, KEY_CTRL_O, "");
+    assert(editor_line_number(&ed, ed.cursor) == 0);
+    editor_input(&ed, KEY_CTRL_O, "");
+    assert(editor_line_number(&ed, ed.cursor) == 0);
+    editor_input(&ed, KEY_TAB, "");
+    assert(editor_line_number(&ed, ed.cursor) == 2);
+    editor_input(&ed, KEY_CTRL_I, "");
+    assert(editor_line_number(&ed, ed.cursor) == 4);
+    editor_input(&ed, KEY_CTRL_I, "");
+    assert(editor_line_number(&ed, ed.cursor) == 4);
+    /* Searches and :n are jumps too. */
+    keys("gg/4");
+    editor_input(&ed, KEY_ENTER, "");
+    assert(editor_line_number(&ed, ed.cursor) == 3);
+    keys("''");
+    assert(editor_line_number(&ed, ed.cursor) == 0);
+    editor_command(&ed, "3");
+    keys("``");
+    assert(ed.cursor == 0);
+    /* Unset and unsupported marks report themselves without moving. */
+    keys("'b");
+    assert(strstr(ed.message, "Mark not set") && ed.cursor == 0);
+    keys("mA");
+    assert(strstr(ed.message, "not supported"));
+    /* Read-only polish still allows jumping. */
+    editor_command(&ed, "set polish");
+    keys("5G");
+    editor_input(&ed, KEY_CTRL_O, "");
+    assert(ed.cursor == 0 && !ed.message[0]);
+}
+
 static void registers(void)
 {
     reset("one\ntwo\nthree\n");
@@ -279,6 +336,7 @@ int main(void)
     registers();
     word_at_line_end();
     dot_repeat();
+    marks_and_jumps();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};
