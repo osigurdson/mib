@@ -1026,6 +1026,64 @@ static void command_input(struct editor *ed, enum editor_key key, const char *te
     }
 }
 static void repeat(struct editor *ed, unsigned count);
+static void replace_begin(struct editor *ed)
+{
+    size_t end = editor_line_end(ed, ed->cursor), n = end - ed->cursor;
+    free(ed->replace_original);
+    ed->replace_original = malloc(n + 1);
+    if (ed->replace_original) {
+        memcpy(ed->replace_original, ed->text + ed->cursor, n);
+        ed->replace_original[n] = 0;
+    }
+    ed->replace_start = ed->cursor;
+    ed->replacing = true;
+}
+static void replace_end(struct editor *ed)
+{
+    free(ed->replace_original);
+    ed->replace_original = NULL;
+    ed->replacing = false;
+}
+/* Type over one character per typed character; past the line's end, text is added. */
+static void replace_text(struct editor *ed, const char *text)
+{
+    for (size_t i = 0, n = strlen(text); i < n;) {
+        size_t next = i + 1;
+        while (next < n && ((unsigned char)text[next] & 0xc0) == 0x80)
+            ++next;
+        size_t at = ed->cursor, end = at < editor_line_end(ed, at) ? editor_next(ed, at) : at;
+        if (!editor_replace(ed, at, end, text + i, next - i))
+            return;
+        ed->cursor = at + next - i; /* Typing over an identical character leaves the text alone. */
+        i = next;
+    }
+}
+/* Backspace in replace mode puts back what was typed over and removes what was added. */
+static void replace_backspace(struct editor *ed)
+{
+    size_t start = ed->replace_start, cursor = ed->cursor;
+    if (cursor <= start || editor_line_start(ed, cursor) > start || !ed->replace_original) {
+        if (cursor > editor_line_start(ed, cursor))
+            ed->cursor = editor_previous(ed, cursor);
+        return;
+    }
+    size_t previous = editor_previous(ed, cursor), typed = 0;
+    for (size_t p = start; p < previous; p = editor_next(ed, p))
+        ++typed;
+    const char *original = ed->replace_original;
+    size_t at = 0, length = strlen(original);
+    for (; typed && at < length; --typed)
+        do
+            ++at;
+        while (at < length && ((unsigned char)original[at] & 0xc0) == 0x80);
+    size_t end = at;
+    if (end < length)
+        do
+            ++end;
+        while (end < length && ((unsigned char)original[end] & 0xc0) == 0x80);
+    editor_replace(ed, previous, cursor, original + at, typed ? 0 : end - at);
+    ed->cursor = previous;
+}
 static void input(struct editor *ed, enum editor_key key, const char *text)
 {
     ed->message[0] = 0;
@@ -1082,6 +1140,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
             if (ed->cursor > editor_line_start(ed, ed->cursor))
                 ed->cursor = editor_previous(ed, ed->cursor);
         }
+        replace_end(ed);
         ed->mode = NORMAL;
         ed->pending[0] = 0;
         editor_clamp(ed);
@@ -1111,7 +1170,11 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         return;
     }
     if (ed->mode == INSERT) {
-        if (key == KEY_TEXT && text && *text)
+        if (ed->replacing && key == KEY_TEXT && text && *text)
+            replace_text(ed, text);
+        else if (ed->replacing && key == KEY_BACKSPACE)
+            replace_backspace(ed);
+        else if (key == KEY_TEXT && text && *text)
             editor_replace(ed, ed->cursor, ed->cursor, text, strlen(text));
         else if (key == KEY_BACKSPACE && ed->cursor)
             editor_replace(ed, editor_previous(ed, ed->cursor), ed->cursor, "", 0);
@@ -1203,7 +1266,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         count = 1;
     bool visual = ed->mode == VISUAL || ed->mode == VISUAL_LINE;
     if (ed->render_mode == RENDER_POLISH &&
-        ((!visual && (strchr("dc><iaIAoOsSxXDCJr~pPu", *p) ||
+        ((!visual && (strchr("dc><iaIAoOsSxXDCJRr~pPu", *p) ||
                       (p[0] == 'g' && p[1] && strchr("uU~q", p[1])))) ||
          (visual && (strchr("dc><JuU~xspP", *p) || !strcmp(p, "gq"))))) {
         editor_can_edit(ed);
@@ -1360,6 +1423,12 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
                rows = ed->viewport_rows ? ed->viewport_rows : 24;
         size_t back = p[1] == 'z' ? rows / 2 : p[1] == 'b' ? rows - 1 : 0;
         ed->top = editor_line_at(ed, line > back ? line - back : 0);
+        return;
+    }
+    if (!op && !strcmp(p, "R")) {
+        editor_change_begin(ed);
+        replace_begin(ed);
+        ed->mode = INSERT;
         return;
     }
     if (!op && strchr("iaIAoOsS", *p)) {
@@ -1652,6 +1721,8 @@ static void repeat(struct editor *ed, unsigned count)
 void editor_input(struct editor *ed, enum editor_key key, const char *text)
 {
     bool inserting = ed->mode == INSERT;
+    if (ed->replacing && !inserting)
+        replace_end(ed); /* Insert mode was left some other way, such as a click. */
     if (!ed->dot_replaying && ed->dot_state == DOT_IDLE && ed->mode == NORMAL &&
         !ed->command_active && !ed->pending[0]) {
         ed->dot_state = DOT_COMMAND;
@@ -1664,6 +1735,8 @@ void editor_input(struct editor *ed, enum editor_key key, const char *text)
     input(ed, key, text);
     ed->register_name = 0;
     after_input(ed);
+    if (ed->replacing && ed->mode != INSERT)
+        replace_end(ed);
     if (inserting || ed->mode == INSERT)
         ed->search_hidden = true;
 }

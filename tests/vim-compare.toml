@@ -160,7 +160,27 @@ keys = "3rz"
 [[case]]
 name = "R replace mode"
 keys = "Rxyz<Esc>"
-status = "gap"
+
+[[case]]
+name = "R past line end"
+keys = "jwRTHREE AND MORE<Esc>"
+
+[[case]]
+name = "R backspace restores"
+keys = "Rxyzw<BS><BS><BS><Esc>"
+
+[[case]]
+name = "R Enter"
+keys = "wRB<CR>X<Esc>"
+
+[[case]]
+name = "R ."
+keys = "Rab<Esc>jj0."
+
+[[case]]
+name = "R undo"
+keys = "Rxyz<Esc>u"
+vim_keys = ""
 
 [[case]]
 name = ">ip"

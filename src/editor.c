@@ -103,6 +103,7 @@ void editor_destroy(struct editor *ed)
     editor_history_clear(ed);
     free(ed->register_text);
     free(ed->dot);
+    free(ed->replace_original);
     free(ed->dot_record);
     for (unsigned i = 0; i < sizeof(ed->registers) / sizeof(ed->registers[0]); ++i)
         free(ed->registers[i].text);

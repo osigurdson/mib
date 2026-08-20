@@ -154,7 +154,7 @@ static void unknown_commands(void)
 {
     /* Unsupported commands consume their own keys and leave the text alone. */
     reset("abc def\n");
-    const char *ignored[] = {"gZ", "zq", "qa", "@a", "Zx", "dZ", "R"};
+    const char *ignored[] = {"gZ", "zq", "qa", "@a", "Zx", "dZ", "gR"};
     for (unsigned i = 0; i < sizeof(ignored) / sizeof(ignored[0]); ++i) {
         keys(ignored[i]);
         expect("abc def\n");
@@ -311,6 +311,55 @@ static void format(void)
     assert(strstr(ed.message, "read-only"));
 }
 
+static void replace_mode(void)
+{
+    reset("abc\n");
+    keys("Rab");
+    editor_input(&ed, KEY_ESCAPE, "");
+    expect("abc\n");
+    assert(ed.cursor == 1);
+    keys("0lRXYZW");
+    expect("aXYZW\n");
+    editor_input(&ed, KEY_BACKSPACE, "");
+    editor_input(&ed, KEY_BACKSPACE, "");
+    expect("aXY\n");
+    editor_input(&ed, KEY_BACKSPACE, "");
+    expect("aXc\n");
+    editor_input(&ed, KEY_BACKSPACE, "");
+    expect("abc\n");
+    /* Backspace past the start only moves left. */
+    editor_input(&ed, KEY_BACKSPACE, "");
+    assert(ed.cursor == 0);
+    keys("Q");
+    editor_input(&ed, KEY_ESCAPE, "");
+    expect("Qbc\n");
+    assert(ed.mode == NORMAL && !ed.replacing);
+    /* One undo step, repeatable with ., and later inserts don't type over text. */
+    keys("u");
+    expect("abc\n");
+    reset("abcdef\n");
+    keys("R");
+    editor_input(&ed, KEY_TEXT, "\xc3\xa9");
+    keys("!");
+    editor_input(&ed, KEY_ESCAPE, "");
+    expect("\xc3\xa9!cdef\n");
+    keys("ll.");
+    expect("\xc3\xa9!c\xc3\xa9!f\n");
+    keys("0i-");
+    editor_input(&ed, KEY_ESCAPE, "");
+    expect("-\xc3\xa9!c\xc3\xa9!f\n");
+    /* Enter breaks the line, and the rest is still typed over. */
+    reset("abcd\n");
+    keys("lRx");
+    editor_input(&ed, KEY_ENTER, "");
+    keys("y");
+    editor_input(&ed, KEY_ESCAPE, "");
+    expect("ax\nyd\n");
+    editor_command(&ed, "set polish");
+    keys("R");
+    assert(ed.mode == NORMAL && strstr(ed.message, "read-only"));
+}
+
 static void registers(void)
 {
     reset("one\ntwo\nthree\n");
@@ -360,6 +409,7 @@ int main(void)
     dot_repeat();
     marks_and_jumps();
     format();
+    replace_mode();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};

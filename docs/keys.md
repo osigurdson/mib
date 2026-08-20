@@ -18,6 +18,7 @@ run as normal commands. Macros (`q`, `@`) aren't supported.
 | `i` `a` `I` `A` | Insert at the cursor, after it, at the line's start, or at its end |
 | `o` `O` | Open a line below or above |
 | `s` `S` | Replace characters or the whole line |
+| `R` | Replace mode: type over text; Backspace restores what was typed over |
 | `v` `V` | Visual or visual line mode |
 | `Esc`, `Ctrl+[` | Back to normal mode |
 

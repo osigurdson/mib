@@ -103,6 +103,11 @@ struct editor {
      * means unset. Edits shift them with the text. */
     size_t marks[26], context, jumps[100];
     unsigned jump_count, jump_index;
+    /* R: insert mode that types over text. Backspace restores the characters it replaced,
+     * which are kept from replace_start to the end of that line. */
+    bool replacing;
+    size_t replace_start;
+    char *replace_original;
     char *command_history[32];
     unsigned history_count, history_position;
 };
