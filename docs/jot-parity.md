@@ -32,7 +32,9 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
 
 See [the key reference](keys.md). The reference excludes dot repeat, macros,
 marks, named registers, block visual mode, plugins/config and exact Vim regex
-compatibility; those remain outside this port too.
+compatibility. This port has since added dot repeat, marks with the jump list,
+named/yank/black-hole registers, case operators and `gq`; the rest remain outside
+it. `tests/vim-compare.toml` lists the known differences from Vim.
 
 Explicit files retain manual saves and unsaved-change protection. A filename
 extension selects file mode for compatibility; `--file path` forces file mode,
@@ -50,7 +52,7 @@ Cleanup failures are reported after saving and retried on subsequent saves in
 the same session.
 
 A save that removes images resets the entire undo/redo history, and clears the
-local register if it references a removed image. Other saves preserve history.
+local registers that reference a removed image. Other saves preserve history.
 References in other notes or external clipboards do not keep a deleted image
 alive. This assumes each page owns its assets; explicit files sharing an assets
 folder need care. Before saving, undo and discarding changes still work normally.

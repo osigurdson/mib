@@ -157,7 +157,7 @@ sidecars used by search/highlighting. `TINYVI_OCR=0` disables automatic OCR.
 Deleting an image keeps its file until the note is successfully saved. Saving
 removes tracked images no longer mentioned in the note, along with their OCR
 sidecars. When files are cleaned up, undo/redo history is reset and any local
-register containing a removed image is cleared. Ordinary saves preserve history.
+register (named ones included) containing a removed image is cleared. Ordinary saves preserve history.
 Cleanup does not scan for older orphan files.
 
 Saves write a temporary file in the destination directory before renaming it,

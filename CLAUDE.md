@@ -44,3 +44,7 @@ Use `make vim-compare` when adding or changing Vim behaviour:
 
 Failing runs keep each case's Jot file, Vim file and client log under
 `.build/linux/vim-compare/run-*/`.
+
+The `status = "gap"` cases double as the list of known missing Vim features (macros, visual
+block mode, `R`, `Ctrl-A`, insert counts, `:g`/`:sort`/`:m`/`:t`, insert-mode `Ctrl-R`/`Ctrl-O`,
+and `G` landing on the empty line after a final line break).
