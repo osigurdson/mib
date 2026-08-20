@@ -198,6 +198,188 @@ char *session_absolute(const char *path)
     return realpath(path, NULL);
 #endif
 }
+static struct app_settings current_settings(const struct app *app)
+{
+    return (struct app_settings){
+        .width = app->maximized ? app->restore_width : app->width,
+        .height = app->maximized ? app->restore_height : app->height,
+        .font_size = app->font_size,
+        .render_mode = app->editor.render_mode,
+        .colorscheme = app->editor.colorscheme,
+        .maximized = app->maximized,
+        .light = app->editor.light,
+    };
+}
+static void apply_settings(struct app *app, const struct app_settings *s)
+{
+    app->width = app->restore_width = s->width;
+    app->height = app->restore_height = s->height;
+    app->font_size = s->font_size;
+    app->editor.render_mode = s->render_mode;
+    app->editor.colorscheme = s->colorscheme;
+    app->maximized = s->maximized;
+    app->editor.light = s->light;
+}
+static const char *const render_names[] = {"raw", "normal", "polish"};
+/* Lines of "key = value"; blank lines, # comments and bad values are ignored. */
+static void parse_settings(const char *text, struct app_settings *s)
+{
+    while (*text) {
+        const char *end = strchr(text, '\n');
+        if (!end)
+            end = text + strlen(text);
+        char line[160] = "";
+        size_t n = (size_t)(end - text);
+        if (n < sizeof(line)) {
+            memcpy(line, text, n);
+            line[n] = 0;
+        }
+        text = *end ? end + 1 : end;
+        char key[32], value[64];
+        if (line[0] == '#' || sscanf(line, " %31[a-z_] = %63s", key, value) != 2)
+            continue;
+        char *rest;
+        unsigned long number = strtoul(value, &rest, 10);
+        bool numeric = rest != value && !*rest;
+        bool yes = !strcmp(value, "true") || !strcmp(value, "1"),
+             no = !strcmp(value, "false") || !strcmp(value, "0");
+        if (!strcmp(key, "colorscheme")) {
+            for (unsigned i = 0; i < COLOR_COUNT; ++i)
+                if (!strcmp(value, editor_colorscheme_name((enum color_scheme)i)))
+                    s->colorscheme = (enum color_scheme)i;
+        } else if (!strcmp(key, "background") && (!strcmp(value, "light") || !strcmp(value, "dark")))
+            s->light = !strcmp(value, "light");
+        else if (!strcmp(key, "render")) {
+            for (unsigned i = RENDER_RAW; i <= RENDER_POLISH; ++i)
+                if (!strcmp(value, render_names[i]))
+                    s->render_mode = (enum render_mode)i;
+        } else if (!strcmp(key, "font_size") && numeric && number >= 8 && number <= 48)
+            s->font_size = (unsigned)number;
+        else if (!strcmp(key, "width") && numeric && number >= 200 && number <= 10000)
+            s->width = (int)number;
+        else if (!strcmp(key, "height") && numeric && number >= 100 && number <= 10000)
+            s->height = (int)number;
+        else if (!strcmp(key, "maximized") && (yes || no))
+            s->maximized = yes;
+    }
+}
+/* The old per-page format: "width height font numbers render maximized light scheme". */
+static bool parse_legacy(const char *text, struct app_settings *s)
+{
+    unsigned w, h, font, numbers, render, maximized = 0, light = 0;
+    char scheme[32] = "jot";
+    if (sscanf(text, "%u %u %u %u %u %u %u %31s", &w, &h, &font, &numbers, &render, &maximized,
+               &light, scheme) < 5)
+        return false;
+    if (w >= 200 && w <= 10000)
+        s->width = (int)w;
+    if (h >= 100 && h <= 10000)
+        s->height = (int)h;
+    if (font >= 8 && font <= 48)
+        s->font_size = font;
+    s->render_mode = render <= RENDER_POLISH ? (enum render_mode)render : RENDER_NORMAL;
+    s->colorscheme = COLOR_JOT;
+    for (unsigned i = 0; i < COLOR_COUNT; ++i)
+        if (!strcmp(scheme, editor_colorscheme_name((enum color_scheme)i)))
+            s->colorscheme = (enum color_scheme)i;
+    s->light = light != 0;
+    s->maximized = maximized != 0;
+    return true;
+}
+char *session_config_directory(void)
+{
+#ifdef _WIN32
+    const char *base = getenv("APPDATA");
+    return base && *base ? join(base, "jot") : NULL;
+#else
+    const char *base = getenv("XDG_CONFIG_HOME");
+    if (base && base[0] == '/')
+        return join(base, "jot");
+    base = getenv("HOME");
+    return base && *base ? join(base, ".config/jot") : NULL;
+#endif
+}
+static bool write_settings(const struct app_settings *s)
+{
+    char *folder = session_config_directory();
+    char *path = folder ? join(folder, "config") : NULL;
+    bool ok = path && session_mkdir(folder);
+    if (ok) {
+        char text[512], error[128];
+        int n = snprintf(text, sizeof(text),
+                         "# Jot settings, shared by every page. Jot updates this file when a\n"
+                         "# window closes, keeping changes made here to other settings.\n"
+                         "colorscheme = %s\nbackground = %s\nrender = %s\nfont_size = %u\n"
+                         "width = %d\nheight = %d\nmaximized = %s\n",
+                         editor_colorscheme_name(s->colorscheme), s->light ? "light" : "dark",
+                         render_names[s->render_mode], s->font_size, s->width, s->height,
+                         s->maximized ? "true" : "false");
+        ok = n > 0 && (size_t)n < sizeof(text) &&
+             platform_file_write_atomic(path, text, (size_t)n, error, sizeof(error));
+    }
+    free(folder);
+    free(path);
+    return ok;
+}
+static char *read_settings(void)
+{
+    char *folder = session_config_directory();
+    char *path = folder ? join(folder, "config") : NULL;
+    size_t n;
+    char *text = path ? session_read(path, 16384, &n) : NULL;
+    free(folder);
+    free(path);
+    return text;
+}
+void session_load_settings(struct app *app)
+{
+    struct app_settings s = current_settings(app);
+    char *text = read_settings();
+    if (text)
+        parse_settings(text, &s);
+    else if (app->directory) {
+        char *legacy = session_path(app, ".tinyvi-state");
+        size_t n;
+        char *old = legacy ? session_read(legacy, 256, &n) : NULL;
+        if (old && parse_legacy(old, &s))
+            write_settings(&s);
+        free(old);
+        free(legacy);
+    }
+    free(text);
+    apply_settings(app, &s);
+    app->settings = s;
+    app->settings_loaded = true;
+}
+/* Another window may have changed other settings since this one opened, so start from the
+ * file and apply only what changed here. */
+static void save_settings(struct app *app)
+{
+    if (!app->settings_loaded)
+        return;
+    struct app_settings now = current_settings(app), was = app->settings, s = was;
+    char *text = read_settings();
+    if (text)
+        parse_settings(text, &s);
+    bool changed = !text;
+    free(text);
+#define KEEP(field)                                                                                \
+    if (now.field != was.field) {                                                                  \
+        s.field = now.field;                                                                       \
+        changed = true;                                                                            \
+    }
+    KEEP(width)
+    KEEP(height)
+    KEEP(font_size)
+    KEEP(render_mode)
+    KEEP(colorscheme)
+    KEEP(maximized)
+    KEEP(light)
+#undef KEEP
+    if (changed)
+        write_settings(&s);
+    app->settings_loaded = false;
+}
 static const char agents[] =
     "# jot scratch page\n\n"
     "This folder contains quick working notes and screenshots. Read and answer by default.\n"
@@ -412,31 +594,7 @@ int session_open(struct app *app, const char *name)
     media_sync(app);
     app->scratch = true;
     app->editor.cursor = app->editor.length;
-    char *state = session_path(app, ".tinyvi-state");
-    size_t n;
-    char *text = state ? session_read(state, 256, &n) : NULL;
-    free(state);
-    if (text) {
-        /* Keep the former line-number slot for existing preference files. */
-        unsigned w, h, font, nu, md, maximized = 0, light = 0;
-        char scheme[32] = "jot";
-        if (sscanf(text, "%u %u %u %u %u %u %u %31s", &w, &h, &font, &nu, &md, &maximized,
-                   &light, scheme) >= 5) {
-            if (w >= 200 && w <= 10000)
-                app->width = (int)w;
-            if (h >= 100 && h <= 10000)
-                app->height = (int)h;
-            if (font >= 8 && font <= 48)
-                app->font_size = font;
-            app->editor.render_mode = md <= RENDER_POLISH ? (enum render_mode)md : RENDER_NORMAL;
-            editor_colorscheme(&app->editor, scheme);
-            app->editor.light = light != 0;
-            app->maximized = maximized != 0;
-            app->restore_width = app->width;
-            app->restore_height = app->height;
-        }
-        free(text);
-    }
+    session_load_settings(app);
     if (missing && !editor_save(&app->editor, app->editor.filename))
         return -1;
     return 1;
@@ -463,19 +621,7 @@ void session_focus(struct app *app, bool focused)
 }
 void session_close(struct app *app)
 {
-    if (app->scratch) {
-        char state[128], error[128];
-        int n = snprintf(state, sizeof(state), "%d %d %u %u %u %u %u %s\n",
-                         app->maximized ? app->restore_width : app->width,
-                         app->maximized ? app->restore_height : app->height, app->font_size,
-                         1u, (unsigned)app->editor.render_mode, app->maximized, app->editor.light,
-                         editor_colorscheme_name(app->editor.colorscheme));
-        char *path = session_path(app, ".tinyvi-state");
-        if (path) {
-            platform_file_write_atomic(path, state, (size_t)n, error, sizeof(error));
-            free(path);
-        }
-    }
+    save_settings(app);
 #ifdef _WIN32
     if (app->owner_handle)
         CloseHandle(app->owner_handle);

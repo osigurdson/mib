@@ -33,7 +33,9 @@ int app_main(int argc, char **argv)
     struct app app;
     if (!app_open(&app, file && strcmp(name, "-") ? name : NULL))
         goto failed;
-    if (!file) {
+    if (file)
+        session_load_settings(&app);
+    else {
         int opened = session_open(&app, name);
         if (!opened) {
             app_close(&app);

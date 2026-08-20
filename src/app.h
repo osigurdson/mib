@@ -9,6 +9,15 @@ enum { APP_FRAME_INTERVAL_MS = (1000 + 30 - 1) / 30 };
 
 enum app_title_action { TITLE_NONE, TITLE_MOVE, TITLE_MINIMIZE, TITLE_MAXIMIZE, TITLE_CLOSE };
 
+/* Settings shared by every page and file, kept in the user's config folder. */
+struct app_settings {
+    int width, height;
+    unsigned font_size;
+    enum render_mode render_mode;
+    enum color_scheme colorscheme;
+    bool maximized, light;
+};
+
 struct app {
     struct editor editor;
     struct md_cache markdown;
@@ -29,6 +38,9 @@ struct app {
     int restore_width, restore_height; /* Logical window dimensions. */
     uint32_t scale120;                 /* Physical pixels per logical pixel × 120. */
     bool dirty, running, failed, follow_cursor;
+    /* The settings as loaded, so closing writes back only what this window changed. */
+    bool settings_loaded;
+    struct app_settings settings;
     unsigned font_size;
     int cell, line_height, padding, gutter, view_width, title_height;
     int text_x, text_width, text_height;

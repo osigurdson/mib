@@ -189,7 +189,23 @@ Press `:` to open it. Up and Down browse your history.
 
 Ranges can use `%`, `.`, `$`, line numbers, `'<,'>` and `+n` or `-n`.
 
-Render mode, background and colorscheme are remembered per scratch page. In polish, movement,
+Render mode, background, colorscheme, zoom and window size are shared by every page and file,
+and kept in `~/.config/jot/config` (`$XDG_CONFIG_HOME/jot/config`, or `%APPDATA%\jot\config` on
+Windows). Closing a window writes back only the settings it changed, so you can also edit the
+file by hand:
+
+```
+colorscheme = kanagawa
+background = dark
+render = normal
+font_size = 18
+width = 800
+height = 560
+maximized = false
+```
+
+The first time Jot runs without this file, it copies the opened page's old per-page settings
+into it. In polish, movement,
 search, visual selection, copying, saving and link/image opening remain available.
 Typing, paste, drops, deletion, substitutions, undo and redo are blocked. Switch
 to raw or normal to edit. Copies retain the selected Markdown source.

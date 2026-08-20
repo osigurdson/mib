@@ -22,9 +22,10 @@ scheme and `:set background?` to show the background option.
 | kanagawa | Wave | Lotus |
 | everforest | Medium contrast | Medium contrast |
 
-Settings are remembered per page, independently of saving the note. The Jot
-palettes are unchanged. Pages using a removed scheme (`default`, `desert`,
-`evening`, `peachpuff`) fall back to Jot, preserving their background setting.
+The scheme and background are shared by every page, in `~/.config/jot/config`,
+independently of saving the note. The Jot palettes are unchanged. A removed scheme
+(`default`, `desert`, `evening`, `peachpuff`) falls back to Jot, preserving the
+background setting.
 
 ## Upstream colors and licenses
 
@@ -60,7 +61,7 @@ original colors.
 
 The ten palettes are fixed read-only tables of 25 32-bit colors: **1,000 bytes**
 total. Choosing a theme adds no per-document allocations, render buffers, or font
-caches. The selected scheme is stored by name in `.tinyvi-state`.
+caches. The selected scheme is stored by name in `~/.config/jot/config`.
 
 `tools/import-colors.py` exports upstream highlights through an isolated headless
 Neovim process and generates `src/theme-palettes.h`. To regenerate, check out the

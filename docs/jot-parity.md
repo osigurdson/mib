@@ -88,7 +88,7 @@ swept. A crash after saving but before cleanup may leave an unused asset behind.
 - Mixed clipboard fragments refer to the original page's persistent asset
   files until pasted. Those files must still exist. Single-image PNG clipboard
   copies are self-contained. Unsupported rich clipboard formats use plain text.
-- Preferences are stored per page. Linux uses the literal Documents directory
+- Preferences are shared by all pages in `~/.config/jot/config`. Linux uses the literal Documents directory
   when present; use `JOT_DIR` for a different root. Page activation relays a
   launcher's `XDG_ACTIVATION_TOKEN`; the Wayland compositor controls whether it
   raises the window. Windows uses a named mutex and window property.

@@ -12,18 +12,56 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
+static char *config_file(void)
+{
+    char *folder = session_config_directory();
+    assert(folder);
+    char *path = malloc(strlen(folder) + 8);
+    assert(path);
+    sprintf(path, "%s/config", folder);
+    free(folder);
+    return path;
+}
+static void remove_file(const char *path)
+{
+#ifdef _WIN32
+    wchar_t *w = windows_path(path);
+    DeleteFileW(w);
+    free(w);
+#else
+    unlink(path);
+#endif
+}
+static void remove_folder(const char *path)
+{
+#ifdef _WIN32
+    wchar_t *w = windows_path(path);
+    RemoveDirectoryW(w);
+    free(w);
+#else
+    rmdir(path);
+#endif
+}
 int main(void)
 {
-    char directory[1024];
+    char directory[1024], config[1100];
 #ifdef _WIN32
     char temp[MAX_PATH];
     assert(GetTempPathA(MAX_PATH, temp));
     snprintf(directory, sizeof(directory), "%stinyvi-session-%lu", temp,
              (unsigned long)GetCurrentProcessId());
+    snprintf(config, sizeof(config), "%s-config", directory);
+    SetEnvironmentVariableA("APPDATA", config);
+    char setting[1200];
+    snprintf(setting, sizeof(setting), "APPDATA=%s", config);
+    _putenv(setting);
 #else
     snprintf(directory, sizeof(directory), "/tmp/tinyvi-session-XXXXXX");
     assert(mkdtemp(directory));
+    snprintf(config, sizeof(config), "%s-config", directory);
+    setenv("XDG_CONFIG_HOME", config, 1);
 #endif
+    char *settings = config_file();
     struct app app;
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
@@ -85,15 +123,28 @@ int main(void)
     app.restore_width = 900;
     app.restore_height = 600;
     app_close(&app);
-    /* A legacy preference disabling line numbers must no longer hide the gutter. */
+    /* Settings go to the shared config file, not the page folder. */
+    text = session_read(settings, 4096, &n);
+    assert(text && strstr(text, "font_size = 23\n") && strstr(text, "width = 900\n") &&
+           strstr(text, "maximized = true\n"));
+    free(text);
     char *state = session_path(&(struct app){.directory = directory}, ".tinyvi-state");
-    assert(state);
+    assert(state && !session_read(state, 256, &n));
+    assert(app_open(&app, NULL));
+    assert(session_open(&app, directory) == 1);
+    assert(app.font_size == 23 && app.width == 900 && app.height == 600 && app.maximized);
+    app_close(&app);
+    /* Without a config file, a page's old settings seed it once. A legacy preference
+     * disabling line numbers must no longer hide the gutter. */
+    remove_file(settings);
     const char *legacy = "900 600 23 0 1 1\n";
     char error[128];
     assert(platform_file_write_atomic(state, legacy, strlen(legacy), error, sizeof(error)));
-    free(state);
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
+    text = session_read(settings, 4096, &n);
+    assert(text && strstr(text, "render = normal\n"));
+    free(text);
     uint32_t pixels[320 * 200];
     assert(app_paint(&app, pixels, 320, 200, 320));
     assert(app.gutter == 6 * app.cell);
@@ -166,14 +217,77 @@ int main(void)
     for (unsigned i = 0; i < sizeof(retired) / sizeof(retired[0]); ++i) {
         char legacy_state[128];
         snprintf(legacy_state, sizeof(legacy_state), "800 600 18 1 1 0 1 %s\n", retired[i]);
-        char filename[1200];
-        snprintf(filename, sizeof(filename), "%s/.tinyvi-state", directory);
-        assert(platform_file_write_atomic(filename, legacy_state, strlen(legacy_state), error, sizeof(error)));
+        remove_file(settings);
+        assert(platform_file_write_atomic(state, legacy_state, strlen(legacy_state), error, sizeof(error)));
+        assert(app_open(&app, NULL));
+        assert(session_open(&app, directory) == 1);
+        assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
+        app_close(&app);
+        snprintf(legacy_state, sizeof(legacy_state), "colorscheme = %s\nbackground = light\n",
+                 retired[i]);
+        assert(platform_file_write_atomic(settings, legacy_state, strlen(legacy_state), error,
+                                          sizeof(error)));
         assert(app_open(&app, NULL));
         assert(session_open(&app, directory) == 1);
         assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
         app_close(&app);
     }
+
+    /* Every page shares one set of settings, and the old page file is no longer read. */
+    const char *shared = "# mine\ncolorscheme = kanagawa\nbackground = dark\nrender = polish\n"
+                         "font_size = 20\nwidth = 1000\nheight = 700\nmaximized = false\n"
+                         "bogus = 1\nwidth = tiny\n";
+    assert(platform_file_write_atomic(settings, shared, strlen(shared), error, sizeof(error)));
+    char other[1100];
+    snprintf(other, sizeof(other), "%s/other", directory);
+    struct app a, b;
+    assert(app_open(&a, NULL) && session_open(&a, directory) == 1);
+    assert(app_open(&b, NULL) && session_open(&b, other) == 1);
+    for (struct app *p = &a; p; p = p == &a ? &b : NULL)
+        assert(p->editor.colorscheme == COLOR_KANAGAWA && !p->editor.light &&
+               p->editor.render_mode == RENDER_POLISH && p->font_size == 20 && p->width == 1000 &&
+               p->height == 700 && !p->maximized);
+    /* Closing without changes leaves a hand-edited file alone. */
+    app_close(&b);
+    text = session_read(settings, 4096, &n);
+    assert(text && !strcmp(text, shared));
+    free(text);
+    /* Windows open at the same time keep each other's changes. */
+    assert(app_open(&b, NULL) && session_open(&b, other) == 1);
+    editor_command(&a.editor, "colorscheme everforest");
+    editor_command(&b.editor, "set background=light");
+    app_close(&a);
+    app_close(&b);
+    assert(app_open(&a, NULL) && session_open(&a, other) == 1);
+    assert(a.editor.colorscheme == COLOR_EVERFOREST && a.editor.light &&
+           a.editor.render_mode == RENDER_POLISH);
+    app_close(&a);
+    /* Explicit files use the same settings. */
+    char file[1200];
+    snprintf(file, sizeof(file), "%s/note.txt", other);
+    assert(app_open(&a, file));
+    session_load_settings(&a);
+    assert(a.editor.colorscheme == COLOR_EVERFOREST && a.editor.light && a.font_size == 20);
+    editor_command(&a.editor, "colorscheme tokyonight");
+    app_close(&a);
+    text = session_read(settings, 4096, &n);
+    assert(text && strstr(text, "colorscheme = tokyonight\n"));
+    free(text);
+    const char *other_files[] = {"jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", "assets", NULL};
+    for (unsigned i = 0; other_files[i]; ++i) {
+        char path[1300];
+        snprintf(path, sizeof(path), "%s/%s", other, other_files[i]);
+        remove_file(path);
+        remove_folder(path);
+    }
+    remove_folder(other);
+    remove_file(settings);
+    char *folder = session_config_directory();
+    remove_folder(folder);
+    remove_folder(config);
+    free(folder);
+    free(settings);
+    free(state);
     free(page);
     free(agents);
     /* Remove only the known files in this unique test directory. */

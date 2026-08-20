@@ -157,7 +157,10 @@ $(TEST_BIN)/clipboard-test: tests/clipboard-test.c $(CORE) $(HEADERS) $(MEMORY) 
 
 OPTIONAL_OCR_TEST := $(if $(shell command -v tesseract 2>/dev/null),ocr-test)
 
+# Tests keep Jot's shared settings file away from the user's own ~/.config/jot.
+test: export XDG_CONFIG_HOME = $(abspath $(TEST_BIN))/config
 test: editor-test client-test font-test app-test modal-test session-test media-test clipboard-test $(OPTIONAL_OCR_TEST)
+	rm -rf "$(abspath $(TEST_BIN))/config"
 	$(if $(OPTIONAL_OCR_TEST),cd "$(TEST_BIN)" && ./ocr-test,true)
 	cd "$(TEST_BIN)" && ./clipboard-test
 	cd "$(TEST_BIN)" && ./media-test
