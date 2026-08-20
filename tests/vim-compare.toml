@@ -39,6 +39,12 @@ quis nostrud exercitation.
 
     Indented paragraph that is also quite long and should wrap once it passes the seventy-nine column limit.
 """
+wrapedge = """
+See https://example.com/a/very/long/path/that/keeps/going/and/going/past/the/limit/of/seventy/nine for details.
+Café naïve résumé façade déjà vu, café naïve résumé façade déjà vu, café naïve résumé.
+trailing spaces here   
+and here
+"""
 
 # Basic operators and motions
 
@@ -445,43 +451,61 @@ vim_keys = "x"
 name = "gqip"
 keys = "gqip"
 seed = "long"
-status = "gap"
 
 [[case]]
 name = "gqq"
 keys = "gqq"
 seed = "long"
-status = "gap"
 
 [[case]]
 name = "gqG"
 keys = "gqG"
 seed = "long"
-status = "gap"
 
 [[case]]
 name = "gq indented"
-keys = "Gkgqip"
+keys = "5Ggqip"
 seed = "long"
-status = "gap"
 
 [[case]]
 name = "gqj joins short lines"
 keys = "jgqj"
 seed = "long"
-status = "gap"
 
 [[case]]
 name = "Vgq"
 keys = "Vjjgq"
 seed = "long"
-status = "gap"
+
+[[case]]
+name = "gq long word"
+keys = "gqq"
+seed = "wrapedge"
+
+[[case]]
+name = "gq accented text"
+keys = "jgqq"
+seed = "wrapedge"
+
+[[case]]
+name = "gq trailing spaces"
+keys = "jjgqj"
+seed = "wrapedge"
+
+[[case]]
+name = "gqq keeps trailing spaces"
+keys = "jjgqq"
+seed = "wrapedge"
+
+[[case]]
+name = "gqgq count"
+keys = "2gqgq"
+seed = "wrapedge"
 
 [[case]]
 name = "gqip ."
 keys = "gqipG."
 seed = "long"
-status = "gap"
 
 # Ex commands
 

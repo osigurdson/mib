@@ -742,6 +742,150 @@ static bool object(struct editor *ed, const char *m, unsigned count, size_t *a, 
     }
     return false;
 }
+/* gq: paragraphs are joined and rewrapped at 79 columns, keeping their first line's indent. */
+#define FORMAT_WIDTH 79
+struct text_buffer {
+    char *data;
+    size_t length, capacity;
+    bool failed;
+};
+static void append(struct text_buffer *out, const char *text, size_t n)
+{
+    if (out->failed)
+        return;
+    if (out->length + n + 1 > out->capacity) {
+        size_t capacity = out->capacity ? out->capacity : 256;
+        while (capacity < out->length + n + 1)
+            capacity *= 2;
+        char *data = realloc(out->data, capacity);
+        if (!data) {
+            out->failed = true;
+            return;
+        }
+        out->data = data;
+        out->capacity = capacity;
+    }
+    memcpy(out->data + out->length, text, n);
+    out->length += n;
+    out->data[out->length] = 0;
+}
+static size_t columns(const char *text, size_t n, size_t start)
+{
+    size_t c = start;
+    for (size_t i = 0; i < n; ++i)
+        if (text[i] == '\t')
+            c += 4 - c % 4;
+        else if (((unsigned char)text[i] & 0xc0) != 0x80)
+            ++c;
+    return c - start;
+}
+static bool blank(char c) { return c == ' ' || c == '\t'; }
+/* A line holding only an image reference stays on its own line. */
+static bool image_reference(const char *line, size_t n)
+{
+    size_t i = 0;
+    while (i < n && blank(line[i]))
+        ++i;
+    while (n > i && blank(line[n - 1]))
+        --n;
+    if (n - i < 5 || line[i] != '!' || line[i + 1] != '[' || line[n - 1] != ')')
+        return false;
+    const char *close = memchr(line + i, ']', n - i);
+    return close && close + 1 < line + n && close[1] == '(';
+}
+static void wrap(struct text_buffer *out, const char *indent, size_t indent_length,
+                 const char *text, size_t n)
+{
+    size_t width = columns(indent, indent_length, 0);
+    size_t limit = width < FORMAT_WIDTH ? FORMAT_WIDTH - width : 1;
+    for (;;) {
+        size_t cut = SIZE_MAX, cols = 0;
+        for (size_t i = 0; i < n; ++i) {
+            if (blank(text[i]) && cols <= limit)
+                cut = i;
+            if (blank(text[i]) && cols > limit && cut == SIZE_MAX)
+                cut = i; /* A word longer than the width stays whole. */
+            if (((unsigned char)text[i] & 0xc0) != 0x80)
+                ++cols;
+            if (cols > limit && cut != SIZE_MAX)
+                break;
+        }
+        append(out, indent, indent_length);
+        if (columns(text, n, width) <= limit || cut == SIZE_MAX) {
+            append(out, text, n);
+            return;
+        }
+        size_t end = cut;
+        while (end && blank(text[end - 1]))
+            --end;
+        append(out, text, end);
+        append(out, "\n", 1);
+        while (cut < n && blank(text[cut]))
+            ++cut;
+        text += cut;
+        n -= cut;
+    }
+}
+static void format_lines(struct editor *ed, size_t a, size_t b)
+{
+    a = editor_line_start(ed, a);
+    size_t last = editor_line_end(ed, b > a ? b - 1 : a);
+    struct text_buffer out = {0}, paragraph = {0};
+    const char *indent = NULL;
+    size_t indent_length = 0;
+    append(&out, "", 0);
+    for (size_t p = a; p <= last;) {
+        size_t end = editor_line_end(ed, p), start = p;
+        while (start < end && blank(ed->text[start]))
+            ++start;
+        bool separator = start == end || image_reference(ed->text + p, end - p);
+        if (separator || !paragraph.length) {
+            if (paragraph.length) {
+                wrap(&out, indent, indent_length, paragraph.data, paragraph.length);
+                append(&out, "\n", 1);
+                paragraph.length = 0;
+            }
+            if (separator) {
+                append(&out, ed->text + p, end - p);
+                append(&out, "\n", 1);
+            } else {
+                indent = ed->text + p;
+                indent_length = start - p;
+                append(&paragraph, ed->text + start, end - start);
+            }
+        } else {
+            /* Like Vim's join, trailing blanks already separate the words. */
+            if (!blank(paragraph.data[paragraph.length - 1]))
+                append(&paragraph, " ", 1);
+            append(&paragraph, ed->text + start, end - start);
+        }
+        if (end >= last)
+            break;
+        p = end + 1;
+    }
+    if (paragraph.length) {
+        /* The indent points into the text, which is only replaced after wrapping. */
+        wrap(&out, indent, indent_length, paragraph.data, paragraph.length);
+        append(&out, "\n", 1);
+    }
+    free(paragraph.data);
+    if (out.failed || paragraph.failed) {
+        snprintf(ed->message, sizeof(ed->message), "Out of memory");
+        free(out.data);
+        return;
+    }
+    --out.length; /* The final line break belongs to the text after the range. */
+    size_t last_start = out.length;
+    while (last_start && out.data[last_start - 1] != '\n')
+        --last_start;
+    bool own = !editor_change_active(ed);
+    editor_change_begin(ed);
+    editor_replace(ed, a, last, out.data, out.length);
+    ed->cursor = first_nonblank(ed, a + last_start);
+    if (own)
+        editor_change_end(ed);
+    free(out.data);
+}
 static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewise)
 {
     a = min(a, ed->length);
@@ -781,6 +925,8 @@ static void operate(struct editor *ed, char op, size_t a, size_t b, bool linewis
         editor_join(ed, a, b > a ? editor_previous(ed, b) : b);
     else if (strchr("uU~", op))
         case_range(ed, a, b, op);
+    else if (op == 'q')
+        format_lines(ed, a, b);
     editor_clamp(ed);
 }
 static void prompt(struct editor *ed, char kind)
@@ -1058,8 +1204,8 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     bool visual = ed->mode == VISUAL || ed->mode == VISUAL_LINE;
     if (ed->render_mode == RENDER_POLISH &&
         ((!visual && (strchr("dc><iaIAoOsSxXDCJr~pPu", *p) ||
-                      (p[0] == 'g' && p[1] && strchr("uU~", p[1])))) ||
-         (visual && strchr("dc><JuU~xspP", *p)))) {
+                      (p[0] == 'g' && p[1] && strchr("uU~q", p[1])))) ||
+         (visual && (strchr("dc><JuU~xspP", *p) || !strcmp(p, "gq"))))) {
         editor_can_edit(ed);
         ed->pending[0] = 0;
         return;
@@ -1067,7 +1213,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     char op = 0;
     const char *op_keys = p;
     size_t op_length = 0;
-    if (!visual && (strchr("dyc><", *p) || (p[0] == 'g' && p[1] && strchr("uU~", p[1])))) {
+    if (!visual && (strchr("dyc><", *p) || (p[0] == 'g' && p[1] && strchr("uU~q", p[1])))) {
         op_length = *p == 'g' ? 2 : 1;
         op = p[op_length - 1];
         p += op_length;
@@ -1153,6 +1299,11 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
             if (linewise)
                 ed->mode = VISUAL_LINE;
         }
+        return;
+    }
+    if (visual && !strcmp(p, "gq")) {
+        editor_selection(ed, &a, &b, &linewise);
+        operate(ed, 'q', a, b, true);
         return;
     }
     if (visual && strchr("dyc><JuU~xspP", *p)) {

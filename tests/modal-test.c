@@ -289,6 +289,28 @@ static void marks_and_jumps(void)
     assert(ed.cursor == 0 && !ed.message[0]);
 }
 
+static void format(void)
+{
+    reset("one two\nthree\n\n![](assets/a.png)\nfour\nfive\n");
+    keys("gqG");
+    expect("one two three\n\n![](assets/a.png)\nfour five\n");
+    assert(editor_line_number(&ed, ed.cursor) == 3);
+    keys("u");
+    expect("one two\nthree\n\n![](assets/a.png)\nfour\nfive\n");
+    char line[200] = "  ";
+    for (unsigned i = 0; i < 20; ++i)
+        strcat(line, "word ");
+    strcat(line, "\n");
+    reset(line);
+    keys("gqq");
+    expect("  word word word word word word word word word word word word word word word\n"
+           "  word word word word word \n");
+    assert(ed.cursor == strlen("  word word word word word word word word word word word word word word word\n  "));
+    editor_command(&ed, "set polish");
+    keys("gq");
+    assert(strstr(ed.message, "read-only"));
+}
+
 static void registers(void)
 {
     reset("one\ntwo\nthree\n");
@@ -337,6 +359,7 @@ int main(void)
     word_at_line_end();
     dot_repeat();
     marks_and_jumps();
+    format();
     reset("notes");
     const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
                              "set md", "set nomd", "set light", "set dark"};
