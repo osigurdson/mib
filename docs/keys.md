@@ -151,6 +151,30 @@ Ordinary saves keep history. Clipboard references to removed files can expire.
 
 Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 
+## Rooms
+
+A page has nine rooms, each its own Markdown scratchpad, laid out like a numeric keypad:
+
+```
+7 8 9
+4 5 6
+1 2 3
+```
+
+| Keys | Action |
+|---|---|
+| `Alt+1` … `Alt+9` | In normal mode, show that room (number row or keypad) |
+| `:map` | Show the rooms; type a digit or click a room to show it, `Esc` to close |
+
+All nine rooms always exist; there is nothing to create, name or delete. The map labels each
+room with its first `# Heading`, read from the room itself, and highlights the one showing.
+Each room keeps its own cursor, scroll position, undo history, marks and jumps; registers,
+search and settings are shared. Room 1 is the page's `jot.md` and rooms 2 to 9 are
+`room2.md` to `room9.md` beside it, written the first time each is saved. `:w` and `Ctrl+S`
+save the room that is showing, and quitting is blocked while any room has unsaved changes.
+Rooms share the page's `assets/` folder, and saving one never removes an image another room
+still uses. Explicit files have a single room.
+
 ## Insert mode
 
 | Keys | Action |
@@ -170,6 +194,7 @@ Press `:` to open it. Up and Down browse your history.
 |---|---|
 | `:w` | Save the current page or file |
 | `:q`, `:wq`, `:x` | Close the window |
+| `:map` | Show the page's [rooms](#rooms) |
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
@@ -230,5 +255,5 @@ This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
 [parity report](jot-parity.md). Native presentation differs. Search selects an
 image containing OCR matches and highlights matching OCR words. The font subset,
 ASCII case handling and bounded regex subset are intentional limitations.
-Pages and explicit files both protect unsaved changes on quit. Use `:w` or
+Pages and explicit files both protect unsaved changes on quit, in every room. Use `:w` or
 `Ctrl+S` to save, `:wq` to save and quit, or `:q!` to discard edits.

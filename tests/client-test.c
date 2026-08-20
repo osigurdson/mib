@@ -20,6 +20,51 @@ static void press(struct wayland_client *client, xkb_keysym_t symbol)
     assert(!"Could not map keysym");
 }
 
+/* Press the key showing symbol at level 0 with Alt (and optionally Num Lock) held. */
+static void press_alt(struct wayland_client *client, xkb_keysym_t symbol, bool num_lock)
+{
+    xkb_mod_index_t alt = xkb_keymap_mod_get_index(client->xkb_keymap, XKB_MOD_NAME_ALT),
+                    num = xkb_keymap_mod_get_index(client->xkb_keymap, XKB_MOD_NAME_NUM);
+    xkb_state_update_mask(client->xkb_state, 1u << alt, 0, num_lock ? 1u << num : 0, 0, 0, 0);
+    for (xkb_keycode_t code = xkb_keymap_min_keycode(client->xkb_keymap);
+         code <= xkb_keymap_max_keycode(client->xkb_keymap); ++code)
+        if (xkb_state_key_get_one_sym(client->xkb_state, code) == symbol) {
+            handle_key(client, code - 8);
+            xkb_state_update_mask(client->xkb_state, 0, 0, 0, 0, 0, 0);
+            return;
+        }
+    assert(!"Could not map keysym");
+}
+
+/* Alt+1 to Alt+9 reach the app as KEY_ROOM from the number row and the keypad. An explicit
+ * file has no rooms, so each press reports that instead of typing. */
+static void room_keys(void)
+{
+    struct app app = {.running = true};
+    assert(editor_open(&app.editor, NULL));
+    struct wayland_client client = {.app = &app};
+    client.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(client.xkb_context);
+    const char *layouts[] = {"us", "fr"};
+    for (unsigned l = 0; l < 2; ++l) {
+        struct xkb_rule_names names = {.layout = layouts[l]};
+        client.xkb_keymap = xkb_keymap_new_from_names(client.xkb_context, &names,
+                                                      XKB_KEYMAP_COMPILE_NO_FLAGS);
+        assert(client.xkb_keymap);
+        client.xkb_state = xkb_state_new(client.xkb_keymap); assert(client.xkb_state);
+        /* The key left of 4 on the number row: "3" in US, a quote in AZERTY. */
+        const xkb_keysym_t row = l ? XKB_KEY_quotedbl : XKB_KEY_3;
+        const xkb_keysym_t keys[] = {row, XKB_KEY_KP_3, XKB_KEY_KP_Next};
+        for (unsigned i = 0; i < 3; ++i) {
+            app.editor.message[0] = 0;
+            press_alt(&client, keys[i], i == 1);
+            assert(strstr(app.editor.message, "only available in pages") && !app.editor.length);
+        }
+        xkb_state_unref(client.xkb_state); xkb_keymap_unref(client.xkb_keymap);
+    }
+    xkb_context_unref(client.xkb_context);
+    editor_destroy(&app.editor);
+}
+
 static void frame_limit(void)
 {
     struct app app = {.dirty = true, .redraw_at = 1034};
@@ -378,6 +423,7 @@ int main(int argc, char **argv)
 {
     frame_limit();
     pending_buffer_cleanup();
+    room_keys();
     decorations();
     resize_protocol();
     region_protocol();

@@ -47,6 +47,7 @@ void app_close(struct app *app)
 {
     media_close(app);
     session_close(app);
+    app_rooms_close(app);
     tiny_font_close(app->font);
     editor_destroy(&app->editor);
     *app = (struct app){0};
@@ -58,6 +59,28 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     app->ocr_retry = false;
     app->image_hit = false;
     uint64_t search_serial = app->editor.search_serial;
+    bool digit = key == KEY_TEXT && text && text[0] >= '1' && text[0] <= '9' && !text[1];
+    if (app->room_map) {
+        /* The map takes the keyboard: a digit (with or without Alt) picks a room, Esc or
+         * Enter closes it, and other keys are ignored rather than editing unseen text. */
+        if ((key == KEY_ROOM || digit) && text && text[0] >= '1' && text[0] <= '9')
+            app_room_switch(app, (unsigned)(text[0] - '1'));
+        if (key == KEY_ROOM || digit || key == KEY_ESCAPE || key == KEY_ENTER)
+            app->room_map = false;
+        app->dirty = true;
+        return;
+    }
+    if (key == KEY_ROOM) {
+        /* Only from normal mode with nothing pending, so a switch never splits a command. */
+        struct editor *ed = &app->editor;
+        if (ed->mode == NORMAL && !ed->command_active && !ed->pending[0] && text &&
+            text[0] >= '1' && text[0] <= '9') {
+            app_room_switch(app, (unsigned)(text[0] - '1'));
+            app->context_menu = false;
+        }
+        app->dirty = true;
+        return;
+    }
     if (app->context_menu) {
         if (key == KEY_ESCAPE) {
             app->context_menu = false;
@@ -151,8 +174,10 @@ void app_input(struct app *app, enum editor_key key, const char *text)
             app->editor.mode = INSERT;
             editor_change_begin(&app->editor);
         }
-    } else if (!image_enter)
+    } else if (!image_enter) {
+        app->editor.other_modified = app_room_modified(app);
         editor_input(&app->editor, key, text);
+    }
     unsigned requests = app->editor.requests;
     if (requests & ED_ZOOM_IN) {
         if (app->font_size < 48)
@@ -164,7 +189,14 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     }
     if (requests & ED_ZOOM_RESET)
         app->font_size = 18;
-    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET);
+    if (requests & ED_ROOM_MAP) {
+        if (app->scratch && app->directory)
+            app->room_map = true;
+        else
+            snprintf(app->editor.message, sizeof(app->editor.message),
+                     "Rooms are only available in pages");
+    }
+    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_ROOM_MAP);
     if ((app->editor.requests & ED_COPY) && image_name[0] && app->editor.register_text &&
         !strcmp(app->editor.register_text, image_markup))
         app->clipboard_image = session_path(app, image_name);
@@ -195,12 +227,16 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 
 void app_request_close(struct app *app)
 {
-    if (app->editor.modified) {
+    unsigned room = app_room_modified(app);
+    if (app->editor.modified)
         snprintf(app->editor.message, sizeof(app->editor.message),
                  "Unsaved changes (:w to save, :q! to discard)");
-        app->dirty = true;
-    } else
+    else if (room)
+        snprintf(app->editor.message, sizeof(app->editor.message),
+                 "Unsaved changes in room %u (Alt+%u to visit, :q! to discard)", room, room);
+    else
         app->running = false;
+    app->dirty = true;
 }
 
 void app_scroll(struct app *app, int rows)
@@ -257,6 +293,7 @@ static void drag_image(struct app *app, int x, int y)
 }
 void app_pointer_release(struct app *app)
 {
+    app->map_click = false;
     if (!app->image_drag)
         return;
     app->image_drag = false;
@@ -273,6 +310,29 @@ void app_pointer(struct app *app, int x, int y, bool extend)
     app->ocr_retry = false;
     app->image_hit = false;
     struct editor *ed = &app->editor;
+    if (app->map_click && extend)
+        return; /* The rest of the click that closed the map. */
+    app->map_click = false;
+    if (app->room_map) {
+        /* A click on a room shows it; anywhere else closes the map. */
+        int px = (int)((int64_t)x * app->scale120 / 120),
+            py = (int)((int64_t)y * app->scale120 / 120);
+        int column = -1, row = -1, step_x = app->map_width + app->map_gap,
+            step_y = app->map_height + app->map_gap;
+        if (!extend && step_x > 0 && step_y > 0 && px >= app->map_x && py >= app->map_y) {
+            column = (px - app->map_x) / step_x;
+            row = (py - app->map_y) / step_y;
+            if (column > 2 || row > 2 || (px - app->map_x) % step_x >= app->map_width ||
+                (py - app->map_y) % step_y >= app->map_height)
+                column = -1;
+        }
+        if (column >= 0)
+            app_room_switch(app, (unsigned)((2 - row) * 3 + column));
+        app->room_map = false;
+        app->map_click = !extend;
+        app->dirty = true;
+        return;
+    }
     if (app->image_drag) {
         if (extend)
             drag_image(app, x, y);

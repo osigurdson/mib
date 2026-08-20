@@ -18,6 +18,22 @@ struct app_settings {
     bool maximized, light;
 };
 
+/* Pages have nine rooms laid out like a numeric keypad (7 8 9 / 4 5 6 / 1 2 3). Room 1 is
+ * jot.md and rooms 2 to 9 are room2.md to room9.md. The shown room lives in app.editor; the
+ * others keep their document here once loaded, while registers, search and settings stay
+ * with app.editor. */
+enum { ROOM_COUNT = 9 };
+struct room {
+    char *text, *filename;
+    size_t length, capacity, cursor, top, left, anchor, desired_column;
+    size_t visual_first, visual_last;
+    bool loaded, fresh, modified, crlf;
+    uint64_t revision, saved_hash;
+    struct edit_history *history;
+    size_t marks[26], context, jumps[100];
+    unsigned jump_count, jump_index;
+};
+
 struct app {
     struct editor editor;
     struct md_cache markdown;
@@ -50,6 +66,12 @@ struct app {
     size_t image_box_start;
     int image_box_x, image_box_y, image_box_w, image_box_h;
     int drag_corner, drag_x, drag_y, drag_width, drag_origin_width, drag_origin_height;
+    /* The shown room (0 for room 1), the others, and the :map overlay with its first cell
+     * (room 7) and cell size from the last paint, in physical pixels. */
+    unsigned room;
+    struct room rooms[ROOM_COUNT];
+    bool room_map, map_click;
+    int map_x, map_y, map_width, map_height, map_gap;
 };
 size_t app_view_next(struct app *app, size_t start);
 int app_view_rows(struct app *app, size_t start);
@@ -68,6 +90,16 @@ void app_pointer_release(struct app *app);
 /* The selected image's corner handle (0 top left, 1 top right, 2 bottom left, 3 bottom
  * right) under a logical position, or -1. */
 int app_image_corner(const struct app *app, int x, int y);
+/* Show room index (0 for room 1). Returns false, with a message, when there are no rooms. */
+bool app_room_switch(struct app *app, unsigned index);
+/* The room's first H1 heading text, or "" when it has none. */
+void app_room_heading(struct app *app, unsigned index, char *heading, size_t size);
+/* Whether a room other than the shown one mentions text; unreadable rooms count as yes. */
+bool app_room_mentions(struct app *app, const char *text);
+/* The first other room with unsaved changes (1 to 9), or 0. */
+unsigned app_room_modified(const struct app *app);
+void app_room_clear_history(struct app *app);
+void app_rooms_close(struct app *app);
 int app_main(int argc, char **argv);
 bool app_open(struct app *app, const char *filename);
 void app_close(struct app *app);

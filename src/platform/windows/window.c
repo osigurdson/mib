@@ -15,6 +15,9 @@ struct windows_window {
     wchar_t high_surrogate;
     unsigned high_repeat;
     bool dragging;
+    /* An Alt+digit room switch: room_char drops its WM_SYSCHAR, and alt_code drops the Alt
+     * code character a keypad digit types when Alt is released. */
+    bool room_char, alt_code;
 };
 
 #include "clipboard.inc"
@@ -359,6 +362,48 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         changed(window);
         return 0;
     }
+    case WM_SYSKEYDOWN: {
+        /* Alt+1 to Alt+9 switch rooms, from the number row or the keypad (Num Lock on or
+         * off; keypad navigation keys are the ones without the extended-key flag). */
+        static const WPARAM navigation[] = {VK_END,   VK_DOWN, VK_NEXT, VK_LEFT, VK_CLEAR,
+                                            VK_RIGHT, VK_HOME, VK_UP,   VK_PRIOR};
+        char room[2] = {0};
+        bool keypad = false;
+        if (wparam >= '1' && wparam <= '9')
+            room[0] = (char)wparam;
+        else if (wparam >= VK_NUMPAD1 && wparam <= VK_NUMPAD9) {
+            room[0] = (char)('1' + (wparam - VK_NUMPAD1));
+            keypad = true;
+        } else if (!(lparam & (1 << 24)))
+            for (unsigned i = 0; i < 9; ++i)
+                if (wparam == navigation[i]) {
+                    room[0] = (char)('1' + i);
+                    keypad = true;
+                }
+        if (!room[0] || GetKeyState(VK_CONTROL) < 0)
+            break;
+        window->room_char = true;
+        window->alt_code |= keypad;
+        app_input(window->app, KEY_ROOM, room);
+        changed(window);
+        return 0;
+    }
+    case WM_SYSCHAR:
+        if (window->room_char) {
+            window->room_char = false;
+            return 0; /* Avoid the menu beep for a handled Alt+digit. */
+        }
+        break;
+    case WM_KEYUP:
+    case WM_SYSKEYUP:
+        if (wparam == VK_MENU && window->alt_code) {
+            /* TranslateMessage posts the Alt code's WM_CHAR before this key up is
+             * dispatched, so it is already queued. */
+            MSG typed;
+            PeekMessageW(&typed, handle, WM_CHAR, WM_CHAR, PM_REMOVE);
+            window->alt_code = false;
+        }
+        break;
     case WM_CHAR: {
         unsigned repeat = LOWORD(lparam);
         if (!repeat)

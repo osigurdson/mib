@@ -88,8 +88,9 @@ void media_saved(void *context)
     while (*link) {
         struct asset *a = *link;
         /* Retain even literal/inline references and matches beyond IMAGE_LIMIT.
-         * False positives are preferable to removing a file still in use. */
-        if (strstr(app->editor.text, a->name)) {
+         * False positives are preferable to removing a file still in use. The page's
+         * other rooms share its assets. */
+        if (strstr(app->editor.text, a->name) || app_room_mentions(app, a->name)) {
             link = &a->next;
             continue;
         }
@@ -122,6 +123,7 @@ void media_saved(void *context)
     }
     if (cleaned) {
         editor_history_clear(&app->editor);
+        app_room_clear_history(app);
         if (app->editor.mode == INSERT)
             editor_change_begin(&app->editor);
     }

@@ -42,7 +42,9 @@ enum editor_key {
     KEY_COPY_IMAGE_TEXT,
     KEY_ZOOM_IN,
     KEY_ZOOM_OUT,
-    KEY_ZOOM_RESET
+    KEY_ZOOM_RESET,
+    /* Alt+1 to Alt+9: switch rooms; the text is the digit. */
+    KEY_ROOM
 };
 enum editor_request {
     ED_COPY = 1,
@@ -54,7 +56,8 @@ enum editor_request {
     ED_COPY_OCR = 64,
     ED_ZOOM_IN = 128,
     ED_ZOOM_OUT = 256,
-    ED_ZOOM_RESET = 512
+    ED_ZOOM_RESET = 512,
+    ED_ROOM_MAP = 1024
 };
 enum color_scheme { COLOR_JOT, COLOR_TOKYONIGHT, COLOR_CATPPUCCIN, COLOR_KANAGAWA, COLOR_EVERFOREST, COLOR_COUNT };
 const char *editor_colorscheme_name(enum color_scheme scheme);
@@ -71,6 +74,9 @@ struct editor {
     enum render_mode render_mode;
     enum color_scheme colorscheme;
     bool modified, command_active, quit, crlf;
+    /* Another room (1 to 9) with unsaved changes, or 0. The app sets it so quitting
+     * protects every room. */
+    unsigned other_modified;
     bool light, search_forward, search_word, search_failed,
         search_pending, search_hidden;
     char command[1024], message[256], search[256], pending[40];

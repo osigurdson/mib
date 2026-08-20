@@ -22,7 +22,7 @@ add_custom_command(OUTPUT "${GENERATED}/font-data.h"
     DEPENDS tools/embed-font.py fonts/editor.tvf VERBATIM)
 add_custom_target(font-data DEPENDS "${GENERATED}/font-data.h")
 
-add_library(jot-core STATIC src/app.c src/session.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c)
+add_library(jot-core STATIC src/app.c src/session.c src/rooms.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c)
 add_dependencies(jot-core font-data)
 target_include_directories(jot-core PUBLIC src PRIVATE "${GENERATED}")
 

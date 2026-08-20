@@ -52,6 +52,19 @@ static size_t address(struct editor *ed, const char **input, bool *present)
     *input = p;
     return line;
 }
+/* Quitting closes every room, so unsaved changes in another room block it too. */
+static void quit(struct editor *ed)
+{
+    unsigned room = ed->other_modified;
+    if (ed->modified)
+        snprintf(ed->message, sizeof(ed->message),
+                 "Unsaved changes (:w to save, :q! to discard)");
+    else if (room)
+        snprintf(ed->message, sizeof(ed->message),
+                 "Unsaved changes in room %u (Alt+%u to visit, :q! to discard)", room, room);
+    else
+        ed->quit = true;
+}
 void editor_command(struct editor *ed, const char *command)
 {
     char buffer[1024];
@@ -108,19 +121,19 @@ void editor_command(struct editor *ed, const char *command)
             snprintf(ed->message, sizeof(ed->message), "Save uses the current page or file");
             return;
         }
-        bool quit = strcmp(p, "w") != 0;
+        bool leave = strcmp(p, "w") != 0;
         if ((!strcmp(p, "x") && !ed->modified) || editor_save(ed, ed->filename)) {
-            if (quit)
-                ed->quit = true;
+            if (leave)
+                quit(ed);
         }
     } else if (!strcmp(p, "q!"))
         ed->quit = true;
-    else if (!strcmp(p, "q")) {
-        if (ed->modified)
-            snprintf(ed->message, sizeof(ed->message),
-                     "Unsaved changes (:w to save, :q! to discard)");
-        else
-            ed->quit = true;
+    else if (!strcmp(p, "q"))
+        quit(ed);
+    else if (!strcmp(p, "map")) {
+        if (argument && *argument)
+            goto unknown;
+        ed->requests |= ED_ROOM_MAP;
     } else if (!strcmp(p, "e!"))
         editor_reload(ed);
     else if (!strcmp(p, "u") || !strcmp(p, "undo"))

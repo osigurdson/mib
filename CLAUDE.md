@@ -8,6 +8,8 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `src/keys.c`: normal, visual and insert mode keys, motions, text objects, operators.
 - `src/ex.c`, `src/substitute.c`: `:` commands. `src/history.c`: grouped undo/redo.
 - `src/app.c`, `src/media.c`: app-level input (images, clipboard paste), shared by both platforms.
+- `src/rooms.c`: a page's nine rooms. The shown room lives in `app.editor`; switching swaps the
+  per-document editor fields (text, cursor, undo, marks) with `app.rooms[]`.
 - `src/platform/linux/wayland.c` and `src/platform/windows/window.c` map keys to `enum editor_key`.
   A new Ctrl key needs an entry in `src/editor.h` and in both platform files.
 - Every text change goes through `editor_raw_replace` in `src/history.c`, which also shifts

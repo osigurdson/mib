@@ -561,6 +561,66 @@ static size_t table_hit(const struct app *app, const struct md_cache *cache, int
     }
     return end;
 }
+/* The :map overlay: nine rooms in numeric keypad order, each labeled with its number and
+ * first H1. The shown room uses the selected menu colors. */
+static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t *pixels, int width,
+                     int height, int stride, int top, int bottom, int cell, int line_height,
+                     int ascender, int padding)
+{
+    int gap = padding / 2 > 1 ? padding / 2 : 1;
+    int cell_width = 24 * cell, cell_height = 2 * line_height + 2 * padding;
+    int room_x = (width - 2 * padding - 2 * gap) / 3, room_y = (bottom - top - 2 * padding - 2 * gap) / 3;
+    if (cell_width > room_x)
+        cell_width = room_x;
+    if (cell_height > room_y)
+        cell_height = room_y;
+    if (cell_width < cell || cell_height < line_height)
+        return true;
+    int grid_width = 3 * cell_width + 2 * gap, grid_height = 3 * cell_height + 2 * gap;
+    int x0 = (width - grid_width) / 2, y0 = top + (bottom - top - grid_height) / 2;
+    app->map_x = x0;
+    app->map_y = y0;
+    app->map_width = cell_width;
+    app->map_height = cell_height;
+    app->map_gap = gap;
+    rectangle(pixels, width, height, stride, x0 - padding, y0 - padding, grid_width + 2 * padding,
+              grid_height + 2 * padding, theme->status);
+    int columns = (cell_width - 2 * padding) / cell;
+    for (unsigned room = 0; room < ROOM_COUNT; ++room) {
+        int column = (int)room % 3, row = 2 - (int)room / 3;
+        int x = x0 + column * (cell_width + gap), y = y0 + row * (cell_height + gap);
+        bool shown = room == app->room;
+        uint32_t text = shown ? theme->menu_selected_text : theme->menu_text;
+        rectangle(pixels, width, height, stride, x, y, cell_width, cell_height,
+                  shown ? theme->menu_selected : theme->menu);
+        char number[4], heading[256], line[256];
+        snprintf(number, sizeof(number), "%u", room + 1);
+        app_room_heading(app, room, heading, sizeof(heading));
+        /* Fit the heading to the cell by codepoints, ending a cut one with an ellipsis. */
+        size_t length = strlen(heading), offset = 0, used = 0;
+        int count = 0;
+        while (offset < length && count < columns) {
+            size_t next = offset;
+            editor_codepoint(heading, length, &next);
+            if (++count == columns && next < length) {
+                memcpy(line + used, "\xe2\x80\xa6", 3);
+                used += 3;
+                break;
+            }
+            memcpy(line + used, heading + offset, next - offset);
+            used += next - offset;
+            offset = next;
+        }
+        line[used] = 0;
+        int right = x + cell_width - padding + cell;
+        if (!label(app, pixels, right, height, stride, number, x + padding,
+                   y + padding + ascender, cell, shown ? text : theme->dim) ||
+            !label(app, pixels, right, height, stride, line, x + padding,
+                   y + padding + line_height + ascender, cell, text))
+            return false;
+    }
+    return true;
+}
 static bool paint(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
     struct editor *ed = &app->editor;
@@ -833,6 +893,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                    app->context_choice == 1 ? theme->menu_selected_text : theme->menu_text))
             return false;
     }
+    if (app->room_map && !draw_room_map(app, theme, pixels, width, height, stride, top, status_y,
+                                        cell, status_line, ascender, padding))
+        return false;
     return true;
 }
 size_t app_hit_test(struct app *app, int logical_x, int logical_y)

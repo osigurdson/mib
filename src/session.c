@@ -386,6 +386,7 @@ static const char agents[] =
     "Do not tidy, reorganize or rewrite jot.md unless explicitly asked. Put summaries in chat\n"
     "or a separate file. When asked to edit, append and keep the existing style.\n\n"
     "- jot.md is the running page, usually newest notes at the bottom.\n"
+    "- room2.md to room9.md are further scratch rooms (jot.md is room 1); they share assets/.\n"
     "- ![](assets/name.png) lines are screenshots; retain them on their own lines.\n"
     "- assets/name.png.txt is OCR text; read it before opening the image. OCR can be wrong.\n"
     "- assets/name.png.tsv contains OCR word positions used for highlighting.\n"
