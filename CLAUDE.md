@@ -22,6 +22,12 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `make vim-compare`: types each case in `tests/vim-compare.toml` into the real Jot binary (in a
   private headless Mutter session) and into Vim, then compares the saved files.
 
+## Change workflow
+
+For each change: implement it with the checks above passing, commit it on `main`, then run
+`make install` so `~/.local/bin/jot` is the build the user tries. Restart Jot to pick up a
+new install; an open window keeps the old binary and owns its page.
+
 ## Vim parity workflow
 
 Use `make vim-compare` when adding or changing Vim behaviour:
