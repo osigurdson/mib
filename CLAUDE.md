@@ -8,10 +8,11 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `src/keys.c`: normal, visual and insert mode keys, motions, text objects, operators.
 - `src/ex.c`, `src/substitute.c`: `:` commands. `src/history.c`: grouped undo/redo.
 - `src/app.c`, `src/media.c`: app-level input (images, clipboard paste), shared by both platforms.
-- `src/rooms.c`: a page's nine rooms, each a folder with `jot.md` and `assets/` (room 1 is the
-  page folder, rooms 2-9 its `roomN/` subfolders). The shown room lives in `app.editor`,
-  `app.media` and `app.directory`; switching swaps the per-document editor fields (text, cursor,
-  undo, marks) and media state with `app.rooms[]`. `app.page` is the page folder.
+- `src/pages.c`: the nine pages `1/` to `9/` in the notes folder (`app.root`), each with
+  `jot.md` and `assets/`. The shown page lives in `app.editor`, `app.media` and
+  `app.directory`; switching swaps the per-document editor fields (text, cursor, undo, marks)
+  and media state with `app.pages[]`. `src/session.c` resolves the folder and moves the old
+  `default/` layout to `1/`.
 - `src/platform/linux/wayland.c` and `src/platform/windows/window.c` map keys to `enum editor_key`.
   A new Ctrl key needs an entry in `src/editor.h` and in both platform files.
 - Every text change goes through `editor_raw_replace` in `src/history.c`, which also shifts

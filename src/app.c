@@ -47,7 +47,7 @@ void app_close(struct app *app)
 {
     media_close(app);
     session_close(app);
-    app_rooms_close(app);
+    app_pages_close(app);
     tiny_font_close(app->font);
     editor_destroy(&app->editor);
     *app = (struct app){0};
@@ -60,8 +60,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     app->image_hit = false;
     uint64_t search_serial = app->editor.search_serial;
     bool digit = key == KEY_TEXT && text && text[0] >= '1' && text[0] <= '9' && !text[1];
-    if (app->room_map) {
-        /* The map takes the keyboard: a digit (with or without Alt) shows that room, arrows
+    if (app->page_map) {
+        /* The map takes the keyboard: a digit (with or without Alt) shows that page, arrows
          * or hjkl move the selection and Enter shows it, Esc closes the map, and other keys
          * are ignored rather than editing unseen text. Rows run 7 8 9 / 4 5 6 / 1 2 3. */
         unsigned choice = app->map_choice, column = choice % 3;
@@ -75,21 +75,21 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         else if ((key == KEY_RIGHT || letter == 'l') && column < 2)
             ++choice;
         app->map_choice = choice;
-        if ((key == KEY_ROOM || digit) && text && text[0] >= '1' && text[0] <= '9')
-            app_room_switch(app, (unsigned)(text[0] - '1'));
+        if ((key == KEY_PAGE || digit) && text && text[0] >= '1' && text[0] <= '9')
+            app_page_switch(app, (unsigned)(text[0] - '1'));
         else if (key == KEY_ENTER)
-            app_room_switch(app, choice);
-        if (key == KEY_ROOM || digit || key == KEY_ESCAPE || key == KEY_ENTER)
-            app->room_map = false;
+            app_page_switch(app, choice);
+        if (key == KEY_PAGE || digit || key == KEY_ESCAPE || key == KEY_ENTER)
+            app->page_map = false;
         app->dirty = true;
         return;
     }
-    if (key == KEY_ROOM) {
+    if (key == KEY_PAGE) {
         /* Only from normal mode with nothing pending, so a switch never splits a command. */
         struct editor *ed = &app->editor;
         if (ed->mode == NORMAL && !ed->command_active && !ed->pending[0] && text &&
             text[0] >= '1' && text[0] <= '9') {
-            app_room_switch(app, (unsigned)(text[0] - '1'));
+            app_page_switch(app, (unsigned)(text[0] - '1'));
             app->context_menu = false;
         }
         app->dirty = true;
@@ -189,7 +189,7 @@ void app_input(struct app *app, enum editor_key key, const char *text)
             editor_change_begin(&app->editor);
         }
     } else if (!image_enter) {
-        app->editor.other_modified = app_room_modified(app);
+        app->editor.other_modified = app_page_modified(app);
         editor_input(&app->editor, key, text);
     }
     unsigned requests = app->editor.requests;
@@ -203,16 +203,16 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     }
     if (requests & ED_ZOOM_RESET)
         app->font_size = 18;
-    if (requests & ED_ROOM_MAP) {
-        if (app->page) {
-            app->room_map = true;
-            app->map_choice = app->room;
+    if (requests & ED_PAGE_MAP) {
+        if (app->root) {
+            app->page_map = true;
+            app->map_choice = app->current;
         }
         else
             snprintf(app->editor.message, sizeof(app->editor.message),
-                     "Rooms are only available in pages");
+                     "Pages 1 to 9 need the notes folder, not a single file");
     }
-    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_ROOM_MAP);
+    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP);
     if ((app->editor.requests & ED_COPY) && image_name[0] && app->editor.register_text &&
         !strcmp(app->editor.register_text, image_markup))
         app->clipboard_image = session_path(app, image_name);
@@ -243,13 +243,13 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 
 void app_request_close(struct app *app)
 {
-    unsigned room = app_room_modified(app);
+    unsigned page = app_page_modified(app);
     if (app->editor.modified)
         snprintf(app->editor.message, sizeof(app->editor.message),
                  "Unsaved changes (:w to save, :q! to discard)");
-    else if (room)
+    else if (page)
         snprintf(app->editor.message, sizeof(app->editor.message),
-                 "Unsaved changes in room %u (Alt+%u to visit, :q! to discard)", room, room);
+                 "Unsaved changes in page %u (Alt+%u to visit, :q! to discard)", page, page);
     else
         app->running = false;
     app->dirty = true;
@@ -329,8 +329,8 @@ void app_pointer(struct app *app, int x, int y, bool extend)
     if (app->map_click && extend)
         return; /* The rest of the click that closed the map. */
     app->map_click = false;
-    if (app->room_map) {
-        /* A click on a room shows it; anywhere else closes the map. */
+    if (app->page_map) {
+        /* A click on a page shows it; anywhere else closes the map. */
         int px = (int)((int64_t)x * app->scale120 / 120),
             py = (int)((int64_t)y * app->scale120 / 120);
         int column = -1, row = -1, step_x = app->map_width + app->map_gap,
@@ -343,8 +343,8 @@ void app_pointer(struct app *app, int x, int y, bool extend)
                 column = -1;
         }
         if (column >= 0)
-            app_room_switch(app, (unsigned)((2 - row) * 3 + column));
-        app->room_map = false;
+            app_page_switch(app, (unsigned)((2 - row) * 3 + column));
+        app->page_map = false;
         app->map_click = !extend;
         app->dirty = true;
         return;

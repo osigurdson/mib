@@ -573,21 +573,21 @@ static size_t table_hit(const struct app *app, const struct md_cache *cache, int
     return end;
 }
 /* Bytes in the first columns codepoints of text. */
-static size_t room_prefix(const char *text, size_t length, int columns)
+static size_t label_prefix(const char *text, size_t length, int columns)
 {
     size_t offset = 0;
     for (int i = 0; i < columns && offset < length; ++i)
         editor_codepoint(text, length, &offset);
     return offset;
 }
-/* Split a room heading into at most lines rows of columns cells, breaking at a space where
+/* Split a page heading into at most lines rows of columns cells, breaking at a space where
  * possible and ending a cut heading with an ellipsis. */
-static unsigned room_label(const char *heading, int columns, unsigned lines, char out[2][256])
+static unsigned page_label(const char *heading, int columns, unsigned lines, char out[2][256])
 {
     size_t length = strlen(heading);
     unsigned count = 0;
     while (length && count < lines && columns > 1) {
-        size_t fit = room_prefix(heading, length, columns), next = fit;
+        size_t fit = label_prefix(heading, length, columns), next = fit;
         if (fit < length && count + 1 < lines) {
             size_t space = fit;
             while (space && heading[space] != ' ')
@@ -595,7 +595,7 @@ static unsigned room_label(const char *heading, int columns, unsigned lines, cha
             if (space)
                 fit = next = space;
         } else if (fit < length) {
-            fit = room_prefix(heading, length, columns - 1);
+            fit = label_prefix(heading, length, columns - 1);
             next = length;
         }
         memcpy(out[count], heading, fit);
@@ -610,17 +610,17 @@ static unsigned room_label(const char *heading, int columns, unsigned lines, cha
     }
     return count;
 }
-static int room_columns(const char *text)
+static int label_columns(const char *text)
 {
     int columns = 0;
     for (size_t offset = 0, length = strlen(text); offset < length; ++columns)
         editor_codepoint(text, length, &offset);
     return columns;
 }
-/* The :map overlay, drawn as a numeric keypad: nine square keys, each with its room number
- * and the room's first H1 underneath. The selected key uses the selected menu colors and the
- * room that is showing has an outline. */
-static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t *pixels,
+/* The :map overlay, drawn as a numeric keypad: nine square keys, each with its page number
+ * and the page's first H1 underneath. The selected key uses the selected menu colors and the
+ * page that is showing has an outline. */
+static bool draw_page_map(struct app *app, const struct palette *theme, uint32_t *pixels,
                           int width, int height, int stride, int top, int bottom, int padding)
 {
     unsigned base = base_font_size(app), big = base * 2, small = base * 4 / 5;
@@ -648,22 +648,22 @@ static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t
     unsigned lines = (unsigned)((face - digit.line_height - padding / 2) / text.line_height);
     if (lines > 2)
         lines = 2;
-    for (unsigned room = 0; room < ROOM_COUNT; ++room) {
-        int x = x0 + (int)(room % 3) * (side + gap), y = y0 + (2 - (int)(room / 3)) * (side + gap);
-        bool selected = room == app->map_choice;
+    for (unsigned page = 0; page < PAGE_COUNT; ++page) {
+        int x = x0 + (int)(page % 3) * (side + gap), y = y0 + (2 - (int)(page / 3)) * (side + gap);
+        bool selected = page == app->map_choice;
         uint32_t key = selected ? theme->menu_selected : theme->menu;
         uint32_t ink = selected ? theme->menu_selected_text : theme->menu_text;
         int radius = padding, ring = edge;
-        /* The room that is showing keeps an outline while the selection moves. */
-        if (room == app->room)
+        /* The page that is showing keeps an outline while the selection moves. */
+        if (page == app->current)
             rounded_box(pixels, width, height, stride, x - ring, y - ring, side + 2 * ring,
                         side + 2 * ring, radius + ring, theme->cursor);
         rounded_box(pixels, width, height, stride, x, y, side, side, radius,
                     blend(key, app->editor.light ? 40 : 96, 0xff000000));
         rounded_box(pixels, width, height, stride, x, y, side, face, radius, key);
-        char heading[256], label_lines[2][256], number[2] = {(char)('1' + room), 0};
-        app_room_heading(app, room, heading, sizeof(heading));
-        unsigned count = room_label(heading, columns, lines, label_lines);
+        char heading[256], label_lines[2][256], number[2] = {(char)('1' + page), 0};
+        app_page_heading(app, page, heading, sizeof(heading));
+        unsigned count = page_label(heading, columns, lines, label_lines);
         int block = digit.line_height + (int)count * text.line_height;
         int line_y = y + (face - block) / 2;
         if (!tiny_font_set_size(app->font, big) ||
@@ -674,7 +674,7 @@ static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t
         if (count && !tiny_font_set_size(app->font, small))
             return false;
         for (unsigned i = 0; i < count; ++i, line_y += text.line_height) {
-            int span = room_columns(label_lines[i]) * text.advance;
+            int span = label_columns(label_lines[i]) * text.advance;
             if (!label(app, pixels, width, height, stride, label_lines[i], x + (side - span) / 2,
                        line_y + text.ascender, text.advance, ink))
                 return false;
@@ -954,8 +954,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                    app->context_choice == 1 ? theme->menu_selected_text : theme->menu_text))
             return false;
     }
-    if (app->room_map &&
-        !draw_room_map(app, theme, pixels, width, height, stride, top, status_y, padding))
+    if (app->page_map &&
+        !draw_page_map(app, theme, pixels, width, height, stride, top, status_y, padding))
         return false;
     return true;
 }

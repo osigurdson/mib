@@ -151,9 +151,10 @@ Ordinary saves keep history. Clipboard references to removed files can expire.
 
 Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 
-## Rooms
+## Pages
 
-A page has nine rooms, each its own Markdown scratchpad, laid out like a numeric keypad:
+The notes folder holds nine pages, `1/` to `9/`, each its own Markdown scratchpad with its
+own `jot.md` and `assets/`. The map lays them out like a numeric keypad:
 
 ```
 7 8 9
@@ -163,22 +164,22 @@ A page has nine rooms, each its own Markdown scratchpad, laid out like a numeric
 
 | Keys | Action |
 |---|---|
-| `Alt+1` … `Alt+9` | In normal mode, show that room (number row or keypad) |
-| `:map` | Show the rooms as a keypad |
-| `1` … `9` on the map | Show that room |
-| Arrows or `h` `j` `k` `l`, then `Enter` on the map | Select a room and show it |
+| `Alt+1` … `Alt+9` | In normal mode, show that page (number row or keypad) |
+| `:map` | Show the pages as a keypad |
+| `1` … `9` on the map | Show that page |
+| Arrows or `h` `j` `k` `l`, then `Enter` on the map | Select a page and show it |
 | `Esc` on the map | Close it |
 
-All nine rooms always exist; there is nothing to create, name or delete. The map labels each
-room with its first `# Heading`, read from the room itself. The selection starts on the room
-that is showing, which keeps an outline as the selection moves. Clicking a room also shows it.
-Each room keeps its own cursor, scroll position, undo history, marks and jumps; registers,
-search and settings are shared. Each room is a folder with its own `jot.md` and `assets/`:
-room 1 is the page folder itself, and rooms 2 to 9 are its `room2/` to `room9/` subfolders,
-created the first time each room is shown. `:w` and `Ctrl+S` save the room that is showing,
-and quitting is blocked while any room has unsaved changes. Pasted images go into the room's
-own `assets/`, and yanking an image line in one room and pasting it in another copies the
-image across. Explicit files have a single room.
+All nine pages always exist; there is nothing to create, name or delete. A page's folder
+appears the first time it is shown. The map labels each page with its first `# Heading`,
+read from the page itself. The selection starts on the page that is showing, which keeps
+an outline as the selection moves. Clicking a page also shows it.
+
+Each page keeps its own cursor, scroll position, undo history, marks and jumps; registers,
+search and settings are shared. `:w` and `Ctrl+S` save the page that is showing, and
+quitting is blocked while any page has unsaved changes. Pasted images go into the page's
+own `assets/`, and yanking an image line in one page and pasting it in another copies the
+image across. Explicit files have no other pages.
 
 ## Insert mode
 
@@ -199,7 +200,7 @@ Press `:` to open it. Up and Down browse your history.
 |---|---|
 | `:w` | Save the current page or file |
 | `:q`, `:wq`, `:x` | Close the window |
-| `:map` | Show the page's [rooms](#rooms) |
+| `:map` | Show the [pages](#pages) |
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
@@ -260,5 +261,5 @@ This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
 [parity report](jot-parity.md). Native presentation differs. Search selects an
 image containing OCR matches and highlights matching OCR words. The font subset,
 ASCII case handling and bounded regex subset are intentional limitations.
-Pages and explicit files both protect unsaved changes on quit, in every room. Use `:w` or
+Pages and explicit files both protect unsaved changes on quit, on every page. Use `:w` or
 `Ctrl+S` to save, `:wq` to save and quit, or `:q!` to discard edits.

@@ -6,87 +6,85 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* The editor fields that belong to a room's document. Mode, registers, search, dot repeat,
+/* The editor fields that belong to a page's document. Mode, registers, search, dot repeat,
  * command history and settings stay with app.editor across switches. */
 #define ROOM_FIELDS                                                                                \
     X(text) X(filename) X(length) X(capacity) X(cursor) X(top) X(left) X(anchor)                   \
     X(desired_column) X(visual_first) X(visual_last) X(modified) X(crlf) X(revision)               \
     X(saved_hash) X(history) X(context) X(jump_count) X(jump_index)
 
-static void stash(struct editor *ed, struct room *room)
+static void stash(struct editor *ed, struct page *page)
 {
-#define X(field) room->field = ed->field;
+#define X(field) page->field = ed->field;
     ROOM_FIELDS
 #undef X
-    memcpy(room->marks, ed->marks, sizeof(room->marks));
-    memcpy(room->jumps, ed->jumps, sizeof(room->jumps));
-    room->loaded = true;
+    memcpy(page->marks, ed->marks, sizeof(page->marks));
+    memcpy(page->jumps, ed->jumps, sizeof(page->jumps));
+    page->loaded = true;
 }
-static void unstash(struct editor *ed, struct room *room)
+static void unstash(struct editor *ed, struct page *page)
 {
-#define X(field) ed->field = room->field;
+#define X(field) ed->field = page->field;
     ROOM_FIELDS
 #undef X
-    memcpy(ed->marks, room->marks, sizeof(ed->marks));
-    memcpy(ed->jumps, room->jumps, sizeof(ed->jumps));
-    *room = (struct room){0};
+    memcpy(ed->marks, page->marks, sizeof(ed->marks));
+    memcpy(ed->jumps, page->jumps, sizeof(ed->jumps));
+    *page = (struct page){0};
 }
-static void free_room(struct room *room)
+static void free_page(struct page *page)
 {
     struct editor document = {0};
-    media_free(room->media);
-    unstash(&document, room);
+    media_free(page->media);
+    unstash(&document, page);
     editor_destroy(&document);
 }
-/* A room's folder, or with name, a file in it: the page folder for room 1, room2/ to room9/
- * inside it for the others. */
-static char *room_path(const struct app *app, unsigned index, const char *name)
+/* A page's folder, 1/ to 9/ in the notes folder, or with name, a file in it. */
+static char *page_path(const struct app *app, unsigned index, const char *name)
 {
-    char folder[16] = "";
-    if (index)
-        snprintf(folder, sizeof(folder), "/room%u", index + 1);
-    size_t n = strlen(app->page) + strlen(folder) + (name ? strlen(name) + 1 : 0) + 1;
+    char folder[16];
+    snprintf(folder, sizeof(folder), "/%u", index + 1);
+    size_t n = strlen(app->root) + strlen(folder) + (name ? strlen(name) + 1 : 0) + 1;
     char *path = malloc(n);
     if (path)
-        snprintf(path, n, "%s%s%s%s", app->page, folder, name ? "/" : "", name ? name : "");
+        snprintf(path, n, "%s%s%s%s", app->root, folder, name ? "/" : "", name ? name : "");
     return path;
 }
-/* Read a room's jot.md, which may not exist yet. New rooms open at the end, like the page
- * itself. Loading never creates the room's folder; showing it does. */
+/* Read a page's jot.md, which may not exist yet, with the cursor at the end as when Jot
+ * starts. Loading never creates the page's folder; showing it does. */
 static bool load(struct app *app, unsigned index)
 {
-    struct room *room = &app->rooms[index];
-    if (room->loaded)
+    struct page *page = &app->pages[index];
+    if (page->loaded)
         return true;
-    char *path = room_path(app, index, "jot.md");
+    char *path = page_path(app, index, "jot.md");
     struct editor document = {0};
     bool ok = path && editor_open(&document, path);
     free(path);
     if (ok) {
         document.cursor = document.length;
-        stash(&document, room);
-        room->fresh = true;
+        stash(&document, page);
+        page->fresh = true;
     } else {
-        snprintf(app->editor.message, sizeof(app->editor.message), "Could not open room %u: %.200s",
+        snprintf(app->editor.message, sizeof(app->editor.message), "Could not open page %u: %.200s",
                  index + 1, document.message[0] ? document.message : "out of memory");
         editor_destroy(&document);
     }
     return ok;
 }
-bool app_room_switch(struct app *app, unsigned index)
+bool app_page_switch(struct app *app, unsigned index)
 {
     struct editor *ed = &app->editor;
-    if (!app->page) {
-        snprintf(ed->message, sizeof(ed->message), "Rooms are only available in pages");
+    if (!app->root) {
+        snprintf(ed->message, sizeof(ed->message), "Pages 1 to 9 need the notes folder, not a single file");
         return false;
     }
-    if (index >= ROOM_COUNT)
+    if (index >= PAGE_COUNT)
         return false;
-    if (index == app->room)
+    if (index == app->current)
         return true;
-    char *folder = room_path(app, index, NULL);
+    char *folder = page_path(app, index, NULL);
     if (!folder || !session_mkdir(folder)) {
-        snprintf(ed->message, sizeof(ed->message), "Could not create room %u's folder", index + 1);
+        snprintf(ed->message, sizeof(ed->message), "Could not create page %u's folder", index + 1);
         free(folder);
         return false;
     }
@@ -95,7 +93,7 @@ bool app_room_switch(struct app *app, unsigned index)
         return false;
     }
     editor_change_end(ed);
-    struct room *leaving = &app->rooms[app->room], *entering = &app->rooms[index];
+    struct page *leaving = &app->pages[app->current], *entering = &app->pages[index];
     stash(ed, leaving);
     leaving->fresh = false;
     leaving->media = app->media;
@@ -104,42 +102,42 @@ bool app_room_switch(struct app *app, unsigned index)
     unstash(ed, entering);
     free(app->directory);
     app->directory = folder;
-    app->room = index;
+    app->current = index;
     ed->mode = NORMAL;
     ed->pending[0] = 0;
     ed->match_start = ed->match_end = 0;
     ed->search_hidden = true;
     ed->message[0] = 0;
-    /* Positions cached for the previous room's text are no longer valid. */
+    /* Positions cached for the previous page's text are no longer valid. */
     app->markdown.valid = false;
     app->media_scanned = false;
     app->image_box = app->image_drag = app->image_hit = false;
     app->context_menu = false;
-    /* Keep the room's own scroll position; a room shown for the first time follows its
+    /* Keep the page's own scroll position; a page shown for the first time follows its
      * cursor to the end instead. */
     app->follow_cursor = fresh;
-    /* Pick up changes made outside Jot while the room was hidden, as on focus, and resume
-     * the room's image work. */
+    /* Pick up changes made outside Jot while the page was hidden, as on focus, and resume
+     * the page's image work. */
     session_focus(app, true);
     media_tick(app);
     app->dirty = true;
     return true;
 }
-void app_room_heading(struct app *app, unsigned index, char *heading, size_t size)
+void app_page_heading(struct app *app, unsigned index, char *heading, size_t size)
 {
     heading[0] = 0;
-    if (index >= ROOM_COUNT || !size)
+    if (index >= PAGE_COUNT || !size)
         return;
     const char *text;
     size_t length;
-    if (index == app->room) {
+    if (index == app->current) {
         text = app->editor.text;
         length = app->editor.length;
     } else {
-        if (!app->page || !load(app, index))
+        if (!app->root || !load(app, index))
             return;
-        text = app->rooms[index].text;
-        length = app->rooms[index].length;
+        text = app->pages[index].text;
+        length = app->pages[index].length;
     }
     char fenced = 0;
     for (size_t start = 0; start < length;) {
@@ -181,17 +179,17 @@ void app_room_heading(struct app *app, unsigned index, char *heading, size_t siz
         start = end + 1;
     }
 }
-unsigned app_room_modified(const struct app *app)
+unsigned app_page_modified(const struct app *app)
 {
-    for (unsigned i = 0; i < ROOM_COUNT; ++i)
-        if (i != app->room && app->rooms[i].loaded && app->rooms[i].modified)
+    for (unsigned i = 0; i < PAGE_COUNT; ++i)
+        if (i != app->current && app->pages[i].loaded && app->pages[i].modified)
             return i + 1;
     return 0;
 }
-void app_rooms_close(struct app *app)
+void app_pages_close(struct app *app)
 {
-    for (unsigned i = 0; i < ROOM_COUNT; ++i)
-        if (app->rooms[i].loaded)
-            free_room(&app->rooms[i]);
-    app->room = 0;
+    for (unsigned i = 0; i < PAGE_COUNT; ++i)
+        if (app->pages[i].loaded)
+            free_page(&app->pages[i]);
+    app->current = 0;
 }

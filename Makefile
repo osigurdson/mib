@@ -33,7 +33,7 @@ PROTOCOLS_DIR := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
 PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-activation-v1 xdg-decoration-unstable-v1 cursor-shape-v1 tablet-unstable-v2
 PROTOCOL_HEADERS := $(addprefix $(GEN)/,$(addsuffix -client-protocol.h,$(PROTOCOL_NAMES)))
 PROTOCOL_SOURCES := $(addprefix $(GEN)/,$(addsuffix -protocol.c,$(PROTOCOL_NAMES)))
-CORE := src/app.c src/session.c src/rooms.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c
+CORE := src/app.c src/session.c src/pages.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/tiny-font.c
 HEADERS := $(wildcard src/*.h src/platform/*/*.inc)
 MEMORY := src/platform/linux/memory.c
 FILES := src/platform/linux/files.c

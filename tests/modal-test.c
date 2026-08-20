@@ -397,12 +397,12 @@ static void registers(void)
     assert(!ed.registers[1].text && !ed.register_text);
 }
 
-/* :map asks the app for the room map; quitting also guards the app's other rooms. */
-static void room_commands(void)
+/* :map asks the app for the page map; quitting also guards the app's other pages. */
+static void page_commands(void)
 {
     reset("notes");
     editor_command(&ed, "map");
-    assert(ed.requests & ED_ROOM_MAP && !ed.message[0]);
+    assert(ed.requests & ED_PAGE_MAP && !ed.message[0]);
     ed.requests = 0;
     editor_command(&ed, "map x y");
     assert(!ed.requests && strstr(ed.message, "Unknown command"));
@@ -411,11 +411,11 @@ static void room_commands(void)
     const char *quits[] = {"q", "x", "wq"};
     for (unsigned i = 0; i < 3; ++i) {
         if (i == 2)
-            ed.filename = NULL; /* :wq fails to save an unnamed buffer before checking rooms */
+            ed.filename = NULL; /* :wq fails to save an unnamed buffer before checking pages */
         editor_command(&ed, quits[i]);
         assert(!ed.quit);
         if (i < 2)
-            assert(strstr(ed.message, "room 4"));
+            assert(strstr(ed.message, "page 4"));
     }
     keys("i");
     editor_input(&ed, KEY_CTRL_Q, "");
@@ -434,7 +434,7 @@ static void room_commands(void)
 int main(void)
 {
     readonly_mode();
-    room_commands();
+    page_commands();
     search_visibility();
     insert_end();
     case_operators();

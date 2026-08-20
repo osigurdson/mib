@@ -18,13 +18,12 @@ struct app_settings {
     bool maximized, light;
 };
 
-/* Pages have nine rooms laid out like a numeric keypad (7 8 9 / 4 5 6 / 1 2 3). Each room is
- * a folder with its own jot.md and assets/: room 1 is the page folder itself and rooms 2 to 9
- * are its room2/ to room9/ subfolders. The shown room lives in app.editor, app.media and
- * app.directory; the others keep their document and media here once loaded, while registers,
- * search and settings stay with app.editor. */
-enum { ROOM_COUNT = 9 };
-struct room {
+/* The notes folder holds nine pages, 1/ to 9/, each with its own jot.md and assets/, shown in
+ * numeric keypad order on the map (7 8 9 / 4 5 6 / 1 2 3). The shown page lives in app.editor,
+ * app.media and app.directory; the others keep their document and media here once loaded,
+ * while registers, search and settings stay with app.editor. */
+enum { PAGE_COUNT = 9 };
+struct page {
     char *text, *filename;
     size_t length, capacity, cursor, top, left, anchor, desired_column;
     size_t visual_first, visual_last;
@@ -68,12 +67,12 @@ struct app {
     size_t image_box_start;
     int image_box_x, image_box_y, image_box_w, image_box_h;
     int drag_corner, drag_x, drag_y, drag_width, drag_origin_width, drag_origin_height;
-    /* The shown room (0 for room 1), the others, and the :map overlay with its selected
-     * room, first cell (room 7) and cell size from the last paint, in physical pixels. */
-    unsigned room, map_choice;
-    char *page; /* The page folder, which is room 1's; NULL for explicit files. */
-    struct room rooms[ROOM_COUNT];
-    bool room_map, map_click;
+    /* The shown page (0 for page 1), the others, and the :map overlay with its selected
+     * page, first cell (page 7) and cell size from the last paint, in physical pixels. */
+    unsigned current, map_choice;
+    char *root; /* The notes folder holding 1/ to 9/; NULL for explicit files. */
+    struct page pages[PAGE_COUNT];
+    bool page_map, map_click;
     int map_x, map_y, map_width, map_height, map_gap;
 };
 size_t app_view_next(struct app *app, size_t start);
@@ -93,13 +92,13 @@ void app_pointer_release(struct app *app);
 /* The selected image's corner handle (0 top left, 1 top right, 2 bottom left, 3 bottom
  * right) under a logical position, or -1. */
 int app_image_corner(const struct app *app, int x, int y);
-/* Show room index (0 for room 1). Returns false, with a message, when there are no rooms. */
-bool app_room_switch(struct app *app, unsigned index);
-/* The room's first H1 heading text, or "" when it has none. */
-void app_room_heading(struct app *app, unsigned index, char *heading, size_t size);
-/* The first other room with unsaved changes (1 to 9), or 0. */
-unsigned app_room_modified(const struct app *app);
-void app_rooms_close(struct app *app);
+/* Show page index (0 for page 1). Returns false, with a message, for explicit files. */
+bool app_page_switch(struct app *app, unsigned index);
+/* The page's first H1 heading text, or "" when it has none. */
+void app_page_heading(struct app *app, unsigned index, char *heading, size_t size);
+/* The first other page with unsaved changes (1 to 9), or 0. */
+unsigned app_page_modified(const struct app *app);
+void app_pages_close(struct app *app);
 int app_main(int argc, char **argv);
 bool app_open(struct app *app, const char *filename);
 void app_close(struct app *app);

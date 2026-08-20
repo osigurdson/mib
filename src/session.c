@@ -381,19 +381,21 @@ static void save_settings(struct app *app)
     app->settings_loaded = false;
 }
 static const char agents[] =
-    "# jot scratch page\n\n"
+    "# jot scratch pages\n\n"
     "This folder contains quick working notes and screenshots. Read and answer by default.\n"
-    "Do not tidy, reorganize or rewrite jot.md unless explicitly asked. Put summaries in chat\n"
-    "or a separate file. When asked to edit, append and keep the existing style.\n\n"
-    "- jot.md is the running page, usually newest notes at the bottom.\n"
-    "- room2/ to room9/ are further scratch rooms (this folder is room 1), each with its own\n"
-    "  jot.md and assets/ laid out the same way.\n"
-    "- ![](assets/name.png) lines are screenshots; retain them on their own lines.\n"
+    "Do not tidy, reorganize or rewrite the notes unless explicitly asked. Put summaries in\n"
+    "chat or a separate file. When asked to edit, append and keep the existing style.\n\n"
+    "- 1/ to 9/ are nine scratch pages; each N/jot.md is a running page, usually newest notes\n"
+    "  at the bottom. A page folder appears the first time that page is shown.\n"
+    "- ![](assets/name.png) lines are screenshots in that page's own assets/ folder; retain\n"
+    "  them on their own lines.\n"
     "- assets/name.png.txt is OCR text; read it before opening the image. OCR can be wrong.\n"
     "- assets/name.png.tsv contains OCR word positions used for highlighting.\n"
     "- Image names begin with the paste timestamp (YYYYMMDD-HHMMSS).\n\n"
     "Save edits explicitly with :w or Ctrl+S. After an external edit, switch to the window\n"
     "to reload if there are no local edits. Never edit concurrently with unsaved typing.\n";
+/* The notes folder: name is a path, or NULL, "" or a page number for $JOT_DIR, else
+ * ~/Documents/jot (~/jot without Documents). */
 static char *resolve(const char *name)
 {
     const char *home = getenv(
@@ -405,29 +407,21 @@ static char *resolve(const char *name)
     );
     if (!home)
         home = ".";
-    if (!name || !*name) {
-        const char *env = getenv("JOT_DIR");
-        if (env && *env)
-            name = env;
-        else
-            name = "default";
-    }
     char *path;
-    if (strchr(name, '/') || strchr(name, '\\') || !strcmp(name, ".") || !strcmp(name, "..") ||
-        name[0] == '~' || (name[0] && name[1] == ':')) {
-        if (name[0] == '~' && (name[1] == '/' || !name[1]))
-            path = name[1] ? join(home, name + 2) : join(home, "");
-        else {
-            path = malloc(strlen(name) + 1);
-            if (path)
-                strcpy(path, name);
-        }
-    } else {
+    if (!name || !*name || session_page_number(name)) {
+        const char *env = getenv("JOT_DIR");
+        name = env && *env ? env : NULL;
+    }
+    if (!name) {
         char *docs = join(home, "Documents");
-        char *root = join(docs && directory(docs) ? docs : home, "jot");
+        path = join(docs && directory(docs) ? docs : home, "jot");
         free(docs);
-        path = root ? join(root, name) : NULL;
-        free(root);
+    } else if (name[0] == '~' && (name[1] == '/' || name[1] == '\\' || !name[1]))
+        path = name[1] ? join(home, name + 2) : join(home, "");
+    else {
+        path = malloc(strlen(name) + 1);
+        if (path)
+            strcpy(path, name);
     }
     if (!path)
         return NULL;
@@ -442,6 +436,67 @@ static char *resolve(const char *name)
     /* Canonicalize after mkdir to merge relative/symlink aliases for ownership. */
 #endif
     return path;
+}
+unsigned session_page_number(const char *name)
+{
+    return name && name[0] >= '1' && name[0] <= '9' && !name[1] ? (unsigned)(name[0] - '0') : 0;
+}
+static bool rename_path(const char *from, const char *to)
+{
+#ifdef _WIN32
+    wchar_t *a = windows_path(from), *b = windows_path(to);
+    bool ok = a && b && MoveFileW(a, b);
+    free(a);
+    free(b);
+    return ok;
+#else
+    return rename(from, to) == 0;
+#endif
+}
+/* Before numbered pages, the notes folder held named pages, opened as default/ unless
+ * another was chosen, and rooms 2 to 9 were default/room2/ to default/room9/. Move
+ * default/ to 1/ and its rooms to 2/ to 9/, keeping every file. Returns false, with a
+ * message, when something could not be moved. */
+static bool migrate(struct app *app)
+{
+    char *one = session_path(app, "1"), *old = session_path(app, "default");
+    bool ok = one && old;
+    if (ok && !directory(one) && directory(old)) {
+#ifndef _WIN32
+        /* An older Jot that still has default/ open would lose its saves. */
+        char *lock = join(old, ".tinyvi.lock");
+        int fd = lock ? open(lock, O_RDWR | O_CLOEXEC) : -1;
+        free(lock);
+        if (fd >= 0 && flock(fd, LOCK_EX | LOCK_NB) != 0) {
+            snprintf(app->editor.message, sizeof(app->editor.message),
+                     "Close the Jot window showing %.180s, then open Jot again", old);
+            ok = false;
+        }
+        if (fd >= 0)
+            close(fd);
+#endif
+        if (ok && !rename_path(old, one)) {
+            snprintf(app->editor.message, sizeof(app->editor.message),
+                     "Could not move %.100s to %.100s: %s", old, one, strerror(errno));
+            ok = false;
+        }
+        for (unsigned n = 2; ok && n <= 9; ++n) {
+            char from[32], to[4];
+            snprintf(from, sizeof(from), "1/room%u", n);
+            snprintf(to, sizeof(to), "%u", n);
+            char *a = session_path(app, from), *b = session_path(app, to);
+            if (a && b && directory(a) && !directory(b) && !rename_path(a, b)) {
+                snprintf(app->editor.message, sizeof(app->editor.message),
+                         "Could not move %.100s to %.100s", a, b);
+                ok = false;
+            }
+            free(a);
+            free(b);
+        }
+    }
+    free(one);
+    free(old);
+    return ok;
 }
 #ifdef _WIN32
 struct owner_window {
@@ -527,13 +582,22 @@ static int ownership(struct app *app)
     return 1;
 #endif
 }
+static bool private_folder(const char *path)
+{
+    if (!session_mkdir(path))
+        return false;
+#ifndef _WIN32
+    if (chmod(path, 0700) != 0)
+        return false;
+#endif
+    return true;
+}
 int session_open(struct app *app, const char *name)
 {
     app->owner_fd = app->activation_fd = -1;
+    unsigned start = session_page_number(name);
     app->directory = resolve(name);
-    if (!app->directory)
-        goto failed;
-    if (!session_mkdir(app->directory))
+    if (!app->directory || !private_folder(app->directory))
         goto failed;
 #ifndef _WIN32
     char *canonical = realpath(app->directory, NULL);
@@ -541,37 +605,24 @@ int session_open(struct app *app, const char *name)
         goto failed;
     free(app->directory);
     app->directory = canonical;
-    if (chmod(app->directory, 0700) != 0)
-        goto failed;
 #endif
-    app->page = malloc(strlen(app->directory) + 1);
-    if (!app->page)
+    app->root = malloc(strlen(app->directory) + 1);
+    if (!app->root)
         goto failed;
-    strcpy(app->page, app->directory);
-    char *assets = session_path(app, "assets");
-    bool made = assets && session_mkdir(assets);
-#ifndef _WIN32
-    if (made && chmod(assets, 0700) != 0)
-        made = false;
-#endif
-    free(assets);
-    if (!made)
-        goto failed;
+    strcpy(app->root, app->directory);
+    /* One window owns the whole notes folder, since it switches between all nine pages. */
     int owned = ownership(app);
     if (owned <= 0) {
         if (owned < 0)
             goto failed;
         return 0;
     }
-    char *page = session_path(app, "jot.md");
-    if (!page)
-        goto failed;
-    bool missing;
-    char error[128];
-    FILE *existing = platform_file_open_read(page, &missing, error, sizeof(error));
-    if (existing)
-        fclose(existing);
-    if (!existing && missing) {
+    char *first = session_path(app, "1");
+    bool fresh = first && !directory(first);
+    free(first);
+    if (!migrate(app))
+        return -1;
+    if (fresh) {
         char *a = session_path(app, "AGENTS.md"), *c = session_path(app, "CLAUDE.md");
         bool ok = a && c && session_write_new(a, agents, sizeof(agents) - 1);
 #ifndef _WIN32
@@ -583,11 +634,31 @@ int session_open(struct app *app, const char *name)
 #endif
         free(a);
         free(c);
-        if (!ok) {
-            free(page);
+        if (!ok)
             goto failed;
-        }
     }
+    /* Show the chosen page, page 1 by default. */
+    app->current = start ? start - 1 : 0;
+    char number[4];
+    snprintf(number, sizeof(number), "%u", app->current + 1);
+    char *folder = session_path(app, number);
+    if (!folder)
+        goto failed;
+    free(app->directory);
+    app->directory = folder;
+    char *assets = session_path(app, "assets");
+    bool made = folder && private_folder(folder) && assets && private_folder(assets);
+    free(assets);
+    if (!made)
+        goto failed;
+    char *page = session_path(app, "jot.md");
+    if (!page)
+        goto failed;
+    bool missing;
+    char error[128];
+    FILE *existing = platform_file_open_read(page, &missing, error, sizeof(error));
+    if (existing)
+        fclose(existing);
     editor_destroy(&app->editor);
     app->editor = (struct editor){0};
     bool ok = editor_open(&app->editor, page);
@@ -601,7 +672,7 @@ int session_open(struct app *app, const char *name)
     app->scratch = true;
     app->editor.cursor = app->editor.length;
     session_load_settings(app);
-    if (missing && !editor_save(&app->editor, app->editor.filename))
+    if (!existing && missing && !editor_save(&app->editor, app->editor.filename))
         return -1;
     return 1;
 failed:
@@ -639,6 +710,6 @@ void session_close(struct app *app)
 #endif
     free(app->directory);
     app->directory = NULL;
-    free(app->page);
-    app->page = NULL;
+    free(app->root);
+    app->root = NULL;
 }

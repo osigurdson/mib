@@ -42,6 +42,25 @@ static void remove_folder(const char *path)
     rmdir(path);
 #endif
 }
+/* Remove the known files of a test notes folder, its pages, then the folder itself. */
+static void remove_notes(const char *root)
+{
+    char path[1300];
+    const char *top[] = {"AGENTS.md", "CLAUDE.md", ".tinyvi.lock"};
+    for (unsigned i = 0; i < 3; ++i) {
+        snprintf(path, sizeof(path), "%s/%s", root, top[i]);
+        remove_file(path);
+    }
+    for (unsigned page = 1; page <= 9; ++page) {
+        const char *inside[] = {"/jot.md", "/.tinyvi-state", "/assets", ""};
+        for (unsigned i = 0; i < 4; ++i) {
+            snprintf(path, sizeof(path), "%s/%u%s", root, page, inside[i]);
+            remove_file(path);
+            remove_folder(path);
+        }
+    }
+    remove_folder(root);
+}
 static void type(struct app *app, const char *keys)
 {
     for (const char *p = keys; *p; ++p) {
@@ -58,7 +77,7 @@ static bool exists(const char *directory, const char *name)
     free(text);
     return text != NULL;
 }
-static void write_room(const char *directory, const char *name, const char *text)
+static void write_file(const char *directory, const char *name, const char *text)
 {
     char path[1300], error[128];
     snprintf(path, sizeof(path), "%s/%s", directory, name);
@@ -68,155 +87,207 @@ static void write_room(const char *directory, const char *name, const char *text
     *slash = '/';
     assert(platform_file_write_atomic(path, text, strlen(text), error, sizeof(error)));
 }
-static void rooms(const char *parent)
+static void pages(const char *parent)
 {
     char directory[1100], heading[64];
-    snprintf(directory, sizeof(directory), "%s/rooms", parent);
+    snprintf(directory, sizeof(directory), "%s/pages", parent);
     struct app app;
     assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
     editor_command(&app.editor, "set raw");
     type(&app, "ione\ntwo\x1b");
-    assert(app.room == 0 && strstr(app.editor.filename, "jot.md"));
+    assert(app.current == 0 && strstr(app.editor.filename, "jot.md"));
     /* Alt+digit only switches from normal mode. */
     type(&app, "a");
-    app_input(&app, KEY_ROOM, "3");
-    assert(app.room == 0 && app.editor.mode == INSERT);
+    app_input(&app, KEY_PAGE, "3");
+    assert(app.current == 0 && app.editor.mode == INSERT);
     type(&app, "\x1b");
     size_t cursor = app.editor.cursor;
     app.editor.top = 4;
     app.follow_cursor = false;
-    app_input(&app, KEY_ROOM, "3");
-    assert(app.room == 2 && app.editor.length == 0 && strstr(app.editor.filename, "room3/jot.md"));
+    app_input(&app, KEY_PAGE, "3");
+    assert(app.current == 2 && app.editor.length == 0 && strstr(app.editor.filename, "/3/jot.md"));
     type(&app, "i# Groceries #\nmilk\x1b");
-    /* Each room keeps its own text, cursor, scroll position and undo. */
-    app_input(&app, KEY_ROOM, "1");
-    assert(app.room == 0 && !strcmp(app.editor.text, "one\ntwo") && app.editor.modified);
+    /* Each page keeps its own text, cursor, scroll position and undo. */
+    app_input(&app, KEY_PAGE, "1");
+    assert(app.current == 0 && !strcmp(app.editor.text, "one\ntwo") && app.editor.modified);
     assert(app.editor.cursor == cursor && app.editor.top == 4 && !app.follow_cursor);
     type(&app, "u");
     assert(!strcmp(app.editor.text, ""));
     app_input(&app, KEY_CTRL_R, "");
     assert(!strcmp(app.editor.text, "one\ntwo"));
-    /* Quitting protects every room. */
+    /* Quitting protects every page. */
     app_input(&app, KEY_CTRL_S, "");
     assert(!app.editor.modified);
     type(&app, ":q\n");
-    assert(app.running && strstr(app.editor.message, "room 3"));
+    assert(app.running && strstr(app.editor.message, "page 3"));
     app_request_close(&app);
-    assert(app.running && strstr(app.editor.message, "room 3"));
-    /* The map labels rooms by their first H1, skipping fenced code. */
-    write_room(directory, "room4/jot.md", "intro\n```\n# not this\n```\n#nospace\n# Real\n# Later\n");
-    app_room_heading(&app, 2, heading, sizeof(heading));
+    assert(app.running && strstr(app.editor.message, "page 3"));
+    /* The map labels pages by their first H1, skipping fenced code. */
+    write_file(directory, "4/jot.md", "intro\n```\n# not this\n```\n#nospace\n# Real\n# Later\n");
+    app_page_heading(&app, 2, heading, sizeof(heading));
     assert(!strcmp(heading, "Groceries"));
-    app_room_heading(&app, 3, heading, sizeof(heading));
+    app_page_heading(&app, 3, heading, sizeof(heading));
     assert(!strcmp(heading, "Real"));
-    app_room_heading(&app, 0, heading, sizeof(heading));
+    app_page_heading(&app, 0, heading, sizeof(heading));
     assert(!heading[0]);
-    app_room_heading(&app, 4, heading, sizeof(heading));
-    assert(!heading[0] && !exists(directory, "room5/jot.md"));
+    app_page_heading(&app, 4, heading, sizeof(heading));
+    assert(!heading[0] && !exists(directory, "5/jot.md"));
     type(&app, ":map\n");
-    assert(app.room_map);
+    assert(app.page_map);
     uint32_t pixels[640 * 480];
     assert(app_paint(&app, pixels, 640, 480, 640));
     assert(app.map_width > 0 && app.map_width == app.map_height);
     assert(app_paint(&app, pixels, 120, 90, 120)); /* too small for keys: draws none */
     type(&app, "x");
-    assert(app.room_map && !strcmp(app.editor.text, "one\ntwo"));
+    assert(app.page_map && !strcmp(app.editor.text, "one\ntwo"));
     type(&app, "3");
-    assert(!app.room_map && app.room == 2 && strstr(app.editor.text, "milk"));
+    assert(!app.page_map && app.current == 2 && strstr(app.editor.text, "milk"));
     type(&app, ":map\n\x1b");
-    assert(!app.room_map && app.room == 2);
-    /* Arrows or hjkl move the selection from the shown room, stopping at the edges, and
-     * Enter shows the selected room. */
+    assert(!app.page_map && app.current == 2);
+    /* Arrows or hjkl move the selection from the shown page, stopping at the edges, and
+     * Enter shows the selected page. */
     type(&app, ":map\n");
-    assert(app.room_map && app.map_choice == 2);
+    assert(app.page_map && app.map_choice == 2);
     app_input(&app, KEY_RIGHT, "");
     assert(app.map_choice == 2);
     app_input(&app, KEY_UP, "");
     app_input(&app, KEY_UP, "");
     app_input(&app, KEY_UP, "");
-    assert(app.map_choice == 8 && app.room == 2 && app.room_map);
+    assert(app.map_choice == 8 && app.current == 2 && app.page_map);
     app_input(&app, KEY_LEFT, "");
     app_input(&app, KEY_DOWN, "");
     assert(app.map_choice == 4);
     type(&app, "hjkl");
-    assert(app.map_choice == 4 && app.room == 2 && strstr(app.editor.text, "milk"));
+    assert(app.map_choice == 4 && app.current == 2 && strstr(app.editor.text, "milk"));
     type(&app, "hj");
     assert(app.map_choice == 0);
     app_input(&app, KEY_ENTER, "");
-    assert(!app.room_map && app.room == 0 && !strcmp(app.editor.text, "one\ntwo"));
-    app_input(&app, KEY_ROOM, "3");
-    /* Clicking a cell shows that room; dragging on doesn't start a selection there. */
+    assert(!app.page_map && app.current == 0 && !strcmp(app.editor.text, "one\ntwo"));
+    app_input(&app, KEY_PAGE, "3");
+    /* Clicking a cell shows that page; dragging on doesn't start a selection there. */
     type(&app, ":map\n");
     assert(app_paint(&app, pixels, 640, 480, 640));
     app_pointer(&app, app.map_x + app.map_width + app.map_gap + app.map_width / 2,
                 app.map_y + app.map_height + app.map_gap + 2, false);
-    assert(!app.room_map && app.room == 4);
+    assert(!app.page_map && app.current == 4);
     app_pointer(&app, 10, 10, true);
     assert(app.editor.mode == NORMAL);
     app_pointer_release(&app);
-    /* Each room has its own assets: the same name in two rooms is two files, and saving a
-     * room cleans up only its own. */
-    char assets[1200], room_assets[1200];
-    snprintf(assets, sizeof(assets), "%s/assets", directory);
-    snprintf(room_assets, sizeof(room_assets), "%s/room3/assets", directory);
-    write_room(assets, "a.png", "png");
-    write_room(room_assets, "a.png", "png");
-    app_input(&app, KEY_ROOM, "3");
+    /* Each page has its own assets: the same name in two pages is two files, and saving a
+     * page cleans up only its own. */
+    char assets[1200], page_assets[1200];
+    snprintf(assets, sizeof(assets), "%s/1/assets", directory);
+    snprintf(page_assets, sizeof(page_assets), "%s/3/assets", directory);
+    write_file(assets, "a.png", "png");
+    write_file(page_assets, "a.png", "png");
+    app_input(&app, KEY_PAGE, "3");
     char *image = session_path(&app, "assets/a.png");
-    assert(image && strstr(image, "room3"));
+    assert(image && strstr(image, "/3/assets/"));
     free(image);
     type(&app, "Go![](assets/a.png)\x1b:w\n");
-    app_input(&app, KEY_ROOM, "1");
+    app_input(&app, KEY_PAGE, "1");
     image = session_path(&app, "assets/a.png");
-    assert(image && !strstr(image, "room3"));
+    assert(image && !strstr(image, "/3/assets/"));
     free(image);
     type(&app, "Go![](assets/a.png)\x1b");
     assert(app_paint(&app, pixels, 640, 480, 640));
     type(&app, "dd:w\n");
-    assert(!exists(assets, "a.png") && exists(room_assets, "a.png"));
-    app_input(&app, KEY_ROOM, "3");
+    assert(!exists(assets, "a.png") && exists(page_assets, "a.png"));
+    app_input(&app, KEY_PAGE, "3");
     type(&app, "dd:w\n");
-    assert(!strstr(app.editor.text, "a.png") && !exists(room_assets, "a.png"));
-    /* A hidden room picks up outside edits when shown again, unless it has its own. */
-    app_input(&app, KEY_ROOM, "4");
-    write_room(directory, "room4/jot.md", "# Changed\n");
-    app_input(&app, KEY_ROOM, "1");
-    app_input(&app, KEY_ROOM, "4");
+    assert(!strstr(app.editor.text, "a.png") && !exists(page_assets, "a.png"));
+    /* A hidden page picks up outside edits when shown again, unless it has its own. */
+    app_input(&app, KEY_PAGE, "4");
+    write_file(directory, "4/jot.md", "# Changed\n");
+    app_input(&app, KEY_PAGE, "1");
+    app_input(&app, KEY_PAGE, "4");
     assert(!strcmp(app.editor.text, "# Changed\n"));
     app_close(&app);
-    /* Saved rooms come back after a restart; unsaved, untouched rooms leave no file. */
+    /* Saved pages come back after a restart; unsaved, untouched pages leave no file. */
     assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
-    assert(app.room == 0 && !strcmp(app.editor.text, "one\ntwo"));
-    app_input(&app, KEY_ROOM, "3");
+    assert(app.current == 0 && !strcmp(app.editor.text, "one\ntwo"));
+    app_input(&app, KEY_PAGE, "3");
     assert(!strcmp(app.editor.text, "# Groceries #\nmilk") &&
            app.editor.cursor == app.editor.length && app.follow_cursor);
-    assert(!exists(directory, "room5/jot.md") && !exists(directory, "room2/jot.md"));
+    assert(!exists(directory, "5/jot.md") && !exists(directory, "2/jot.md"));
     app_close(&app);
-    /* Explicit files have no rooms. */
+    /* Explicit files have no pages. */
     char file[1200];
     snprintf(file, sizeof(file), "%s/note.txt", directory);
     assert(app_open(&app, file));
-    app_input(&app, KEY_ROOM, "2");
-    assert(app.room == 0 && strstr(app.editor.message, "only available in pages"));
+    app_input(&app, KEY_PAGE, "2");
+    assert(app.current == 0 && strstr(app.editor.message, "not a single file"));
     type(&app, ":map\n");
-    assert(!app.room_map && strstr(app.editor.message, "only available in pages"));
+    assert(!app.page_map && strstr(app.editor.message, "not a single file"));
     app_close(&app);
-    for (unsigned room = 2; room <= 9; ++room)
-        for (unsigned i = 0; i < 3; ++i) {
-            char path[1300];
-            snprintf(path, sizeof(path), "%s/room%u%s", directory, room,
-                     i == 0 ? "/jot.md" : i == 1 ? "/assets" : "");
-            remove_file(path);
-            remove_folder(path);
-        }
-    const char *files[] = {"jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", "assets", NULL};
-    for (unsigned i = 0; files[i]; ++i) {
-        char path[1300];
-        snprintf(path, sizeof(path), "%s/%s", directory, files[i]);
+    remove_notes(directory);
+}
+static void set_env(const char *name, const char *value)
+{
+#ifdef _WIN32
+    char setting[1300];
+    snprintf(setting, sizeof(setting), "%s=%s", name, value ? value : "");
+    _putenv(setting);
+    SetEnvironmentVariableA(name, value);
+#else
+    if (value)
+        setenv(name, value, 1);
+    else
+        unsetenv(name);
+#endif
+}
+/* A page number opens $JOT_DIR at that page; no number opens page 1. */
+static void numbered_start(const char *parent)
+{
+    char directory[1100];
+    snprintf(directory, sizeof(directory), "%s/numbered", parent);
+    set_env("JOT_DIR", directory);
+    struct app app;
+    assert(app_open(&app, NULL) && session_open(&app, "6") == 1);
+    assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
+    app_input(&app, KEY_PAGE, "1");
+    assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
+    app_close(&app);
+    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
+    assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
+    app_close(&app);
+    set_env("JOT_DIR", NULL);
+    assert(exists(directory, "6/jot.md") && exists(directory, "AGENTS.md"));
+    remove_notes(directory);
+}
+/* The old default/ page becomes page 1 and its rooms pages 2 to 9, keeping every file. */
+static void old_layout(const char *parent)
+{
+    char directory[1100];
+    snprintf(directory, sizeof(directory), "%s/old", parent);
+    write_file(directory, "default/jot.md", "# Mine\nkeep this\n");
+    write_file(directory, "default/assets/shot.png", "png");
+    write_file(directory, "default/AGENTS.md", "old notes");
+    write_file(directory, "default/room2/jot.md", "# Other stuff\n");
+    struct app app;
+    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(!strcmp(app.editor.text, "# Mine\nkeep this\n") && !app.editor.modified);
+    assert(exists(directory, "1/assets/shot.png") && exists(directory, "1/AGENTS.md"));
+    assert(!exists(directory, "default/jot.md"));
+    app_input(&app, KEY_PAGE, "2");
+    assert(!strcmp(app.editor.text, "# Other stuff\n"));
+    app_close(&app);
+    /* Once 1/ exists, a default/ folder is left alone. */
+    write_file(directory, "default/jot.md", "later");
+    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(!strcmp(app.editor.text, "# Mine\nkeep this\n"));
+    app_close(&app);
+    char path[1300];
+    const char *extra[] = {"default/jot.md", "1/assets/shot.png", "1/AGENTS.md"};
+    for (unsigned i = 0; i < 3; ++i) {
+        snprintf(path, sizeof(path), "%s/%s", directory, extra[i]);
         remove_file(path);
-        remove_folder(path);
     }
-    remove_folder(directory);
+    snprintf(path, sizeof(path), "%s/default", directory);
+    remove_folder(path);
+    remove_notes(directory);
+    snprintf(path, sizeof(path), "%s/1", directory);
+    assert(!exists(path, "jot.md"));
 }
 int main(void)
 {
@@ -245,7 +316,10 @@ int main(void)
     assert(app_open(&second, NULL));
     assert(session_open(&second, directory) == 0);
     app_close(&second);
-    char *page = session_path(&app, "jot.md"), *agents = session_path(&app, "AGENTS.md");
+    /* Pages live in 1/ to 9/; the agent notes and lock belong to the whole folder. */
+    char *page = session_path(&app, "jot.md"), *agents = malloc(strlen(directory) + 16);
+    assert(page && agents && strstr(page, "/1/jot.md"));
+    sprintf(agents, "%s/AGENTS.md", directory);
     size_t n;
     char *text = session_read(agents, 8192, &n);
     assert(text && strstr(text, "OCR"));
@@ -304,7 +378,9 @@ int main(void)
     assert(text && strstr(text, "font_size = 23\n") && strstr(text, "width = 900\n") &&
            strstr(text, "maximized = true\n"));
     free(text);
-    char *state = session_path(&(struct app){.directory = directory}, ".tinyvi-state");
+    char first_page[1100];
+    snprintf(first_page, sizeof(first_page), "%s/1", directory);
+    char *state = session_path(&(struct app){.directory = first_page}, ".tinyvi-state");
     assert(state && !session_read(state, 256, &n));
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
@@ -449,15 +525,10 @@ int main(void)
     text = session_read(settings, 4096, &n);
     assert(text && strstr(text, "colorscheme = tokyonight\n"));
     free(text);
-    rooms(directory);
-    const char *other_files[] = {"jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", "assets", NULL};
-    for (unsigned i = 0; other_files[i]; ++i) {
-        char path[1300];
-        snprintf(path, sizeof(path), "%s/%s", other, other_files[i]);
-        remove_file(path);
-        remove_folder(path);
-    }
-    remove_folder(other);
+    pages(directory);
+    numbered_start(directory);
+    old_layout(directory);
+    remove_notes(other);
     remove_file(settings);
     char *folder = session_config_directory();
     remove_folder(folder);
@@ -468,27 +539,6 @@ int main(void)
     free(page);
     free(agents);
     /* Remove only the known files in this unique test directory. */
-    const char *files[] = {"jot.md",        "AGENTS.md", "CLAUDE.md", ".tinyvi.lock",
-                           ".tinyvi-state", "assets",    NULL};
-    for (unsigned i = 0; files[i]; ++i) {
-        char path[1200];
-        snprintf(path, sizeof(path), "%s/%s", directory, files[i]);
-#ifdef _WIN32
-        wchar_t *w = windows_path(path);
-        if (!DeleteFileW(w))
-            RemoveDirectoryW(w);
-        free(w);
-#else
-        if (unlink(path))
-            rmdir(path);
-#endif
-    }
-#ifdef _WIN32
-    wchar_t *w = windows_path(directory);
-    RemoveDirectoryW(w);
-    free(w);
-#else
-    rmdir(directory);
-#endif
+    remove_notes(directory);
     puts("Private pages, ownership, manual saves/close protection, external reload and preferences passed");
 }

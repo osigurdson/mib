@@ -31,17 +31,17 @@ static void remove_dir(const char *path)
     assert(!rmdir(path));
 #endif
 }
-/* Each room keeps images in its own folder; yanking an image in one room and pasting it in
- * another copies the file into the second room's assets. */
-static void rooms_test(const char *root, const unsigned char *png, size_t bytes)
+/* Each page keeps images in its own folder; yanking an image in one page and pasting it in
+ * another copies the file into the second page's assets. */
+static void pages_test(const char *root, const unsigned char *png, size_t bytes)
 {
     char directory[1200];
-    snprintf(directory, sizeof(directory), "%s/rooms", root);
+    snprintf(directory, sizeof(directory), "%s/pages", root);
     struct app app;
     assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
     assert(media_paste_image(&app, png, bytes));
     char *first = media_target(&app);
-    assert(first && strstr(first, "/assets/") && !strstr(first, "room2"));
+    assert(first && strstr(first, "/1/assets/"));
     app.editor.mode = NORMAL;
     app.editor.cursor = 0;
     app_input(&app, KEY_TEXT, "y");
@@ -50,30 +50,30 @@ static void rooms_test(const char *root, const unsigned char *png, size_t bytes)
     char *fragment = media_fragment(&app, &length);
     assert(fragment);
     app_input(&app, KEY_CTRL_S, "");
-    assert(app_room_switch(&app, 1));
+    assert(app_page_switch(&app, 1));
     assert(media_paste_fragment(&app, (unsigned char *)fragment, length));
     free(fragment);
     app.editor.cursor = (size_t)(strstr(app.editor.text, "![](") - app.editor.text);
     const struct media_entry *copied = media_at(&app, app.editor.cursor);
     assert(copied && copied->width == 320);
     char *second = media_target(&app);
-    assert(second && strstr(second, "room2") && exists(second) && exists(first));
+    assert(second && strstr(second, "/2/assets/") && exists(second) && exists(first));
     app_input(&app, KEY_CTRL_S, "");
-    /* Removing the copy from room 2 leaves room 1's image alone. */
+    /* Removing the copy from page 2 leaves page 1's image alone. */
     app_input(&app, KEY_TEXT, "d");
     app_input(&app, KEY_TEXT, "d");
     app_input(&app, KEY_CTRL_S, "");
     assert(!exists(second) && exists(first));
     app_close(&app);
     char path[1300];
-    const char *files[] = {"room2/jot.md", "jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock"};
+    const char *files[] = {"2/jot.md", "1/jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock"};
     for (unsigned i = 0; i < 5; ++i) {
         snprintf(path, sizeof(path), "%s/%s", directory, files[i]);
         assert(platform_file_remove(path));
     }
     assert(platform_file_remove(first));
-    const char *folders[] = {"room2/assets", "room2", "assets", ""};
-    for (unsigned i = 0; i < 4; ++i) {
+    const char *folders[] = {"2/assets", "2", "1/assets", "1", ""};
+    for (unsigned i = 0; i < 5; ++i) {
         snprintf(path, sizeof(path), "%s/%s", directory, folders[i]);
         remove_dir(path);
     }
@@ -183,24 +183,18 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     free(txt);
     free(tsv);
     /* Leave no temporary page files behind. */
-    const char *files[] = {"jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", ".tinyvi-state"};
+    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock"};
     for (unsigned i = 0; i < sizeof(files) / sizeof(files[0]); ++i) {
         char full[1400];
         snprintf(full, sizeof(full), "%s/%s", directory, files[i]);
         assert(platform_file_remove(full));
     }
-#ifdef _WIN32
-    char assets[1300];
-    snprintf(assets, sizeof(assets), "%s/assets", directory);
-    wchar_t *wa = windows_path(assets), *wd = windows_path(directory);
-    assert(RemoveDirectoryW(wa) && RemoveDirectoryW(wd));
-    free(wa);
-    free(wd);
-#else
-    char assets[1300];
-    snprintf(assets, sizeof(assets), "%s/assets", directory);
-    assert(!rmdir(assets) && !rmdir(directory));
-#endif
+    const char *folders[] = {"1/assets", "1", ""};
+    for (unsigned i = 0; i < 3; ++i) {
+        char full[1400];
+        snprintf(full, sizeof(full), "%s/%s", directory, folders[i]);
+        remove_dir(full);
+    }
 }
 static void image_typing_test(const char *directory, const unsigned char *png, size_t bytes)
 {
@@ -528,7 +522,7 @@ int main(int argc, char **argv)
     image_typing_test(directory, png, bytes);
     resize_test(directory, png, bytes);
     cleanup_test(directory, png, bytes);
-    rooms_test(directory, png, bytes);
+    pages_test(directory, png, bytes);
     int w, h;
     assert(image_info(png, bytes, &w, &h) && w == 320 && h == 180);
     struct image image = {0};
@@ -723,10 +717,9 @@ int main(int argc, char **argv)
     free(other_assets);
     free(other_directory);
     app_close(&app);
-    const char *files[] = {"jot.md",        "AGENTS.md", "CLAUDE.md", ".tinyvi.lock",
-                           ".tinyvi-state", name,        NULL};
+    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", name, NULL};
     for (unsigned i = 0; files[i]; ++i) {
-        snprintf(relative, sizeof(relative), "%s", files[i]);
+        snprintf(relative, sizeof(relative), "%s%s", files[i] == name ? "1/" : "", files[i]);
         char full[1400];
         snprintf(full, sizeof(full), "%s/%s", directory, relative);
 #ifdef _WIN32
@@ -739,7 +732,7 @@ int main(int argc, char **argv)
     }
     for (unsigned i = 0; i < 2; ++i) {
         char full[1400];
-        snprintf(full, sizeof(full), "%s/%s.%s", directory, name, i ? "tsv" : "txt");
+        snprintf(full, sizeof(full), "%s/1/%s.%s", directory, name, i ? "tsv" : "txt");
 #ifdef _WIN32
         wchar_t *w = windows_path(full);
         DeleteFileW(w);
@@ -748,16 +741,20 @@ int main(int argc, char **argv)
         unlink(full);
 #endif
     }
-    char assets[1200];
-    snprintf(assets, sizeof(assets), "%s/assets", directory);
+    char assets[1200], first[1200];
+    snprintf(assets, sizeof(assets), "%s/1/assets", directory);
+    snprintf(first, sizeof(first), "%s/1", directory);
 #ifdef _WIN32
-    wchar_t *wa = windows_path(assets), *wd = windows_path(directory);
+    wchar_t *wa = windows_path(assets), *wf = windows_path(first), *wd = windows_path(directory);
     RemoveDirectoryW(wa);
+    RemoveDirectoryW(wf);
     RemoveDirectoryW(wd);
     free(wa);
+    free(wf);
     free(wd);
 #else
     rmdir(assets);
+    rmdir(first);
     rmdir(directory);
 #endif
     puts("Bounded image codec, assets, inline rendering/scales, OCR search and undo passed");

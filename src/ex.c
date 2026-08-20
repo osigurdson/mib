@@ -52,16 +52,16 @@ static size_t address(struct editor *ed, const char **input, bool *present)
     *input = p;
     return line;
 }
-/* Quitting closes every room, so unsaved changes in another room block it too. */
+/* Quitting closes every page, so unsaved changes in another page block it too. */
 static void quit(struct editor *ed)
 {
-    unsigned room = ed->other_modified;
+    unsigned page = ed->other_modified;
     if (ed->modified)
         snprintf(ed->message, sizeof(ed->message),
                  "Unsaved changes (:w to save, :q! to discard)");
-    else if (room)
+    else if (page)
         snprintf(ed->message, sizeof(ed->message),
-                 "Unsaved changes in room %u (Alt+%u to visit, :q! to discard)", room, room);
+                 "Unsaved changes in page %u (Alt+%u to visit, :q! to discard)", page, page);
     else
         ed->quit = true;
 }
@@ -133,7 +133,7 @@ void editor_command(struct editor *ed, const char *command)
     else if (!strcmp(p, "map")) {
         if (argument && *argument)
             goto unknown;
-        ed->requests |= ED_ROOM_MAP;
+        ed->requests |= ED_PAGE_MAP;
     } else if (!strcmp(p, "e!"))
         editor_reload(ed);
     else if (!strcmp(p, "u") || !strcmp(p, "undo"))

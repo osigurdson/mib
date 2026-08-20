@@ -36,9 +36,9 @@ static void press_alt(struct wayland_client *client, xkb_keysym_t symbol, bool n
     assert(!"Could not map keysym");
 }
 
-/* Alt+1 to Alt+9 reach the app as KEY_ROOM from the number row and the keypad. An explicit
- * file has no rooms, so each press reports that instead of typing. */
-static void room_keys(void)
+/* Alt+1 to Alt+9 reach the app as KEY_PAGE from the number row and the keypad. An explicit
+ * file has no pages, so each press reports that instead of typing. */
+static void page_keys(void)
 {
     struct app app = {.running = true};
     assert(editor_open(&app.editor, NULL));
@@ -57,7 +57,7 @@ static void room_keys(void)
         for (unsigned i = 0; i < 3; ++i) {
             app.editor.message[0] = 0;
             press_alt(&client, keys[i], i == 1);
-            assert(strstr(app.editor.message, "only available in pages") && !app.editor.length);
+            assert(strstr(app.editor.message, "not a single file") && !app.editor.length);
         }
         xkb_state_unref(client.xkb_state); xkb_keymap_unref(client.xkb_keymap);
     }
@@ -423,7 +423,7 @@ int main(int argc, char **argv)
 {
     frame_limit();
     pending_buffer_cleanup();
-    room_keys();
+    page_keys();
     decorations();
     resize_protocol();
     region_protocol();

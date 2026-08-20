@@ -22,9 +22,10 @@ the Wayland server development package; Tesseract tests are optional. Normal bui
 ```sh
 make
 ./.build/linux/jot notes.txt
-# Open a scratch page:
+# Open the notes folder at page 1, or at page 3:
 ./.build/linux/jot
-./.build/linux/jot work
+./.build/linux/jot 3
+# Use another folder for the nine pages:
 ./.build/linux/jot --page ./scratch
 # Or start an unnamed, manually saved buffer:
 ./.build/linux/jot --file -
@@ -75,16 +76,17 @@ or client-drawn shadow.
 
 Run inside a Wayland session. File-looking arguments (a name with an extension)
 open explicit files; missing files start empty. `--file path` forces that mode.
-Other arguments follow jot's page conventions: no argument uses `$JOT_DIR` or
-`~/Documents/jot/default` (`~/jot/default` without Documents), a bare name chooses
-a sibling page, and a path chooses a page folder. `--page folder` forces page
-mode. Pages contain `jot.md`, private `assets/`, and agent instructions on first
-creation. Each page has nine scratchpad rooms arranged like a numeric keypad: `Alt+1` to
-`Alt+9` in normal mode switch between them, and `:map` shows them all, labeled by their
-first `# Heading`. Room 1 is the page folder itself; rooms 2 to 9 are its `room2/` to
-`room9/` subfolders, each with its own `jot.md` and `assets/` (see [Rooms](docs/keys.md#rooms)). Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external
-changes on focus when no local edits are pending. One process owns a page; a
-second launch requests activation of that window. Pages and explicit files both
+Otherwise Jot opens its notes folder: `$JOT_DIR`, or `~/Documents/jot` (`~/jot`
+without Documents). The folder holds nine pages, `1/` to `9/`, each with its own
+`jot.md` and private `assets/`. `jot` shows page 1 and `jot 3` shows page 3; a path
+(or `--page folder`) uses that folder instead. `Alt+1` to `Alt+9` in normal mode switch
+pages, and `:map` shows all nine as a numeric keypad labeled by their first `# Heading`
+(see [Pages](docs/keys.md#pages)). Agent instructions are written to the notes folder
+when it is created. A folder from before numbered pages has its `default/` page moved to
+`1/` (and `default/room2/` to `default/room9/` to `2/` to `9/`) the first time it opens.
+Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external changes on focus when
+no local edits are pending. One process owns the notes folder; a second launch requests
+activation of that window. Pages and explicit files both
 protect unsaved changes on quit.
 
 Markdown presentation supports headings, nested bullet/numbered/task lists,

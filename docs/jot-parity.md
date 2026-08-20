@@ -16,9 +16,9 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
   failed search retries when OCR completes; another editing/navigation key cancels the retry.
 - Ex ranges, capture substitutions, command history, save/reload/quit,
   line numbers, Markdown toggles, folder opening and zoom.
-- Default/named/path scratch pages, private Linux folders, agent instructions
-  created only for fresh pages, explicit saves, focus reload,
-  persisted dimensions/maximized/font/options and one owner per page.
+- Nine numbered scratch pages in a default or path notes folder, private Linux folders,
+  agent instructions created only for fresh folders, explicit saves, focus reload,
+  persisted dimensions/maximized/font/options and one owner per notes folder.
 - Native text/image clipboard, cut/yank/put and visual replacement, PNG/JPEG
   file import, URI/file drops, inline images, image/link opening and image
   Open/Copy Text context actions. Image copy also offers plain Markdown text.
@@ -39,8 +39,9 @@ it. `tests/vim-compare.toml` lists the known differences from Vim.
 Explicit files retain manual saves and unsaved-change protection. A filename
 extension selects file mode for compatibility; `--file path` forces file mode,
 `--file -` starts an unnamed buffer and `--page folder` forces a scratch page.
-No argument uses `$JOT_DIR` or `~/Documents/jot/default` (`~/jot/default` without
-Documents). Other arguments follow jot's named/path page conventions.
+No argument uses `$JOT_DIR` or `~/Documents/jot` (`~/jot` without Documents), holding
+pages `1/` to `9/`; a page number chooses the first page shown and a path another notes
+folder. Named pages are replaced by the nine numbered ones.
 
 ## Image deletion and saving
 
