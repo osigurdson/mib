@@ -397,10 +397,15 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
     struct image image = {0};
     if (available_width < 1 || available_height < 1 || !media_pixels(app, entry, &image))
         return;
-    int w = image.width, h = image.height;
-    if (w > available_width) {
-        h = (int)((int64_t)h * available_width / w);
-        w = available_width;
+    int w, h;
+    media_display_size(app, entry, available_width, &w, &h);
+    if (w < 1 || h < 1) {
+        w = image.width;
+        h = image.height;
+        if (w > available_width) {
+            h = (int)((int64_t)h * available_width / w);
+            w = available_width;
+        }
     }
     if (h > available_height) {
         w = (int)((int64_t)w * available_height / h);
@@ -425,6 +430,14 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
             pixels[at] = blend(pixels[at], p[3], color);
         }
     media_highlight(app, entry, pixels, width, height, stride, x, y, w, h);
+    if (selected && media_at(app, app->editor.cursor) == entry) {
+        app->image_box = true;
+        app->image_box_start = entry->start;
+        app->image_box_x = x;
+        app->image_box_y = y;
+        app->image_box_w = w;
+        app->image_box_h = h;
+    }
     if (selected) {
         /* Corner handles keep selection visible against light or busy images. */
         for (int corner = 0; corner < 4; ++corner)
@@ -921,6 +934,7 @@ bool app_paint(struct app *app, uint32_t *pixels, int width, int height, int str
         app->font = tiny_font_open();
     if (!app->font)
         return false;
+    app->image_box = false;
     bool ok = paint(app, pixels, width, height, stride);
     if (ok)
         window_corners(app, pixels, width, height, stride);

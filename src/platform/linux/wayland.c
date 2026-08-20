@@ -658,6 +658,14 @@ static uint32_t resize_edge(const struct wayland_client *client, int x, int y)
 }
 static uint32_t pointer_shape(const struct wayland_client *client)
 {
+    const struct app *app = client->app;
+    int corner = app->image_drag ? app->drag_corner
+                 : client->dragging || resize_edge(client, client->pointer_x, client->pointer_y)
+                     ? -1
+                     : app_image_corner(app, client->pointer_x, client->pointer_y);
+    if (corner >= 0)
+        return corner == 0 || corner == 3 ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NWSE_RESIZE
+                                          : WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE;
     if (client->dragging || client->app->title_pressed != TITLE_NONE)
         return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
     switch (resize_edge(client, client->pointer_x, client->pointer_y)) {
@@ -721,6 +729,7 @@ static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t seria
     (void)surface;
     struct wayland_client *client = data;
     client->dragging = false;
+    app_pointer_release(client->app);
     if (client->app->title_pressed != TITLE_NONE)
         client->app->dirty = true;
     client->app->title_pressed = TITLE_NONE;
@@ -816,8 +825,10 @@ static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t seri
     (void)time;
     struct wayland_client *c = data;
     c->serial = serial;
-    if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_RELEASED)
+    if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_RELEASED) {
         c->dragging = false;
+        app_pointer_release(c->app);
+    }
     if (decoration_button(c, serial, time, button, state)) {
         update_cursor(c);
         return;
@@ -839,11 +850,12 @@ static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t seri
             bool twice = c->last_click && time - c->last_click < 400 &&
                          abs(c->pointer_x - c->last_click_x) < 4 &&
                          abs(c->pointer_y - c->last_click_y) < 4;
-            if (!menu && (control || twice)) {
+            bool resizing = c->app->image_drag;
+            if (!menu && !resizing && (control || twice)) {
                 linux_service(c->app, ED_OPEN, c);
                 c->dragging = false;
             }
-            c->last_click = twice ? 0 : time;
+            c->last_click = twice || resizing ? 0 : time;
             c->last_click_x = c->pointer_x;
             c->last_click_y = c->pointer_y;
         }

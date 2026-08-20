@@ -90,6 +90,10 @@ struct editor {
     uint64_t revision, saved_hash, search_serial;
     size_t (*extra_search)(const struct editor *, size_t, bool, void *);
     void *extra_search_data;
+    /* Sets the width of the image at a position: "" resets it, "N" or "N%" sets it, and
+     * "+N", "-N", "+N%" or "-N%" change it. Returns false when no image is there. */
+    bool (*image_resize)(struct editor *, size_t, const char *, void *);
+    void *image_resize_data;
     void (*on_save)(void *);
     void *on_save_data;
     struct edit_history *history;

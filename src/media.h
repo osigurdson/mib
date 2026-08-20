@@ -7,6 +7,10 @@ struct media_entry {
     size_t start, end;
     char name[256];
     int width, height;
+    /* Width from Obsidian's "![alt|300](...)" size suffix in logical pixels, or 0. The
+     * suffix (including its "|") runs from alt_size to the closing bracket at alt_end. */
+    int size;
+    size_t alt_size, alt_end;
     bool ocr_done;
 };
 void media_close(struct app *app);
@@ -17,6 +21,11 @@ void media_tick(struct app *app);
 const struct media_entry *media_at(struct app *app, size_t position);
 int media_rows(struct app *app, size_t position, int available_width, int line_height,
                int max_rows);
+/* Physical size an image is drawn at, fitted to available_width when that is positive. */
+void media_display_size(struct app *app, const struct media_entry *entry, int available_width,
+                        int *width, int *height);
+/* The editor's image_resize hook; see struct editor. */
+bool media_resize(struct editor *ed, size_t position, const char *spec, void *data);
 bool media_pixels(struct app *app, const struct media_entry *entry, struct image *image);
 char *media_clipboard_image(struct app *app, size_t *length);
 char *media_target(struct app *app);

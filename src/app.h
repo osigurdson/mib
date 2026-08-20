@@ -32,6 +32,12 @@ struct app {
     unsigned font_size;
     int cell, line_height, padding, gutter, view_width, title_height;
     int text_x, text_width, text_height;
+    /* The selected image's box from the last paint, in physical pixels, and a corner drag
+     * resizing it: drag_width previews the new width until the button is released. */
+    bool image_box, image_drag;
+    size_t image_box_start;
+    int image_box_x, image_box_y, image_box_w, image_box_h;
+    int drag_corner, drag_x, drag_y, drag_width, drag_origin_width, drag_origin_height;
 };
 size_t app_view_next(struct app *app, size_t start);
 int app_view_rows(struct app *app, size_t start);
@@ -45,6 +51,11 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y);
 void app_scroll(struct app *app, int rows);
 void app_context(struct app *app, int x, int y);
 void app_pointer(struct app *app, int x, int y, bool extend);
+/* The left button was released; finishes an image resize drag. */
+void app_pointer_release(struct app *app);
+/* The selected image's corner handle (0 top left, 1 top right, 2 bottom left, 3 bottom
+ * right) under a logical position, or -1. */
+int app_image_corner(const struct app *app, int x, int y);
 int app_main(int argc, char **argv);
 bool app_open(struct app *app, const char *filename);
 void app_close(struct app *app);

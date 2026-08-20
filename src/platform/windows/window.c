@@ -238,7 +238,12 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
     case WM_LBUTTONDBLCLK:
         app_pointer(window->app, MulDiv((short)LOWORD(lparam), 96, (int)window->dpi),
                     MulDiv((short)HIWORD(lparam), 96, (int)window->dpi), false);
-        windows_service(window->app, ED_OPEN, window);
+        if (window->app->image_drag) {
+            /* A double click on a corner handle starts a resize, not Open Image. */
+            window->dragging = true;
+            SetCapture(handle);
+        } else
+            windows_service(window->app, ED_OPEN, window);
         changed(window);
         return 0;
     case WM_DROPFILES:
@@ -256,7 +261,7 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         SetCapture(handle);
         app_pointer(window->app, MulDiv((short)LOWORD(lparam), 96, (int)window->dpi),
                     MulDiv((short)HIWORD(lparam), 96, (int)window->dpi), (wparam & MK_SHIFT) != 0);
-        if (menu || GetKeyState(VK_CONTROL) < 0) {
+        if (!window->app->image_drag && (menu || GetKeyState(VK_CONTROL) < 0)) {
             if (!menu)
                 windows_service(window->app, ED_OPEN, window);
             window->dragging = false;
@@ -275,7 +280,33 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
     case WM_LBUTTONUP:
         window->dragging = false;
         ReleaseCapture();
+        if (window->app->image_drag) {
+            app_pointer_release(window->app);
+            changed(window);
+        }
         return 0;
+    case WM_CAPTURECHANGED:
+        window->dragging = false;
+        if (window->app->image_drag) {
+            app_pointer_release(window->app);
+            changed(window);
+        }
+        break;
+    case WM_SETCURSOR:
+        if (LOWORD(lparam) == HTCLIENT) {
+            POINT point;
+            GetCursorPos(&point);
+            ScreenToClient(handle, &point);
+            int corner = window->app->image_drag
+                             ? window->app->drag_corner
+                             : app_image_corner(window->app, MulDiv(point.x, 96, (int)window->dpi),
+                                                MulDiv(point.y, 96, (int)window->dpi));
+            if (corner >= 0) {
+                SetCursor(LoadCursorW(NULL, corner == 0 || corner == 3 ? IDC_SIZENWSE : IDC_SIZENESW));
+                return TRUE;
+            }
+        }
+        break;
     case WM_KEYDOWN: {
         enum editor_key key;
         if (GetKeyState(VK_CONTROL) < 0 &&

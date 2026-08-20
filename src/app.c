@@ -105,6 +105,9 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         snprintf(image_name, sizeof(image_name), "%s", selected_image->name);
     app->editor.extra_search = app->editor.render_mode == RENDER_RAW ? NULL : media_search;
     app->editor.extra_search_data = app;
+    /* Set on every key: opening a page replaces the editor and its hooks. */
+    app->editor.image_resize = media_resize;
+    app->editor.image_resize_data = app;
     bool insert = app->editor.mode == INSERT;
     bool block_view = app->editor.render_mode == RENDER_NORMAL;
     bool block_delete_key = key == KEY_DELETE ||
@@ -216,11 +219,81 @@ void app_scroll(struct app *app, int rows)
     app->follow_cursor = false;
     app->dirty = true;
 }
+int app_image_corner(const struct app *app, int x, int y)
+{
+    if (!app->image_box || app->editor.render_mode != RENDER_NORMAL)
+        return -1;
+    int64_t scale = app->scale120 ? app->scale120 : 120;
+    int px = (int)(x * scale / 120), py = (int)(y * scale / 120);
+    int reach = (int)(8 * scale / 120);
+    for (int corner = 0; corner < 4; ++corner) {
+        int cx = app->image_box_x + ((corner & 1) ? app->image_box_w : 0);
+        int cy = app->image_box_y + ((corner & 2) ? app->image_box_h : 0);
+        if (abs(px - cx) <= reach && abs(py - cy) <= reach)
+            return corner;
+    }
+    return -1;
+}
+/* Corner drags keep the aspect ratio, following whichever direction moved further. */
+static void drag_image(struct app *app, int x, int y)
+{
+    int64_t scale = app->scale120 ? app->scale120 : 120;
+    int dx = (int)(x * scale / 120) - app->drag_x, dy = (int)(y * scale / 120) - app->drag_y;
+    if (!(app->drag_corner & 1))
+        dx = -dx;
+    if (!(app->drag_corner & 2))
+        dy = -dy;
+    int across = app->drag_origin_height
+                     ? (int)((int64_t)dy * app->drag_origin_width / app->drag_origin_height)
+                     : 0;
+    int width = app->drag_origin_width + (abs(dx) >= abs(across) ? dx : across);
+    int least = (int)(16 * scale / 120);
+    if (app->text_width > 0 && width > app->text_width)
+        width = app->text_width;
+    if (width < least)
+        width = least;
+    app->drag_width = width;
+    app->dirty = true;
+}
+void app_pointer_release(struct app *app)
+{
+    if (!app->image_drag)
+        return;
+    app->image_drag = false;
+    app->dirty = true;
+    if (app->drag_width == app->drag_origin_width)
+        return;
+    int64_t scale = app->scale120 ? app->scale120 : 120;
+    char spec[16];
+    snprintf(spec, sizeof(spec), "%d", (int)((app->drag_width * 120 + scale / 2) / scale));
+    media_resize(&app->editor, app->image_box_start, spec, app);
+}
 void app_pointer(struct app *app, int x, int y, bool extend)
 {
     app->ocr_retry = false;
     app->image_hit = false;
     struct editor *ed = &app->editor;
+    if (app->image_drag) {
+        if (extend)
+            drag_image(app, x, y);
+        return;
+    }
+    int corner = extend || app->context_menu ? -1 : app_image_corner(app, x, y);
+    const struct media_entry *image = corner >= 0 ? media_at(app, app->image_box_start) : NULL;
+    if (image && image == media_at(app, ed->cursor) && !ed->command_active) {
+        int64_t scale = app->scale120 ? app->scale120 : 120;
+        editor_change_end(ed);
+        ed->mode = NORMAL;
+        app->image_drag = true;
+        app->drag_corner = corner;
+        app->drag_x = (int)(x * scale / 120);
+        app->drag_y = (int)(y * scale / 120);
+        app->drag_width = app->drag_origin_width = app->image_box_w;
+        app->drag_origin_height = app->image_box_h;
+        app->dirty = true;
+        app->follow_cursor = false;
+        return;
+    }
     if (app->context_menu && !extend) {
         int px = (int)((int64_t)x * app->scale120 / 120),
             py = (int)((int64_t)y * app->scale120 / 120);

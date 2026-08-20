@@ -1303,6 +1303,15 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         snprintf(ed->message, sizeof(ed->message), "Macros are not supported");
         return;
     }
+    /* On a selected image, + and - change its width by 10% per count and = resets it. */
+    if (!op && !visual && !p[1] && strchr("+-=", *p) && ed->image_resize &&
+        ed->render_mode != RENDER_RAW) {
+        char spec[16] = "";
+        if (*p != '=')
+            snprintf(spec, sizeof(spec), "%c%u%%", *p, (unsigned)min(1000, count * 10));
+        if (ed->image_resize(ed, ed->cursor, spec, ed->image_resize_data))
+            return;
+    }
     if (!op && *p == 'Z') {
         if (p[1] == 'Z' || p[1] == 'Q')
             editor_command(ed, p[1] == 'Z' ? "x" : "q!");

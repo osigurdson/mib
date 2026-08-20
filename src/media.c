@@ -130,6 +130,32 @@ void media_saved(void *context)
                  "Written; %s%s", cleaned ? "image cleanup reset undo/redo" : "",
                  failed ? " (some assets could not be removed)" : "");
 }
+/* Obsidian's size suffix: "alt|300", "alt|300x200" or a bare "300". Returns the width and
+ * where the suffix starts, or 0 when there is none. The height is ignored: Jot keeps the
+ * aspect ratio. */
+static int alt_width(const char *alt, size_t n, size_t *suffix)
+{
+    size_t from = n;
+    while (from && alt[from - 1] != '|')
+        --from;
+    size_t i = from;
+    long width = 0;
+    while (i < n && isdigit((unsigned char)alt[i]) && width <= 100000)
+        width = width * 10 + (alt[i++] - '0');
+    if (i == from || width < 1 || width > 100000)
+        return 0;
+    if (i < n && alt[i] == 'x') {
+        size_t digits = ++i;
+        while (i < n && isdigit((unsigned char)alt[i]))
+            ++i;
+        if (i == digits)
+            return 0;
+    }
+    if (i != n)
+        return 0;
+    *suffix = from ? from - 1 : 0;
+    return (int)width;
+}
 static bool parse(const struct editor *ed, size_t start, size_t end, char *name)
 {
     if (end - start < 14 || ed->text[start] != '!' || ed->text[start + 1] != '[' ||
@@ -177,6 +203,11 @@ void media_sync(struct app *app)
             }
             struct media_entry e = {.start = p, .end = end};
             strcpy(e.name, name);
+            const char *close = memchr(ed->text + p + 2, ']', end - p - 2);
+            e.alt_end = (size_t)(close - ed->text);
+            size_t suffix = 0;
+            e.size = alt_width(ed->text + p + 2, e.alt_end - p - 2, &suffix);
+            e.alt_size = e.size ? p + 2 + suffix : e.alt_end;
             bool cached = false;
             if (old)
                 for (unsigned i = 0; i < old->count; ++i)
@@ -239,15 +270,99 @@ const struct media_entry *media_at(struct app *app, size_t p)
     }
     return NULL;
 }
+void media_display_size(struct app *app, const struct media_entry *e, int available,
+                        int *width, int *height)
+{
+    *width = *height = 0;
+    if (e->width < 1 || e->height < 1)
+        return;
+    int64_t w = e->width;
+    uint32_t scale = app->scale120 ? app->scale120 : 120;
+    if (app->image_drag && app->image_box_start == e->start)
+        w = app->drag_width;
+    else if (e->size)
+        w = (int64_t)e->size * scale / 120;
+    if (available > 0 && w > available)
+        w = available;
+    if (w < 1)
+        w = 1;
+    int64_t h = (int64_t)e->height * w / e->width;
+    *width = (int)w;
+    *height = h > 0 ? (int)h : 1;
+}
+bool media_resize(struct editor *ed, size_t position, const char *spec, void *data)
+{
+    struct app *app = data;
+    const struct media_entry *found = media_at(app, position);
+    if (!found)
+        return false;
+    struct media_entry e = *found;
+    if (!editor_can_edit(ed))
+        return true;
+    if (e.width < 1 || e.height < 1) {
+        snprintf(ed->message, sizeof(ed->message), "Cannot read the image's size");
+        return true;
+    }
+    /* Widths are logical pixels, as in Obsidian; an unsized image shows at one image pixel
+     * per physical pixel. */
+    int64_t scale = app->scale120 ? app->scale120 : 120;
+    int shown, ignored;
+    media_display_size(app, &e, app->text_width, &shown, &ignored);
+    int64_t current = (shown * 120 + scale / 2) / scale;
+    int64_t natural = (e.width * 120 + scale / 2) / scale;
+    int64_t widest = app->text_width > 0 ? app->text_width * 120 / scale : 100000;
+    const char *s = spec;
+    while (*s == ' ')
+        ++s;
+    int64_t width = 0;
+    if (*s) {
+        char sign = *s == '+' || *s == '-' ? *s++ : 0;
+        int64_t n = 0;
+        const char *digits = s;
+        while (isdigit((unsigned char)*s) && n <= 100000)
+            n = n * 10 + (*s++ - '0');
+        bool percent = *s == '%';
+        if (percent)
+            ++s;
+        while (*s == ' ')
+            ++s;
+        if (s == digits || *s || n > 100000) {
+            snprintf(ed->message, sizeof(ed->message), "Use :resize, :resize N, N%%, +N or -N");
+            return true;
+        }
+        int64_t amount = percent ? ((sign ? current : natural) * n + 50) / 100 : n;
+        width = sign == '+' ? current + amount : sign == '-' ? current - amount : amount;
+        if (sign && amount && width == current)
+            width += sign == '+' ? 1 : -1;
+        if (width || sign) {
+            if (width > widest)
+                width = widest;
+            if (width < 16)
+                width = 16;
+        }
+    }
+    char suffix[16] = "";
+    if (width)
+        snprintf(suffix, sizeof(suffix), "|%d", (int)width);
+    size_t cursor = ed->cursor;
+    if (!editor_replace(ed, e.alt_size, e.alt_end, suffix, strlen(suffix)))
+        return true;
+    ed->cursor = cursor < e.alt_size ? cursor : e.start;
+    if (width)
+        snprintf(ed->message, sizeof(ed->message), "Image width %d", (int)width);
+    else
+        snprintf(ed->message, sizeof(ed->message), "Image at its original size");
+    return true;
+}
 int media_rows(struct app *app, size_t p, int width, int line_height, int max_rows)
 {
     const struct media_entry *e = media_at(app, p);
     if (!e || e->width < 1 || e->height < 1 || width < 1 || line_height < 1)
         return 1;
-    int h = e->height;
-    if (e->width > width)
-        h = (int)((int64_t)h * width / e->width);
-    int rows = (h + line_height - 1) / line_height + 1;
+    int w, h;
+    media_display_size(app, e, width, &w, &h);
+    /* The renderer keeps one row and 4 pixels of padding around the image. */
+    int rows = (h + 4 + line_height - 1) / line_height + 1;
     int maximum=max_rows>1?max_rows-1:1;
     if(rows>maximum)rows=maximum;
     return rows > 1 ? rows : 1;

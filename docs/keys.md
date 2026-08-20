@@ -119,6 +119,9 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | Keys | Action |
 |---|---|
 | `i` `I`, `a` `A` | In normal rendering, insert text on a new line above or below the image |
+| `+` `-` | Make the selected image 10% wider or narrower; a count multiplies the step, such as `3+` |
+| `=` | Show the selected image at its original size |
+| Drag a corner | Resize the selected image, keeping its shape |
 | `gx`, double-click | Open the image in your image viewer |
 | `gx`, `Ctrl`+click | Open the link under the cursor |
 | `yy` | Copy the image, ready to paste into other apps |
@@ -127,6 +130,11 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | `Backspace`, `Ctrl+W`, `Ctrl+U` | In insert mode, delete a selected image as a whole block |
 | `p`, `Ctrl+V` | Paste a screenshot from the clipboard |
 | `Ctrl+Shift+C` | Copy the image's text |
+
+Resizing stores the width in logical pixels with Obsidian's syntax, `![|480](assets/x.png)`,
+so Obsidian shows the same size. Jot also reads `![alt|480x300](...)` and `![480](...)`,
+keeps any alt text, and ignores the height so the image keeps its shape. Images never grow
+past the text area. Resizes are one undo step each, and `.` repeats `+`, `-` and `=`.
 
 In normal rendering, typed and pasted text stays on a separate line from an
 image. Pasting an image in insert mode places the cursor after it so you can
@@ -172,6 +180,9 @@ Press `:` to open it. Up and Down browse your history.
 | `:set background?` | Show the background setting |
 | `:colorscheme {name}`, `:colo {name}` | Choose jot, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
+| `:res[ize] {n}`, `:resize {n}%` | Set the image under the cursor to n pixels wide, or n% of its original width |
+| `:resize +{n}`, `:resize -{n}`, `:resize +{n}%` | Widen or narrow the image under the cursor |
+| `:resize` | Show the image under the cursor at its original size |
 | `:Ex` | Open the page's folder in your file manager |
 | `:e!` | Reload the page from disk |
 | `:u`, `:redo` | Undo, redo |

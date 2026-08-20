@@ -275,6 +275,170 @@ static void image_typing_test(const char *directory, const unsigned char *png, s
     assert(platform_file_remove(note_path));
     free(note_path);
 }
+/* The alt text of the first image line, such as "|352" or "shot". */
+static const char *alt(const struct app *app)
+{
+    static char out[64];
+    const char *open = strstr(app->editor.text, "![");
+    const char *close = open ? strstr(open, "](") : NULL;
+    assert(open && close && close - open - 2 < (long)sizeof(out));
+    memcpy(out, open + 2, (size_t)(close - open - 2));
+    out[close - open - 2] = 0;
+    return out;
+}
+static void keys(struct app *app, const char *typed)
+{
+    for (const char *p = typed; *p; ++p) {
+        char key[2] = {*p, 0};
+        app_input(app, KEY_TEXT, key);
+    }
+}
+static void command(struct app *app, const char *line)
+{
+    app_input(app, KEY_TEXT, ":");
+    keys(app, line);
+    app_input(app, KEY_ENTER, "");
+}
+static void resize_test(const char *root, const unsigned char *png, size_t bytes)
+{
+    /* Open a real page: session_open replaces the editor, as the app does at startup. */
+    char directory[1200];
+    snprintf(directory, sizeof(directory), "%s/resize", root);
+    struct app app;
+    assert(app_open(&app, NULL));
+    assert(session_open(&app, directory) == 1);
+    assert(media_paste_image(&app, png, bytes));
+    app_input(&app, KEY_ESCAPE, "");
+    app.editor.cursor = 0;
+    static uint32_t pixels[800 * 560];
+    assert(app_paint(&app, pixels, 800, 560, 800));
+    assert(app.text_width > 400 && app.image_box && app.image_box_w == 320);
+    assert(!strcmp(alt(&app), ""));
+
+    /* + and - change the width by 10% of what is shown, with counts; = resets. */
+    keys(&app, "+");
+    assert(!strcmp(alt(&app), "|352") && media_at(&app, app.editor.cursor));
+    keys(&app, "2-");
+    assert(!strcmp(alt(&app), "|282"));
+    keys(&app, "=");
+    assert(!strcmp(alt(&app), ""));
+    keys(&app, "-");
+    assert(!strcmp(alt(&app), "|288"));
+    keys(&app, ".");
+    assert(!strcmp(alt(&app), "|259"));
+    keys(&app, "u");
+    assert(!strcmp(alt(&app), "|288"));
+    keys(&app, "u");
+    assert(!strcmp(alt(&app), ""));
+
+    /* :resize sets exact or relative widths and clamps them to the text area. */
+    command(&app, "resize 200");
+    assert(!strcmp(alt(&app), "|200"));
+    command(&app, "res 50%");
+    assert(!strcmp(alt(&app), "|160"));
+    command(&app, "resize +10");
+    assert(!strcmp(alt(&app), "|170"));
+    command(&app, "resize -10%");
+    assert(!strcmp(alt(&app), "|153"));
+    command(&app, "resize 99999");
+    char widest[16];
+    snprintf(widest, sizeof(widest), "|%d", app.text_width);
+    assert(!strcmp(alt(&app), widest));
+    command(&app, "resize 1");
+    assert(!strcmp(alt(&app), "|16"));
+    command(&app, "resize wide");
+    assert(!strcmp(alt(&app), "|16") && strstr(app.editor.message, "Use :resize"));
+    command(&app, "resize");
+    assert(!strcmp(alt(&app), ""));
+
+    /* The stored width is logical pixels: it doubles on a 2x display. */
+    command(&app, "resize 200");
+    int w, h;
+    media_display_size(&app, media_at(&app, 0), 0, &w, &h);
+    assert(w == 200 && h == 112);
+    app.scale120 = 240;
+    media_display_size(&app, media_at(&app, 0), 0, &w, &h);
+    assert(w == 400 && h == 225);
+    media_display_size(&app, media_at(&app, 0), 300, &w, &h);
+    assert(w == 300 && h == 168);
+    app.scale120 = 120;
+    assert(app_paint(&app, pixels, 800, 560, 800));
+    assert(app.image_box_w == 200 && app.image_box_h == 112);
+
+    /* Obsidian's other forms are read, and existing alt text is kept. */
+    const struct media_entry *e = media_at(&app, 0);
+    assert(editor_replace(&app.editor, e->start + 2, e->alt_end, "shot|100x80", 11));
+    app.editor.cursor = 0;
+    assert(media_at(&app, 0)->size == 100);
+    keys(&app, "+");
+    assert(!strcmp(alt(&app), "shot|110"));
+    keys(&app, "=");
+    assert(!strcmp(alt(&app), "shot"));
+    e = media_at(&app, 0);
+    assert(editor_replace(&app.editor, e->start + 2, e->alt_end, "250", 3));
+    app.editor.cursor = 0;
+    assert(media_at(&app, 0)->size == 250);
+    keys(&app, "-");
+    assert(!strcmp(alt(&app), "|225"));
+    e = media_at(&app, 0);
+    assert(editor_replace(&app.editor, e->start + 2, e->alt_end, "a|b", 3));
+    app.editor.cursor = 0;
+    assert(media_at(&app, 0)->size == 0);
+    keys(&app, "+");
+    assert(!strcmp(alt(&app), "a|b|352"));
+    e = media_at(&app, 0);
+    assert(editor_replace(&app.editor, e->start + 2, e->alt_end, "", 0));
+    app.editor.cursor = 0;
+
+    /* Polish is read-only, raw shows source, and text lines keep their behaviour. */
+    editor_command(&app.editor, "set polish");
+    keys(&app, "+");
+    assert(!strcmp(alt(&app), ""));
+    editor_command(&app.editor, "set raw");
+    keys(&app, "+");
+    assert(!strcmp(alt(&app), ""));
+    editor_command(&app.editor, "set normal");
+    size_t text_line = app.editor.length;
+    assert(editor_replace(&app.editor, text_line, text_line, "text\n", 5));
+    app.editor.cursor = text_line;
+    uint64_t revision = app.editor.revision;
+    keys(&app, "+");
+    assert(app.editor.revision == revision);
+    command(&app, "resize 100");
+    assert(app.editor.revision == revision && strstr(app.editor.message, "No image"));
+
+    /* Dragging a corner handle previews the width and commits one undo step. */
+    app.editor.cursor = 0;
+    assert(app_paint(&app, pixels, 800, 560, 800));
+    int right = app.image_box_x + app.image_box_w, bottom = app.image_box_y + app.image_box_h;
+    assert(app_image_corner(&app, right, bottom) == 3);
+    assert(app_image_corner(&app, app.image_box_x, app.image_box_y) == 0);
+    assert(app_image_corner(&app, right + 40, bottom + 40) == -1);
+    revision = app.editor.revision;
+    app_pointer(&app, right, bottom, false);
+    assert(app.image_drag && app.editor.cursor == 0);
+    app_pointer(&app, right - 80, bottom, true);
+    assert(app.drag_width == 240 && app.editor.revision == revision);
+    assert(app_paint(&app, pixels, 800, 560, 800) && app.image_box_w == 240);
+    /* A vertical drag scales by the aspect ratio. */
+    app_pointer(&app, right, bottom + 18, true);
+    assert(app.drag_width == 352);
+    app_pointer_release(&app);
+    assert(!app.image_drag && !strcmp(alt(&app), "|352"));
+    keys(&app, "u");
+    assert(!strcmp(alt(&app), ""));
+    /* A click that does not move leaves the text alone. */
+    assert(app_paint(&app, pixels, 800, 560, 800));
+    revision = app.editor.revision;
+    app_pointer(&app, app.image_box_x, app.image_box_y, false);
+    assert(app.image_drag);
+    app_pointer_release(&app);
+    assert(app.editor.revision == revision);
+    /* Handles only work on the selected image. */
+    app.editor.cursor = text_line;
+    assert(app_paint(&app, pixels, 800, 560, 800) && !app.image_box);
+    app_close(&app);
+}
 int main(int argc, char **argv)
 {
     char directory[1024];
@@ -303,6 +467,7 @@ int main(int argc, char **argv)
     unsigned char *png = image_png(rgba, 320, 180, &bytes);
     assert(png);
     image_typing_test(directory, png, bytes);
+    resize_test(directory, png, bytes);
     cleanup_test(directory, png, bytes);
     int w, h;
     assert(image_info(png, bytes, &w, &h) && w == 320 && h == 180);

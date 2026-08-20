@@ -154,6 +154,10 @@ void editor_command(struct editor *ed, const char *command)
             snprintf(ed->message, sizeof(ed->message), "background=%s", ed->light ? "light" : "dark");
         else
             goto unknown;
+    } else if (strlen(p) >= 3 && strlen(p) <= strlen("resize") && !strncmp(p, "resize", strlen(p))) {
+        if (!ed->image_resize ||
+            !ed->image_resize(ed, ed->cursor, argument ? argument : "", ed->image_resize_data))
+            snprintf(ed->message, sizeof(ed->message), "No image under the cursor");
     } else if (strlen(p) == 1 && strchr("dy><j", *p)) {
         if (*p != 'y' && !editor_can_edit(ed))
             return;
