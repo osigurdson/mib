@@ -121,6 +121,26 @@ static void rooms(const char *parent)
     assert(!app.room_map && app.room == 2 && strstr(app.editor.text, "milk"));
     type(&app, ":map\n\x1b");
     assert(!app.room_map && app.room == 2);
+    /* Arrows or hjkl move the selection from the shown room, stopping at the edges, and
+     * Enter shows the selected room. */
+    type(&app, ":map\n");
+    assert(app.room_map && app.map_choice == 2);
+    app_input(&app, KEY_RIGHT, "");
+    assert(app.map_choice == 2);
+    app_input(&app, KEY_UP, "");
+    app_input(&app, KEY_UP, "");
+    app_input(&app, KEY_UP, "");
+    assert(app.map_choice == 8 && app.room == 2 && app.room_map);
+    app_input(&app, KEY_LEFT, "");
+    app_input(&app, KEY_DOWN, "");
+    assert(app.map_choice == 4);
+    type(&app, "hjkl");
+    assert(app.map_choice == 4 && app.room == 2 && strstr(app.editor.text, "milk"));
+    type(&app, "hj");
+    assert(app.map_choice == 0);
+    app_input(&app, KEY_ENTER, "");
+    assert(!app.room_map && app.room == 0 && !strcmp(app.editor.text, "one\ntwo"));
+    app_input(&app, KEY_ROOM, "3");
     /* Clicking a cell shows that room; dragging on doesn't start a selection there. */
     type(&app, ":map\n");
     assert(app_paint(&app, pixels, 640, 480, 640));

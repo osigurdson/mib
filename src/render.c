@@ -618,7 +618,8 @@ static int room_columns(const char *text)
     return columns;
 }
 /* The :map overlay, drawn as a numeric keypad: nine square keys, each with its room number
- * and the room's first H1 underneath. The shown room's key uses the selected menu colors. */
+ * and the room's first H1 underneath. The selected key uses the selected menu colors and the
+ * room that is showing has an outline. */
 static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t *pixels,
                           int width, int height, int stride, int top, int bottom, int padding)
 {
@@ -649,10 +650,14 @@ static bool draw_room_map(struct app *app, const struct palette *theme, uint32_t
         lines = 2;
     for (unsigned room = 0; room < ROOM_COUNT; ++room) {
         int x = x0 + (int)(room % 3) * (side + gap), y = y0 + (2 - (int)(room / 3)) * (side + gap);
-        bool shown = room == app->room;
-        uint32_t key = shown ? theme->menu_selected : theme->menu;
-        uint32_t ink = shown ? theme->menu_selected_text : theme->menu_text;
-        int radius = padding;
+        bool selected = room == app->map_choice;
+        uint32_t key = selected ? theme->menu_selected : theme->menu;
+        uint32_t ink = selected ? theme->menu_selected_text : theme->menu_text;
+        int radius = padding, ring = edge;
+        /* The room that is showing keeps an outline while the selection moves. */
+        if (room == app->room)
+            rounded_box(pixels, width, height, stride, x - ring, y - ring, side + 2 * ring,
+                        side + 2 * ring, radius + ring, theme->cursor);
         rounded_box(pixels, width, height, stride, x, y, side, side, radius,
                     blend(key, app->editor.light ? 40 : 96, 0xff000000));
         rounded_box(pixels, width, height, stride, x, y, side, face, radius, key);

@@ -66,9 +66,9 @@ struct app {
     size_t image_box_start;
     int image_box_x, image_box_y, image_box_w, image_box_h;
     int drag_corner, drag_x, drag_y, drag_width, drag_origin_width, drag_origin_height;
-    /* The shown room (0 for room 1), the others, and the :map overlay with its first cell
-     * (room 7) and cell size from the last paint, in physical pixels. */
-    unsigned room;
+    /* The shown room (0 for room 1), the others, and the :map overlay with its selected
+     * room, first cell (room 7) and cell size from the last paint, in physical pixels. */
+    unsigned room, map_choice;
     struct room rooms[ROOM_COUNT];
     bool room_map, map_click;
     int map_x, map_y, map_width, map_height, map_gap;

@@ -61,10 +61,24 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     uint64_t search_serial = app->editor.search_serial;
     bool digit = key == KEY_TEXT && text && text[0] >= '1' && text[0] <= '9' && !text[1];
     if (app->room_map) {
-        /* The map takes the keyboard: a digit (with or without Alt) picks a room, Esc or
-         * Enter closes it, and other keys are ignored rather than editing unseen text. */
+        /* The map takes the keyboard: a digit (with or without Alt) shows that room, arrows
+         * or hjkl move the selection and Enter shows it, Esc closes the map, and other keys
+         * are ignored rather than editing unseen text. Rows run 7 8 9 / 4 5 6 / 1 2 3. */
+        unsigned choice = app->map_choice, column = choice % 3;
+        char letter = key == KEY_TEXT && text && text[0] && !text[1] ? text[0] : 0;
+        if ((key == KEY_UP || letter == 'k') && choice < 6)
+            choice += 3;
+        else if ((key == KEY_DOWN || letter == 'j') && choice >= 3)
+            choice -= 3;
+        else if ((key == KEY_LEFT || letter == 'h') && column > 0)
+            --choice;
+        else if ((key == KEY_RIGHT || letter == 'l') && column < 2)
+            ++choice;
+        app->map_choice = choice;
         if ((key == KEY_ROOM || digit) && text && text[0] >= '1' && text[0] <= '9')
             app_room_switch(app, (unsigned)(text[0] - '1'));
+        else if (key == KEY_ENTER)
+            app_room_switch(app, choice);
         if (key == KEY_ROOM || digit || key == KEY_ESCAPE || key == KEY_ENTER)
             app->room_map = false;
         app->dirty = true;
@@ -190,8 +204,10 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     if (requests & ED_ZOOM_RESET)
         app->font_size = 18;
     if (requests & ED_ROOM_MAP) {
-        if (app->scratch && app->directory)
+        if (app->scratch && app->directory) {
             app->room_map = true;
+            app->map_choice = app->room;
+        }
         else
             snprintf(app->editor.message, sizeof(app->editor.message),
                      "Rooms are only available in pages");
