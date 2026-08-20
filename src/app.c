@@ -204,7 +204,7 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     if (requests & ED_ZOOM_RESET)
         app->font_size = 18;
     if (requests & ED_ROOM_MAP) {
-        if (app->scratch && app->directory) {
+        if (app->page) {
             app->room_map = true;
             app->map_choice = app->room;
         }

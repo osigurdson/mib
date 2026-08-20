@@ -18,10 +18,11 @@ struct app_settings {
     bool maximized, light;
 };
 
-/* Pages have nine rooms laid out like a numeric keypad (7 8 9 / 4 5 6 / 1 2 3). Room 1 is
- * jot.md and rooms 2 to 9 are room2.md to room9.md. The shown room lives in app.editor; the
- * others keep their document here once loaded, while registers, search and settings stay
- * with app.editor. */
+/* Pages have nine rooms laid out like a numeric keypad (7 8 9 / 4 5 6 / 1 2 3). Each room is
+ * a folder with its own jot.md and assets/: room 1 is the page folder itself and rooms 2 to 9
+ * are its room2/ to room9/ subfolders. The shown room lives in app.editor, app.media and
+ * app.directory; the others keep their document and media here once loaded, while registers,
+ * search and settings stay with app.editor. */
 enum { ROOM_COUNT = 9 };
 struct room {
     char *text, *filename;
@@ -30,6 +31,7 @@ struct room {
     bool loaded, fresh, modified, crlf;
     uint64_t revision, saved_hash;
     struct edit_history *history;
+    struct media *media;
     size_t marks[26], context, jumps[100];
     unsigned jump_count, jump_index;
 };
@@ -69,6 +71,7 @@ struct app {
     /* The shown room (0 for room 1), the others, and the :map overlay with its selected
      * room, first cell (room 7) and cell size from the last paint, in physical pixels. */
     unsigned room, map_choice;
+    char *page; /* The page folder, which is room 1's; NULL for explicit files. */
     struct room rooms[ROOM_COUNT];
     bool room_map, map_click;
     int map_x, map_y, map_width, map_height, map_gap;
@@ -94,11 +97,8 @@ int app_image_corner(const struct app *app, int x, int y);
 bool app_room_switch(struct app *app, unsigned index);
 /* The room's first H1 heading text, or "" when it has none. */
 void app_room_heading(struct app *app, unsigned index, char *heading, size_t size);
-/* Whether a room other than the shown one mentions text; unreadable rooms count as yes. */
-bool app_room_mentions(struct app *app, const char *text);
 /* The first other room with unsaved changes (1 to 9), or 0. */
 unsigned app_room_modified(const struct app *app);
-void app_room_clear_history(struct app *app);
 void app_rooms_close(struct app *app);
 int app_main(int argc, char **argv);
 bool app_open(struct app *app, const char *filename);

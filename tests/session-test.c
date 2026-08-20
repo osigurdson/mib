@@ -62,6 +62,10 @@ static void write_room(const char *directory, const char *name, const char *text
 {
     char path[1300], error[128];
     snprintf(path, sizeof(path), "%s/%s", directory, name);
+    char *slash = strrchr(path, '/');
+    *slash = 0;
+    assert(session_mkdir(path));
+    *slash = '/';
     assert(platform_file_write_atomic(path, text, strlen(text), error, sizeof(error)));
 }
 static void rooms(const char *parent)
@@ -82,7 +86,7 @@ static void rooms(const char *parent)
     app.editor.top = 4;
     app.follow_cursor = false;
     app_input(&app, KEY_ROOM, "3");
-    assert(app.room == 2 && app.editor.length == 0 && strstr(app.editor.filename, "room3.md"));
+    assert(app.room == 2 && app.editor.length == 0 && strstr(app.editor.filename, "room3/jot.md"));
     type(&app, "i# Groceries #\nmilk\x1b");
     /* Each room keeps its own text, cursor, scroll position and undo. */
     app_input(&app, KEY_ROOM, "1");
@@ -100,7 +104,7 @@ static void rooms(const char *parent)
     app_request_close(&app);
     assert(app.running && strstr(app.editor.message, "room 3"));
     /* The map labels rooms by their first H1, skipping fenced code. */
-    write_room(directory, "room4.md", "intro\n```\n# not this\n```\n#nospace\n# Real\n# Later\n");
+    write_room(directory, "room4/jot.md", "intro\n```\n# not this\n```\n#nospace\n# Real\n# Later\n");
     app_room_heading(&app, 2, heading, sizeof(heading));
     assert(!strcmp(heading, "Groceries"));
     app_room_heading(&app, 3, heading, sizeof(heading));
@@ -108,7 +112,7 @@ static void rooms(const char *parent)
     app_room_heading(&app, 0, heading, sizeof(heading));
     assert(!heading[0]);
     app_room_heading(&app, 4, heading, sizeof(heading));
-    assert(!heading[0] && !exists(directory, "room5.md"));
+    assert(!heading[0] && !exists(directory, "room5/jot.md"));
     type(&app, ":map\n");
     assert(app.room_map);
     uint32_t pixels[640 * 480];
@@ -150,23 +154,32 @@ static void rooms(const char *parent)
     app_pointer(&app, 10, 10, true);
     assert(app.editor.mode == NORMAL);
     app_pointer_release(&app);
-    /* Rooms share assets: saving one keeps images another room still shows. */
-    char assets[1200];
+    /* Each room has its own assets: the same name in two rooms is two files, and saving a
+     * room cleans up only its own. */
+    char assets[1200], room_assets[1200];
     snprintf(assets, sizeof(assets), "%s/assets", directory);
-    write_room(assets, "shared.png", "png");
+    snprintf(room_assets, sizeof(room_assets), "%s/room3/assets", directory);
+    write_room(assets, "a.png", "png");
+    write_room(room_assets, "a.png", "png");
     app_input(&app, KEY_ROOM, "3");
-    type(&app, "Go![](assets/shared.png)\x1b:w\n");
+    char *image = session_path(&app, "assets/a.png");
+    assert(image && strstr(image, "room3"));
+    free(image);
+    type(&app, "Go![](assets/a.png)\x1b:w\n");
     app_input(&app, KEY_ROOM, "1");
-    type(&app, "Go![](assets/shared.png)\x1b");
+    image = session_path(&app, "assets/a.png");
+    assert(image && !strstr(image, "room3"));
+    free(image);
+    type(&app, "Go![](assets/a.png)\x1b");
     assert(app_paint(&app, pixels, 640, 480, 640));
     type(&app, "dd:w\n");
-    assert(!strstr(app.editor.text, "shared") && exists(assets, "shared.png"));
+    assert(!exists(assets, "a.png") && exists(room_assets, "a.png"));
     app_input(&app, KEY_ROOM, "3");
     type(&app, "dd:w\n");
-    assert(!strstr(app.editor.text, "shared") && !exists(assets, "shared.png"));
+    assert(!strstr(app.editor.text, "a.png") && !exists(room_assets, "a.png"));
     /* A hidden room picks up outside edits when shown again, unless it has its own. */
     app_input(&app, KEY_ROOM, "4");
-    write_room(directory, "room4.md", "# Changed\n");
+    write_room(directory, "room4/jot.md", "# Changed\n");
     app_input(&app, KEY_ROOM, "1");
     app_input(&app, KEY_ROOM, "4");
     assert(!strcmp(app.editor.text, "# Changed\n"));
@@ -177,7 +190,7 @@ static void rooms(const char *parent)
     app_input(&app, KEY_ROOM, "3");
     assert(!strcmp(app.editor.text, "# Groceries #\nmilk") &&
            app.editor.cursor == app.editor.length && app.follow_cursor);
-    assert(!exists(directory, "room5.md") && !exists(directory, "room2.md"));
+    assert(!exists(directory, "room5/jot.md") && !exists(directory, "room2/jot.md"));
     app_close(&app);
     /* Explicit files have no rooms. */
     char file[1200];
@@ -188,8 +201,15 @@ static void rooms(const char *parent)
     type(&app, ":map\n");
     assert(!app.room_map && strstr(app.editor.message, "only available in pages"));
     app_close(&app);
-    const char *files[] = {"jot.md", "room3.md", "room4.md", "AGENTS.md", "CLAUDE.md",
-                           ".tinyvi.lock", "assets", NULL};
+    for (unsigned room = 2; room <= 9; ++room)
+        for (unsigned i = 0; i < 3; ++i) {
+            char path[1300];
+            snprintf(path, sizeof(path), "%s/room%u%s", directory, room,
+                     i == 0 ? "/jot.md" : i == 1 ? "/assets" : "");
+            remove_file(path);
+            remove_folder(path);
+        }
+    const char *files[] = {"jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", "assets", NULL};
     for (unsigned i = 0; files[i]; ++i) {
         char path[1300];
         snprintf(path, sizeof(path), "%s/%s", directory, files[i]);

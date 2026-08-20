@@ -81,8 +81,8 @@ a sibling page, and a path chooses a page folder. `--page folder` forces page
 mode. Pages contain `jot.md`, private `assets/`, and agent instructions on first
 creation. Each page has nine scratchpad rooms arranged like a numeric keypad: `Alt+1` to
 `Alt+9` in normal mode switch between them, and `:map` shows them all, labeled by their
-first `# Heading`. Room 1 is `jot.md`; rooms 2 to 9 are saved as `room2.md` to `room9.md`
-(see [Rooms](docs/keys.md#rooms)). Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external
+first `# Heading`. Room 1 is the page folder itself; rooms 2 to 9 are its `room2/` to
+`room9/` subfolders, each with its own `jot.md` and `assets/` (see [Rooms](docs/keys.md#rooms)). Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external
 changes on focus when no local edits are pending. One process owns a page; a
 second launch requests activation of that window. Pages and explicit files both
 protect unsaved changes on quit.

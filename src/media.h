@@ -13,7 +13,10 @@ struct media_entry {
     size_t alt_size, alt_end;
     bool ocr_done;
 };
+struct media;
 void media_close(struct app *app);
+/* Stop a media state's OCR job and free it, as media_close does for app->media. */
+void media_free(struct media *m);
 void media_sync(struct app *app);
 /* Successful-save notification; removes tracked, unreferenced assets. */
 void media_saved(void *context);

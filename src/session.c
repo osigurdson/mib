@@ -386,7 +386,8 @@ static const char agents[] =
     "Do not tidy, reorganize or rewrite jot.md unless explicitly asked. Put summaries in chat\n"
     "or a separate file. When asked to edit, append and keep the existing style.\n\n"
     "- jot.md is the running page, usually newest notes at the bottom.\n"
-    "- room2.md to room9.md are further scratch rooms (jot.md is room 1); they share assets/.\n"
+    "- room2/ to room9/ are further scratch rooms (this folder is room 1), each with its own\n"
+    "  jot.md and assets/ laid out the same way.\n"
     "- ![](assets/name.png) lines are screenshots; retain them on their own lines.\n"
     "- assets/name.png.txt is OCR text; read it before opening the image. OCR can be wrong.\n"
     "- assets/name.png.tsv contains OCR word positions used for highlighting.\n"
@@ -543,6 +544,10 @@ int session_open(struct app *app, const char *name)
     if (chmod(app->directory, 0700) != 0)
         goto failed;
 #endif
+    app->page = malloc(strlen(app->directory) + 1);
+    if (!app->page)
+        goto failed;
+    strcpy(app->page, app->directory);
     char *assets = session_path(app, "assets");
     bool made = assets && session_mkdir(assets);
 #ifndef _WIN32
@@ -634,4 +639,6 @@ void session_close(struct app *app)
 #endif
     free(app->directory);
     app->directory = NULL;
+    free(app->page);
+    app->page = NULL;
 }

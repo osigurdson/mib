@@ -173,11 +173,12 @@ All nine rooms always exist; there is nothing to create, name or delete. The map
 room with its first `# Heading`, read from the room itself. The selection starts on the room
 that is showing, which keeps an outline as the selection moves. Clicking a room also shows it.
 Each room keeps its own cursor, scroll position, undo history, marks and jumps; registers,
-search and settings are shared. Room 1 is the page's `jot.md` and rooms 2 to 9 are
-`room2.md` to `room9.md` beside it, written the first time each is saved. `:w` and `Ctrl+S`
-save the room that is showing, and quitting is blocked while any room has unsaved changes.
-Rooms share the page's `assets/` folder, and saving one never removes an image another room
-still uses. Explicit files have a single room.
+search and settings are shared. Each room is a folder with its own `jot.md` and `assets/`:
+room 1 is the page folder itself, and rooms 2 to 9 are its `room2/` to `room9/` subfolders,
+created the first time each room is shown. `:w` and `Ctrl+S` save the room that is showing,
+and quitting is blocked while any room has unsaved changes. Pasted images go into the room's
+own `assets/`, and yanking an image line in one room and pasting it in another copies the
+image across. Explicit files have a single room.
 
 ## Insert mode
 
