@@ -300,6 +300,19 @@ char *session_config_directory(void)
     return base && *base ? join(base, ".config/jot") : NULL;
 #endif
 }
+char *session_state_directory(void)
+{
+#ifdef _WIN32
+    const char *base = getenv("LOCALAPPDATA");
+    return base && *base ? join(base, "jot") : NULL;
+#else
+    const char *base = getenv("XDG_STATE_HOME");
+    if (base && base[0] == '/')
+        return join(base, "jot");
+    base = getenv("HOME");
+    return base && *base ? join(base, ".local/state/jot") : NULL;
+#endif
+}
 static bool write_settings(const struct app_settings *s)
 {
     char *folder = session_config_directory();
@@ -357,7 +370,7 @@ void session_load_settings(struct app *app)
 enum { POSITION_LIMIT = 200 };
 static char *positions_file(void)
 {
-    char *folder = session_config_directory();
+    char *folder = session_state_directory();
     char *path = folder ? join(folder, "positions") : NULL;
     free(folder);
     return path;
@@ -408,9 +421,11 @@ struct position {
     size_t row, column, top;
 };
 static void add_position(struct position *list, unsigned *count, const char *filename,
-                         const char *text, size_t length, size_t cursor, size_t top)
+                         bool modified, const char *text, size_t length, size_t cursor, size_t top)
 {
-    if (!filename || *count >= PAGE_COUNT + 1)
+    /* A document with unsaved changes keeps the position from its last save, so a position
+     * always refers to text on disk even when the changes are discarded. */
+    if (!filename || modified || *count >= PAGE_COUNT + 1)
         return;
     char *path = session_absolute(filename);
     if (!path)
@@ -430,16 +445,18 @@ void session_save_positions(struct app *app)
     struct position fresh[PAGE_COUNT + 1];
     unsigned count = 0;
     const struct editor *ed = &app->editor;
-    add_position(fresh, &count, ed->filename, ed->text, ed->length, ed->cursor, ed->top);
+    add_position(fresh, &count, ed->filename, ed->modified, ed->text, ed->length, ed->cursor,
+                 ed->top);
     for (unsigned i = 0; i < PAGE_COUNT; ++i) {
         const struct page *p = &app->pages[i];
         if (p->loaded)
-            add_position(fresh, &count, p->filename, p->text, p->length, p->cursor, p->top);
+            add_position(fresh, &count, p->filename, p->modified, p->text, p->length,
+                         p->cursor, p->top);
     }
     if (!count)
         return;
     /* Keep other files' entries, written by this or another window, after the fresh ones. */
-    char *file = positions_file(), *folder = session_config_directory();
+    char *file = positions_file(), *folder = session_state_directory();
     size_t n = 0, size = 1;
     char *old = file ? session_read(file, 1 << 20, &n) : NULL;
     for (unsigned i = 0; i < count; ++i)

@@ -217,7 +217,7 @@ static void pages(const char *parent)
     /* A page saved with :w keeps the position it was saved at, even if Jot never closes
      * cleanly; the file holds one line per page. */
     type(&app, "G:w\n");
-    char *folder = session_config_directory(), positions[1200];
+    char *folder = session_state_directory(), positions[1200];
     snprintf(positions, sizeof(positions), "%s/positions", folder);
     free(folder);
     size_t length;
@@ -235,6 +235,17 @@ static void pages(const char *parent)
     assert(app.editor.cursor == app.editor.length);
     app_input(&app, KEY_PAGE, "3");
     assert(app.editor.cursor == strlen("# Groceries #\n"));
+    /* Closing with unsaved changes keeps the position from the last save; a page that was
+     * only read records where it was left. */
+    type(&app, "ggOnew\x1b");
+    app_input(&app, KEY_PAGE, "6");
+    type(&app, "gg");
+    app_close(&app);
+    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    app_input(&app, KEY_PAGE, "3");
+    assert(!strstr(app.editor.text, "new") && app.editor.cursor == strlen("# Groceries #\n"));
+    app_input(&app, KEY_PAGE, "6");
+    assert(app.editor.cursor == 0);
     assert(!exists(directory, "5/jot.md") && !exists(directory, "2/jot.md"));
     app_close(&app);
     /* Explicit files have no pages. */
@@ -328,7 +339,7 @@ static void old_layout(const char *parent)
 }
 int main(void)
 {
-    char directory[1024], config[1100];
+    char directory[1024], config[1100], state_home[1100];
 #ifdef _WIN32
     char temp[MAX_PATH];
     assert(GetTempPathA(MAX_PATH, temp));
@@ -339,11 +350,17 @@ int main(void)
     char setting[1200];
     snprintf(setting, sizeof(setting), "APPDATA=%s", config);
     _putenv(setting);
+    snprintf(state_home, sizeof(state_home), "%s-state", directory);
+    SetEnvironmentVariableA("LOCALAPPDATA", state_home);
+    snprintf(setting, sizeof(setting), "LOCALAPPDATA=%s", state_home);
+    _putenv(setting);
 #else
     snprintf(directory, sizeof(directory), "/tmp/tinyvi-session-XXXXXX");
     assert(mkdtemp(directory));
     snprintf(config, sizeof(config), "%s-config", directory);
     setenv("XDG_CONFIG_HOME", config, 1);
+    snprintf(state_home, sizeof(state_home), "%s-state", directory);
+    setenv("XDG_STATE_HOME", state_home, 1);
 #endif
     char *settings = config_file();
     struct app app;
@@ -567,9 +584,13 @@ int main(void)
     old_layout(directory);
     remove_notes(other);
     remove_file(settings);
-    char *folder = session_config_directory(), positions[1200];
+    char *folder = session_state_directory(), positions[1200];
     snprintf(positions, sizeof(positions), "%s/positions", folder);
     remove_file(positions);
+    remove_folder(folder);
+    remove_folder(state_home);
+    free(folder);
+    folder = session_config_directory();
     remove_folder(folder);
     remove_folder(config);
     free(folder);

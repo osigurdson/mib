@@ -19,11 +19,15 @@ char *session_config_directory(void);
    this for pages. On first use, a page's
    old per-page settings seed the file. Closing writes back the settings this window changed. */
 void session_load_settings(struct app *app);
-/* The positions file in the config folder keeps each file's cursor line, column and top line,
+/* The state folder, for files Jot updates as it runs: $XDG_STATE_HOME/jot or
+   ~/.local/state/jot, or %LOCALAPPDATA%\jot on Windows. */
+char *session_state_directory(void);
+/* The positions file in the state folder keeps each file's cursor line, column and top line,
    most recent first. Restoring moves the cursor and view only when the file has an entry. */
 struct editor;
 void session_restore_position(struct editor *ed);
-/* Record the shown document and every loaded page, when app->remember_positions is set. */
+/* Record the shown document and every loaded page without unsaved changes, when
+   app->remember_positions is set. */
 void session_save_positions(struct app *app);
 void session_focus(struct app *app, bool focused);
 char *session_absolute(const char *path);

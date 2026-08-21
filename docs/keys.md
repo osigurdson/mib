@@ -3,8 +3,9 @@
 Raw and normal modes show line numbers. The gutter reserves four digits and grows
 for longer notes, with two character cells between the numbers and text. Scratch
 pages and files open in normal mode with the cursor where you left it, saved on `:w` and
-when Jot closes. A page with no remembered position opens at the end, and a file at the
-beginning. Positions live in `~/.config/jot/positions`, next to the settings. The bottom line shows the line and column, plus `RAW` or
+when Jot closes. Closing with unsaved changes keeps the position from the last save. A page
+with no remembered position opens at the end, and a file at the beginning. Positions live in
+`~/.local/state/jot/positions` (`$XDG_STATE_HOME/jot`, or `%LOCALAPPDATA%\jot` on Windows). The bottom line shows the line and column, plus `RAW` or
 `POLISH [read only]` outside normal rendering, and messages.
 
 Counts work with motions and operators, such as `3w`, `5j`, `d3j` and `2dd`.
