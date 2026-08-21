@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "session.h"
 #include "app.h"
+#include "edit-internal.h"
 #include "media.h"
 #include "platform.h"
 #include <errno.h>
@@ -350,6 +351,133 @@ void session_load_settings(struct app *app)
     apply_settings(app, &s);
     app->settings = s;
     app->settings_loaded = true;
+    app->remember_positions = true;
+    session_restore_position(&app->editor);
+}
+enum { POSITION_LIMIT = 200 };
+static char *positions_file(void)
+{
+    char *folder = session_config_directory();
+    char *path = folder ? join(folder, "positions") : NULL;
+    free(folder);
+    return path;
+}
+/* Parse one "line column top path" line; path points into line. */
+static bool parse_position(char *line, size_t *row, size_t *column, size_t *top, char **path)
+{
+    unsigned long long r, c, t;
+    int used = 0;
+    if (sscanf(line, "%llu %llu %llu %n", &r, &c, &t, &used) != 3 || !used || !line[used])
+        return false;
+    *row = (size_t)r;
+    *column = (size_t)c;
+    *top = (size_t)t;
+    *path = line + used;
+    return true;
+}
+void session_restore_position(struct editor *ed)
+{
+    char *file = positions_file(), *key = ed->filename ? session_absolute(ed->filename) : NULL;
+    size_t n;
+    char *text = file && key ? session_read(file, 1 << 20, &n) : NULL;
+    for (char *line = text; line && *line;) {
+        char *end = strchr(line, '\n');
+        if (end)
+            *end = 0;
+        size_t row, column, top;
+        char *path;
+        if (parse_position(line, &row, &column, &top, &path) && !strcmp(path, key)) {
+            size_t start = editor_line_at(ed, row), stop = editor_line_end(ed, start);
+            size_t cursor = column < stop - start ? start + column : stop;
+            /* Land on a character's first byte if the file changed under the column. */
+            while (cursor > start && ((unsigned char)ed->text[cursor] & 0xc0) == 0x80)
+                --cursor;
+            ed->cursor = cursor;
+            ed->top = top <= row ? editor_line_at(ed, top) : start;
+            editor_clamp(ed);
+            break;
+        }
+        line = end ? end + 1 : NULL;
+    }
+    free(text);
+    free(key);
+    free(file);
+}
+struct position {
+    char *path;
+    size_t row, column, top;
+};
+static void add_position(struct position *list, unsigned *count, const char *filename,
+                         const char *text, size_t length, size_t cursor, size_t top)
+{
+    if (!filename || *count >= PAGE_COUNT + 1)
+        return;
+    char *path = session_absolute(filename);
+    if (!path)
+        return;
+    const struct editor view = {.text = (char *)text, .length = length};
+    if (cursor > length)
+        cursor = length;
+    list[*count] = (struct position){path, editor_line_number(&view, cursor),
+                                     cursor - editor_line_start(&view, cursor),
+                                     editor_line_number(&view, top < length ? top : length)};
+    ++*count;
+}
+void session_save_positions(struct app *app)
+{
+    if (!app->remember_positions)
+        return;
+    struct position fresh[PAGE_COUNT + 1];
+    unsigned count = 0;
+    const struct editor *ed = &app->editor;
+    add_position(fresh, &count, ed->filename, ed->text, ed->length, ed->cursor, ed->top);
+    for (unsigned i = 0; i < PAGE_COUNT; ++i) {
+        const struct page *p = &app->pages[i];
+        if (p->loaded)
+            add_position(fresh, &count, p->filename, p->text, p->length, p->cursor, p->top);
+    }
+    if (!count)
+        return;
+    /* Keep other files' entries, written by this or another window, after the fresh ones. */
+    char *file = positions_file(), *folder = session_config_directory();
+    size_t n = 0, size = 1;
+    char *old = file ? session_read(file, 1 << 20, &n) : NULL;
+    for (unsigned i = 0; i < count; ++i)
+        size += strlen(fresh[i].path) + 3 * 21 + 1;
+    char *out = malloc(size + (old ? n : 0));
+    size_t used = 0;
+    unsigned kept = count;
+    for (unsigned i = 0; out && i < count; ++i)
+        used += (size_t)sprintf(out + used, "%zu %zu %zu %s\n", fresh[i].row, fresh[i].column,
+                                fresh[i].top, fresh[i].path);
+    for (char *line = out ? old : NULL; line && *line && kept < POSITION_LIMIT;) {
+        char *end = strchr(line, '\n');
+        if (end)
+            *end = 0;
+        size_t length = strlen(line), row, column, top;
+        memcpy(out + used, line, length);
+        out[used + length] = 0;
+        char *path = NULL;
+        bool ok = parse_position(out + used, &row, &column, &top, &path);
+        for (unsigned i = 0; ok && i < count; ++i)
+            ok = strcmp(path, fresh[i].path) != 0;
+        if (ok) {
+            memcpy(out + used, line, length);
+            out[used + length] = '\n';
+            used += length + 1;
+            ++kept;
+        }
+        line = end ? end + 1 : NULL;
+    }
+    char error[128];
+    if (out && folder && session_mkdir(folder))
+        platform_file_write_atomic(file, out, used, error, sizeof(error));
+    free(out);
+    free(old);
+    free(folder);
+    free(file);
+    for (unsigned i = 0; i < count; ++i)
+        free(fresh[i].path);
 }
 /* Another window may have changed other settings since this one opened, so start from the
  * file and apply only what changed here. */
@@ -665,7 +793,7 @@ int session_open(struct app *app, const char *name)
     free(page);
     if (!ok)
         return -1;
-    app->editor.on_save = media_saved;
+    app->editor.on_save = app_saved;
     app->editor.on_save_data = app;
     app->media_scanned = false;
     media_sync(app);
@@ -699,6 +827,7 @@ void session_focus(struct app *app, bool focused)
 void session_close(struct app *app)
 {
     save_settings(app);
+    session_save_positions(app);
 #ifdef _WIN32
     if (app->owner_handle)
         CloseHandle(app->owner_handle);

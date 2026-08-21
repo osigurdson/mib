@@ -49,8 +49,9 @@ static char *page_path(const struct app *app, unsigned index, const char *name)
         snprintf(path, n, "%s%s%s%s", app->root, folder, name ? "/" : "", name ? name : "");
     return path;
 }
-/* Read a page's jot.md, which may not exist yet, with the cursor at the end as when Jot
- * starts. Loading never creates the page's folder; showing it does. */
+/* Read a page's jot.md, which may not exist yet, with the cursor where it was last left, or at
+ * the end for a page with no remembered position. Loading never creates the page's folder;
+ * showing it does. */
 static bool load(struct app *app, unsigned index)
 {
     struct page *page = &app->pages[index];
@@ -62,6 +63,8 @@ static bool load(struct app *app, unsigned index)
     free(path);
     if (ok) {
         document.cursor = document.length;
+        if (app->remember_positions)
+            session_restore_position(&document);
         stash(&document, page);
         page->fresh = true;
     } else {

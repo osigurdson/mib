@@ -63,6 +63,8 @@ struct app {
     bool dirty, running, failed, follow_cursor;
     /* The settings as loaded, so closing writes back only what this window changed. */
     bool settings_loaded;
+    /* Set with the settings: saves and closing record cursor positions in the positions file. */
+    bool remember_positions;
     struct app_settings settings;
     unsigned font_size;
     int cell, line_height, padding, gutter, view_width, title_height;
@@ -108,6 +110,8 @@ void app_pages_close(struct app *app);
 int app_main(int argc, char **argv);
 bool app_open(struct app *app, const char *filename);
 void app_close(struct app *app);
+/* The editor's on_save hook: clean up unused assets and remember cursor positions. */
+void app_saved(void *context);
 void app_input(struct app *app, enum editor_key key, const char *text);
 void app_request_close(struct app *app);
 /* Show a brief notice in the status bar, such as "Image copied". Editor messages take

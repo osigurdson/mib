@@ -15,9 +15,16 @@ unsigned session_page_number(const char *name);
 void session_close(struct app *app);
 /* The config folder: $XDG_CONFIG_HOME/jot or ~/.config/jot, or %APPDATA%\jot on Windows. */
 char *session_config_directory(void);
-/* Apply the shared settings file; session_open does this for pages. On first use, a page's
+/* Apply the shared settings file and restore the shown document's position; session_open does
+   this for pages. On first use, a page's
    old per-page settings seed the file. Closing writes back the settings this window changed. */
 void session_load_settings(struct app *app);
+/* The positions file in the config folder keeps each file's cursor line, column and top line,
+   most recent first. Restoring moves the cursor and view only when the file has an entry. */
+struct editor;
+void session_restore_position(struct editor *ed);
+/* Record the shown document and every loaded page, when app->remember_positions is set. */
+void session_save_positions(struct app *app);
 void session_focus(struct app *app, bool focused);
 char *session_absolute(const char *path);
 bool session_write_exclusive(const char *path, const char *data, size_t length);

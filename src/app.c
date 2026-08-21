@@ -36,11 +36,17 @@ bool app_open(struct app *app, const char *filename)
         app->directory[n] = 0;
     }
     if (ok) {
-        app->editor.on_save = media_saved;
+        app->editor.on_save = app_saved;
         app->editor.on_save_data = app;
         media_sync(app);
     }
     return ok;
+}
+
+void app_saved(void *context)
+{
+    media_saved(context);
+    session_save_positions(context);
 }
 
 void app_close(struct app *app)

@@ -202,13 +202,39 @@ static void pages(const char *parent)
     app_input(&app, KEY_PAGE, "1");
     app_input(&app, KEY_PAGE, "4");
     assert(!strcmp(app.editor.text, "# Changed\n"));
-    app_close(&app);
-    /* Saved pages come back after a restart; unsaved, untouched pages leave no file. */
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
-    assert(app.current == 0 && !strcmp(app.editor.text, "one\ntwo"));
+    /* Cursor positions are remembered per page across restarts. */
+    app_input(&app, KEY_PAGE, "1");
+    type(&app, "gg");
     app_input(&app, KEY_PAGE, "3");
-    assert(!strcmp(app.editor.text, "# Groceries #\nmilk") &&
-           app.editor.cursor == app.editor.length && app.follow_cursor);
+    type(&app, "ggl");
+    assert(app.editor.cursor == 1);
+    app_close(&app);
+    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app.current == 0 && !strcmp(app.editor.text, "one\ntwo") && app.editor.cursor == 0);
+    app_input(&app, KEY_PAGE, "3");
+    assert(!strcmp(app.editor.text, "# Groceries #\nmilk") && app.editor.cursor == 1 &&
+           app.follow_cursor);
+    /* A page saved with :w keeps the position it was saved at, even if Jot never closes
+     * cleanly; the file holds one line per page. */
+    type(&app, "G:w\n");
+    char *folder = session_config_directory(), positions[1200];
+    snprintf(positions, sizeof(positions), "%s/positions", folder);
+    free(folder);
+    size_t length;
+    char *saved = session_read(positions, 1 << 20, &length);
+    assert(saved && !strncmp(saved, "1 0 0 ", 6) && strstr(saved, "/3/jot.md\n"));
+    char *second_line = strchr(saved, '\n') + 1;
+    assert(!strncmp(second_line, "0 0 0 ", 6) && strstr(second_line, "/1/jot.md\n"));
+    free(saved);
+    app_close(&app);
+    /* Saved pages come back after a restart; unsaved, untouched pages leave no file. A page
+     * with no remembered position opens at its end. */
+    write_file(directory, "6/jot.md", "six\nlines\n");
+    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    app_input(&app, KEY_PAGE, "6");
+    assert(app.editor.cursor == app.editor.length);
+    app_input(&app, KEY_PAGE, "3");
+    assert(app.editor.cursor == strlen("# Groceries #\n"));
     assert(!exists(directory, "5/jot.md") && !exists(directory, "2/jot.md"));
     app_close(&app);
     /* Explicit files have no pages. */
@@ -220,6 +246,17 @@ static void pages(const char *parent)
     type(&app, ":map\n");
     assert(!app.page_map && strstr(app.editor.message, "not a single file"));
     app_close(&app);
+    /* An explicit file opened with settings, as main does, remembers its position too. */
+    write_file(directory, "note.txt", "alpha\nbeta\ngamma\n");
+    assert(app_open(&app, file));
+    session_load_settings(&app);
+    type(&app, "jl");
+    app_close(&app);
+    assert(app_open(&app, file));
+    session_load_settings(&app);
+    assert(app.editor.cursor == strlen("alpha\nb"));
+    app_close(&app);
+    remove_file(file);
     remove_notes(directory);
 }
 static void set_env(const char *name, const char *value)
@@ -530,7 +567,9 @@ int main(void)
     old_layout(directory);
     remove_notes(other);
     remove_file(settings);
-    char *folder = session_config_directory();
+    char *folder = session_config_directory(), positions[1200];
+    snprintf(positions, sizeof(positions), "%s/positions", folder);
+    remove_file(positions);
     remove_folder(folder);
     remove_folder(config);
     free(folder);
