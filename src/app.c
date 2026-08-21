@@ -67,18 +67,14 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     uint64_t search_serial = app->editor.search_serial;
     bool digit = key == KEY_TEXT && text && text[0] >= '1' && text[0] <= '9' && !text[1];
     if (app->page_map) {
-        /* The map takes the keyboard: a digit (with or without Alt) shows that page, arrows
-         * or hjkl move the selection and Enter shows it, Esc closes the map, and other keys
-         * are ignored rather than editing unseen text. Rows run 7 8 9 / 4 5 6 / 1 2 3. */
-        unsigned choice = app->map_choice, column = choice % 3;
+        /* The map takes the keyboard: a digit (with or without Alt) shows that page, Up/Down
+         * or k/j move the selection and Enter shows it, Esc closes the map, and other keys
+         * are ignored rather than editing unseen text. Pages run 1 to 9 down the list. */
+        unsigned choice = app->map_choice;
         char letter = key == KEY_TEXT && text && text[0] && !text[1] ? text[0] : 0;
-        if ((key == KEY_UP || letter == 'k') && choice < 6)
-            choice += 3;
-        else if ((key == KEY_DOWN || letter == 'j') && choice >= 3)
-            choice -= 3;
-        else if ((key == KEY_LEFT || letter == 'h') && column > 0)
+        if ((key == KEY_UP || letter == 'k') && choice > 0)
             --choice;
-        else if ((key == KEY_RIGHT || letter == 'l') && column < 2)
+        else if ((key == KEY_DOWN || letter == 'j') && choice < PAGE_COUNT - 1)
             ++choice;
         app->map_choice = choice;
         if ((key == KEY_PAGE || digit) && text && text[0] >= '1' && text[0] <= '9')

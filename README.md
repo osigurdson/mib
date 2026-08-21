@@ -17,10 +17,10 @@ create, files to name or tabs to tidy. Every page is always there, numbered 1 to
 
 Press `Esc`, then `Alt+1` to `Alt+9` to jump straight to a page. Each page keeps its own
 cursor, scroll position and undo history, so you come back exactly where you left off.
-Type `:map` to see all nine laid out like a numeric keypad, each labelled with its first
-`# Heading`. Press a number, or use the arrow keys and `Enter`, to go there.
+Type `:map` to see all nine in a list, each labelled with its first `# Heading`. Press a
+number, or use the arrow keys and `Enter`, to go there.
 
-<img src="docs/map.png" width="550" alt="The :map overlay: nine keys in numeric keypad order, labelled Shell commands, Ideas, Release 0.4, Today, Standup notes and Flaky upload test, over a page of notes">
+<img src="docs/map.png" width="550" alt="The :map overlay: pages 1 to 9 in a list, labelled by their first headings, over a page of notes">
 
 Why only nine? Because Jot is for working notes, not an archive. Nine is enough to keep a
 few threads going at once: today's task, a meeting, a bug you're chasing, a list of
@@ -98,7 +98,7 @@ Otherwise Jot opens its notes folder: `$JOT_DIR`, or `~/Documents/jot` (`~/jot`
 without Documents). The folder holds nine pages, `1/` to `9/`, each with its own
 `jot.md` and private `assets/`. `jot` shows page 1 and `jot 3` shows page 3; a path
 (or `--page folder`) uses that folder instead. `Alt+1` to `Alt+9` in normal mode switch
-pages, and `:map` shows all nine as a numeric keypad labeled by their first `# Heading`
+pages, and `:map` lists all nine, labeled by their first `# Heading`
 (see [Pages](docs/keys.md#pages)). Agent instructions are written to the notes folder
 when it is created. A folder from before numbered pages has its `default/` page moved to
 `1/` (and `default/room2/` to `default/room9/` to `2/` to `9/`) the first time it opens.

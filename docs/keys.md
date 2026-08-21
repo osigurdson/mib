@@ -157,26 +157,20 @@ Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 ## Pages
 
 The notes folder holds nine pages, `1/` to `9/`, each its own Markdown scratchpad with its
-own `jot.md` and `assets/`. The map lays them out like a numeric keypad:
-
-```
-7 8 9
-4 5 6
-1 2 3
-```
+own `jot.md` and `assets/`. The map lists them from 1 to 9.
 
 | Keys | Action |
 |---|---|
 | `Alt+1` … `Alt+9` | In normal mode, show that page (number row or keypad) |
-| `:map` | Show the pages as a keypad |
+| `:map` | Show the list of pages |
 | `1` … `9` on the map | Show that page |
-| Arrows or `h` `j` `k` `l`, then `Enter` on the map | Select a page and show it |
+| `Up` `Down` or `k` `j`, then `Enter` on the map | Select a page and show it |
 | `Esc` on the map | Close it |
 
 All nine pages always exist; there is nothing to create, name or delete. A page's folder
 appears the first time it is shown. The map labels each page with its first `# Heading`,
-read from the page itself. The selection starts on the page that is showing, which keeps
-an outline as the selection moves. Clicking a page also shows it.
+read from the page itself, or a dash. The selection starts on the page that is showing,
+which keeps a dot as the selection moves. Clicking a page also shows it.
 
 Each page keeps its own cursor, scroll position, undo history, marks and jumps; registers,
 search and settings are shared. `:w` and `Ctrl+S` save the page that is showing, and

@@ -76,12 +76,12 @@ struct app {
     int image_box_x, image_box_y, image_box_w, image_box_h;
     int drag_corner, drag_x, drag_y, drag_width, drag_origin_width, drag_origin_height;
     /* The shown page (0 for page 1), the others, and the :map overlay with its selected
-     * page, first cell (page 7) and cell size from the last paint, in physical pixels. */
+     * page, first row (page 1) and row size from the last paint, in physical pixels. */
     unsigned current, map_choice;
     char *root; /* The notes folder holding 1/ to 9/; NULL for explicit files. */
     struct page pages[PAGE_COUNT];
     bool page_map, map_click;
-    int map_x, map_y, map_width, map_height, map_gap;
+    int map_x, map_y, map_width, map_height;
 };
 size_t app_view_next(struct app *app, size_t start);
 int app_view_rows(struct app *app, size_t start);

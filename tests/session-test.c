@@ -136,39 +136,39 @@ static void pages(const char *parent)
     assert(app.page_map);
     uint32_t pixels[640 * 480];
     assert(app_paint(&app, pixels, 640, 480, 640));
-    assert(app.map_width > 0 && app.map_width == app.map_height);
-    assert(app_paint(&app, pixels, 120, 90, 120)); /* too small for keys: draws none */
+    assert(app.map_width > app.map_height && app.map_height > 0);
+    assert(app_paint(&app, pixels, 120, 90, 120)); /* too small for the list: draws none */
     type(&app, "x");
     assert(app.page_map && !strcmp(app.editor.text, "one\ntwo"));
     type(&app, "3");
     assert(!app.page_map && app.current == 2 && strstr(app.editor.text, "milk"));
     type(&app, ":map\n\x1b");
     assert(!app.page_map && app.current == 2);
-    /* Arrows or hjkl move the selection from the shown page, stopping at the edges, and
-     * Enter shows the selected page. */
+    /* Up/Down or k/j move the selection from the shown page, stopping at the ends, other
+     * keys do nothing, and Enter shows the selected page. */
     type(&app, ":map\n");
     assert(app.page_map && app.map_choice == 2);
-    app_input(&app, KEY_RIGHT, "");
-    assert(app.map_choice == 2);
     app_input(&app, KEY_UP, "");
     app_input(&app, KEY_UP, "");
     app_input(&app, KEY_UP, "");
-    assert(app.map_choice == 8 && app.current == 2 && app.page_map);
-    app_input(&app, KEY_LEFT, "");
+    assert(app.map_choice == 0 && app.current == 2 && app.page_map);
     app_input(&app, KEY_DOWN, "");
+    type(&app, "jjj");
     assert(app.map_choice == 4);
-    type(&app, "hjkl");
+    app_input(&app, KEY_RIGHT, "");
+    type(&app, "hl");
     assert(app.map_choice == 4 && app.current == 2 && strstr(app.editor.text, "milk"));
-    type(&app, "hj");
+    type(&app, "jjjjjjj");
+    assert(app.map_choice == 8);
+    type(&app, "kkkkkkkk");
     assert(app.map_choice == 0);
     app_input(&app, KEY_ENTER, "");
     assert(!app.page_map && app.current == 0 && !strcmp(app.editor.text, "one\ntwo"));
     app_input(&app, KEY_PAGE, "3");
-    /* Clicking a cell shows that page; dragging on doesn't start a selection there. */
+    /* Clicking a row shows that page; dragging on doesn't start a selection there. */
     type(&app, ":map\n");
     assert(app_paint(&app, pixels, 640, 480, 640));
-    app_pointer(&app, app.map_x + app.map_width + app.map_gap + app.map_width / 2,
-                app.map_y + app.map_height + app.map_gap + 2, false);
+    app_pointer(&app, app.map_x + app.map_width / 2, app.map_y + 4 * app.map_height + 2, false);
     assert(!app.page_map && app.current == 4);
     app_pointer(&app, 10, 10, true);
     assert(app.editor.mode == NORMAL);
