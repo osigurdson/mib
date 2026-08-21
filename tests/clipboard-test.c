@@ -345,7 +345,7 @@ int main(void)
     assert(read(results[0], &result, 1) == 1 && result == 'F');
     /* A single y copies the selected image, as does the context menu's Copy Image. */
     app_input(&app, KEY_TEXT, "y");
-    assert(!app.editor.pending[0]);
+    assert(!app.editor.pending[0] && !strcmp(app.toast, "Image copied"));
     assert(wl_display_roundtrip(c.display) >= 0);
     pump_sends(&c);
     assert(read(results[0], &result, 1) == 1 && result == 'P');

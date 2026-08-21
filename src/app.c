@@ -225,7 +225,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP);
     if ((app->editor.requests & ED_COPY) && image_name[0] && app->editor.register_text &&
         !strcmp(app->editor.register_text, image_markup))
-        app->clipboard_image = session_path(app, image_name);
+        if ((app->clipboard_image = session_path(app, image_name)))
+            app_toast(app, "Image copied");
     unsigned service_requests = app->editor.requests;
     app->editor.requests = 0;
     if (app->service)
