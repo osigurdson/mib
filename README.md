@@ -10,6 +10,24 @@ supersampling rasterizer, and a bounded glyph cache. There are no runtime
 FreeType, HarfBuzz, Fontconfig, or system-font dependencies. Fractional scaling
 rasterizes fresh glyphs at the actual physical pixel size.
 
+## Nine pages, no filing
+
+Jot gives you nine scratch pages and nothing else to manage. There are no folders to
+create, files to name or tabs to tidy. Every page is always there, numbered 1 to 9.
+
+Press `Esc`, then `Alt+1` to `Alt+9` to jump straight to a page. Each page keeps its own
+cursor, scroll position and undo history, so you come back exactly where you left off.
+Type `:map` to see all nine laid out like a numeric keypad, each labelled with its first
+`# Heading`. Press a number, or use the arrow keys and `Enter`, to go there.
+
+<img src="docs/map.png" width="550" alt="The :map overlay: nine keys in numeric keypad order, labelled Shell commands, Ideas, Release 0.4, Today, Standup notes and Flaky upload test, over a page of notes">
+
+Why only nine? Because Jot is for working notes, not an archive. Nine is enough to keep a
+few threads going at once: today's task, a meeting, a bug you're chasing, a list of
+commands. It's also few enough that you remember where things are without searching. Each
+page is a plain folder with a `jot.md` and its own `assets/`. When something deserves to
+last, move it into your wiki or knowledge base, then clear the page and reuse it.
+
 ## Build and run (Linux)
 
 Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
