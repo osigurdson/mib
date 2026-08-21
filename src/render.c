@@ -1,6 +1,7 @@
 #include "app.h"
 #include "markdown.h"
 #include "media.h"
+#include "render-internal.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,7 +18,7 @@ static const struct palette *colors(const struct app *app)
     }
 }
 
-static uint32_t blend(uint32_t background, unsigned alpha, uint32_t foreground)
+uint32_t render_blend(uint32_t background, unsigned alpha, uint32_t foreground)
 {
     uint32_t pixel = 0xff000000;
     for (unsigned shift = 0; shift < 24; shift += 8) {
@@ -28,7 +29,7 @@ static uint32_t blend(uint32_t background, unsigned alpha, uint32_t foreground)
     return pixel;
 }
 
-static void rectangle(uint32_t *pixels, int width, int height, int stride, int x, int y, int w,
+void render_rectangle(uint32_t *pixels, int width, int height, int stride, int x, int y, int w,
                       int h, uint32_t color)
 {
     for (int row = y < 0 ? 0 : y; row < height && row < y + h; ++row)
@@ -37,7 +38,7 @@ static void rectangle(uint32_t *pixels, int width, int height, int stride, int x
 }
 
 /* A filled w×h box with corners of the given radius. */
-static void rounded_box(uint32_t *pixels, int width, int height, int stride, int x, int y, int w,
+void render_rounded_box(uint32_t *pixels, int width, int height, int stride, int x, int y, int w,
                         int h, int radius, uint32_t color)
 {
     if (radius > w / 2)
@@ -50,14 +51,14 @@ static void rounded_box(uint32_t *pixels, int width, int height, int stride, int
         int inset = 0;
         while (inset < radius && (radius - inset) * (radius - inset) + dy * dy > radius * radius)
             ++inset;
-        rectangle(pixels, width, height, stride, x + inset, y + row, w - 2 * inset, 1, color);
+        render_rectangle(pixels, width, height, stride, x + inset, y + row, w - 2 * inset, 1, color);
     }
 }
 
 static void rounded_rectangle(uint32_t *pixels, int width, int height, int stride,
                                int x, int y, int size, int radius, uint32_t color)
 {
-    rounded_box(pixels, width, height, stride, x, y, size, size, radius, color);
+    render_rounded_box(pixels, width, height, stride, x, y, size, size, radius, color);
 }
 
 static bool styled_glyph(struct app *app, uint32_t *pixels, int width, int height, int stride,
@@ -79,7 +80,7 @@ static bool styled_glyph(struct app *app, uint32_t *pixels, int width, int heigh
             if (px < 0 || px >= width)
                 continue;
             size_t offset = (size_t)y * (size_t)stride + (size_t)px;
-            pixels[offset] = blend(pixels[offset], coverage[col], color);
+            pixels[offset] = render_blend(pixels[offset], coverage[col], color);
         }
     }
     return true;
@@ -91,7 +92,7 @@ static bool glyph(struct app *app, uint32_t *pixels, int width, int height, int 
     return styled_glyph(app, pixels, width, height, stride, cp, x, baseline, clip_bottom, color, 0);
 }
 
-static bool label(struct app *app, uint32_t *pixels, int width, int height, int stride,
+bool render_label(struct app *app, uint32_t *pixels, int width, int height, int stride,
                   const char *text, int x, int baseline, int cell, uint32_t color)
 {
     size_t length = strlen(text), offset = 0;
@@ -110,8 +111,8 @@ static void title_bar(struct app *app, uint32_t *pixels, int width, int height, 
 {
     const struct palette *theme = colors(app);
     int h = app->title_height;
-    rectangle(pixels, width, height, stride, 0, 0, width, h, theme->title);
-    rectangle(pixels, width, height, stride, 0, h - 1, width, 1, theme->title_separator);
+    render_rectangle(pixels, width, height, stride, 0, 0, width, h, theme->title);
+    render_rectangle(pixels, width, height, stride, 0, h - 1, width, 1, theme->title_separator);
     int size = h / 4, stroke = (int)(app->scale120 / 120);
     if (size < 3)
         size = 3;
@@ -135,21 +136,21 @@ static void title_bar(struct app *app, uint32_t *pixels, int width, int height, 
         }
         int x = width - (3 - button) * h + (h - size) / 2, y = (h - size) / 2;
         if (button == 0)
-            rectangle(pixels, width, height, stride, x, y + size, size, stroke, foreground);
+            render_rectangle(pixels, width, height, stride, x, y + size, size, stroke, foreground);
         else if (button == 1) {
             int offset = app->maximized ? 3 * stroke : 0;
-            rectangle(pixels, width, height, stride, x + offset, y - offset, size, stroke, foreground);
-            rectangle(pixels, width, height, stride, x + size + offset - stroke, y - offset,
-                      stroke, size, foreground);
-            rectangle(pixels, width, height, stride, x, y, size, stroke, foreground);
-            rectangle(pixels, width, height, stride, x, y, stroke, size, foreground);
-            rectangle(pixels, width, height, stride, x + size - stroke, y, stroke, size, foreground);
-            rectangle(pixels, width, height, stride, x, y + size - stroke, size, stroke, foreground);
+            render_rectangle(pixels, width, height, stride, x + offset, y - offset, size, stroke, foreground);
+            render_rectangle(pixels, width, height, stride, x + size + offset - stroke, y - offset,
+                             stroke, size, foreground);
+            render_rectangle(pixels, width, height, stride, x, y, size, stroke, foreground);
+            render_rectangle(pixels, width, height, stride, x, y, stroke, size, foreground);
+            render_rectangle(pixels, width, height, stride, x + size - stroke, y, stroke, size, foreground);
+            render_rectangle(pixels, width, height, stride, x, y + size - stroke, size, stroke, foreground);
         } else
             for (int i = 0; i < size; ++i) {
-                rectangle(pixels, width, height, stride, x + i, y + i, stroke, stroke, foreground);
-                rectangle(pixels, width, height, stride, x + size - i - 1, y + i,
-                          stroke, stroke, foreground);
+                render_rectangle(pixels, width, height, stride, x + i, y + i, stroke, stroke, foreground);
+                render_rectangle(pixels, width, height, stride, x + size - i - 1, y + i,
+                                 stroke, stroke, foreground);
             }
     }
 }
@@ -255,13 +256,13 @@ static unsigned markdown_style(const struct md_cache *cache, size_t at)
     return style;
 }
 struct text_layout { unsigned size; int cell, ascender, height, inset; };
-static unsigned base_font_size(const struct app *app)
+unsigned render_font_size(const struct app *app)
 {
     return (unsigned)(((app->font_size ? app->font_size : 18) * 64 * (int64_t)app->scale120 + 60) / 120);
 }
 static struct text_layout text_layout(const struct app *app, const struct md_cache *cache)
 {
-    unsigned size = base_font_size(app);
+    unsigned size = render_font_size(app);
     struct text_layout layout = {size, app->cell, tiny_font_metrics_at(size).ascender,
                                  app->line_height, 0};
     if (!cache || !cache->heading || cache->table.count) return layout;
@@ -427,7 +428,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
     if (h < 1)
         h = 1;
     if (selected)
-        rectangle(pixels, width, height, stride, x - 3, y - 3, w + 6, h + 6, theme->link);
+        render_rectangle(pixels, width, height, stride, x - 3, y - 3, w + 6, h + 6, theme->link);
     for (int row = 0; row < h && row + y < height; ++row)
         for (int col = 0; col < w && col + x < width; ++col) {
             if (row + y < 0 || col + x < 0)
@@ -438,7 +439,7 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
                                  4;
             uint32_t color = 0xff000000 | ((uint32_t)p[0] << 16) | ((uint32_t)p[1] << 8) | p[2];
             size_t at = (size_t)(row + y) * stride + col + x;
-            pixels[at] = blend(pixels[at], p[3], color);
+            pixels[at] = render_blend(pixels[at], p[3], color);
         }
     media_highlight(app, entry, pixels, width, height, stride, x, y, w, h);
     if (selected && media_at(app, app->editor.cursor) == entry) {
@@ -452,9 +453,9 @@ static void draw_image(struct app *app, const struct media_entry *entry, uint32_
     if (selected) {
         /* Corner handles keep selection visible against light or busy images. */
         for (int corner = 0; corner < 4; ++corner)
-            rectangle(pixels, width, height, stride,
-                      (corner & 1) ? x + w - 3 : x - 3,
-                      (corner & 2) ? y + h - 3 : y - 3, 6, 6, theme->handle);
+            render_rectangle(pixels, width, height, stride,
+                             (corner & 1) ? x + w - 3 : x - 3,
+                             (corner & 2) ? y + h - 3 : y - 3, 6, 6, theme->handle);
     }
     image_free(&image);
 }
@@ -489,14 +490,14 @@ static bool draw_table(struct app *app, struct md_cache *cache, uint32_t *pixels
     int table_width = column_width * (int)cache->table.count;
     if (y + table_height > limit) table_height = limit - y;
     if (cache->table.header) {
-        rectangle(pixels, width, height, stride, app->text_x, y, table_width, table_height, theme->code);
-        rectangle(pixels, width, height, stride, app->text_x, y, table_width, 1, theme->dim);
+        render_rectangle(pixels, width, height, stride, app->text_x, y, table_width, table_height, theme->code);
+        render_rectangle(pixels, width, height, stride, app->text_x, y, table_width, 1, theme->dim);
     }
-    rectangle(pixels, width, height, stride, app->text_x, y + table_height - 1,
-              table_width, 1, theme->dim);
+    render_rectangle(pixels, width, height, stride, app->text_x, y + table_height - 1,
+                     table_width, 1, theme->dim);
     for (unsigned i = 0; i <= cache->table.count; ++i)
-        rectangle(pixels, width, height, stride, app->text_x + (int)i * column_width,
-                  y, 1, table_height, theme->dim);
+        render_rectangle(pixels, width, height, stride, app->text_x + (int)i * column_width,
+                         y, 1, table_height, theme->dim);
     for (unsigned i = 0; i < cache->table.count; ++i) {
         struct md_cell range = cache->table.cells[i];
         size_t p = range.start;
@@ -515,14 +516,14 @@ static bool draw_table(struct app *app, struct md_cache *cache, uint32_t *pixels
                 if (advance > content) advance = content;
                 uint32_t color = inline_color(theme, style);
                 if (style & MD_CODE)
-                    rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
-                              app->line_height, theme->code);
+                    render_rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
+                                     app->line_height, theme->code);
                 if (highlight(&app->editor, at))
-                    rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
-                              app->line_height, theme->search);
+                    render_rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
+                                     app->line_height, theme->search);
                 if (at >= selection_a && at < selection_b)
-                    rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
-                              app->line_height, theme->selection);
+                    render_rectangle(pixels, width, height, stride, x, top, (int)advance * cell,
+                                     app->line_height, theme->selection);
                 if (highlight(&app->editor, at)) color = theme->search_text;
                 if (at >= selection_a && at < selection_b) color = theme->selection_text;
                 if (cp != '\t') {
@@ -535,8 +536,8 @@ static bool draw_table(struct app *app, struct md_cache *cache, uint32_t *pixels
                                       limit, color, style))
                         return false;
                     if (style & (MD_DONE | MD_STRIKE))
-                        rectangle(pixels, width, height, stride, x, top + ascender * 3 / 4, cell,
-                                  (int)((app->scale120 + 119) / 120), color);
+                        render_rectangle(pixels, width, height, stride, x, top + ascender * 3 / 4, cell,
+                                         (int)((app->scale120 + 119) / 120), color);
                 }
                 column += advance;
             }
@@ -572,121 +573,11 @@ static size_t table_hit(const struct app *app, const struct md_cache *cache, int
     }
     return end;
 }
-/* Bytes in the first columns codepoints of text. */
-static size_t label_prefix(const char *text, size_t length, int columns)
-{
-    size_t offset = 0;
-    for (int i = 0; i < columns && offset < length; ++i)
-        editor_codepoint(text, length, &offset);
-    return offset;
-}
-/* Split a page heading into at most lines rows of columns cells, breaking at a space where
- * possible and ending a cut heading with an ellipsis. */
-static unsigned page_label(const char *heading, int columns, unsigned lines, char out[2][256])
-{
-    size_t length = strlen(heading);
-    unsigned count = 0;
-    while (length && count < lines && columns > 1) {
-        size_t fit = label_prefix(heading, length, columns), next = fit;
-        if (fit < length && count + 1 < lines) {
-            size_t space = fit;
-            while (space && heading[space] != ' ')
-                --space;
-            if (space)
-                fit = next = space;
-        } else if (fit < length) {
-            fit = label_prefix(heading, length, columns - 1);
-            next = length;
-        }
-        memcpy(out[count], heading, fit);
-        out[count][fit] = 0;
-        if (next == length && fit < length)
-            strcat(out[count], "\xe2\x80\xa6");
-        heading += next;
-        length -= next;
-        while (length && *heading == ' ')
-            ++heading, --length;
-        ++count;
-    }
-    return count;
-}
-static int label_columns(const char *text)
-{
-    int columns = 0;
-    for (size_t offset = 0, length = strlen(text); offset < length; ++columns)
-        editor_codepoint(text, length, &offset);
-    return columns;
-}
-/* The :map overlay, drawn as a numeric keypad: nine square keys, each with its page number
- * and the page's first H1 underneath. The selected key uses the selected menu colors and the
- * page that is showing has an outline. */
-static bool draw_page_map(struct app *app, const struct palette *theme, uint32_t *pixels,
-                          int width, int height, int stride, int top, int bottom, int padding)
-{
-    unsigned base = base_font_size(app), big = base * 2, small = base * 4 / 5;
-    if (big > 127 * 64)
-        big = 127 * 64;
-    struct tiny_font_metrics digit = tiny_font_metrics_at(big), text = tiny_font_metrics_at(small);
-    int gap = padding, edge = padding / 3 > 2 ? padding / 3 : 2, frame = padding * 3 / 2;
-    int side = 12 * text.advance, fit_x = (width - 2 * frame - 2 * gap - 2 * padding) / 3,
-        fit_y = (bottom - top - 2 * frame - 2 * gap - 2 * padding) / 3;
-    if (side > fit_x)
-        side = fit_x;
-    if (side > fit_y)
-        side = fit_y;
-    if (side < digit.line_height + edge)
-        return true;
-    int grid = 3 * side + 2 * gap;
-    int x0 = (width - grid) / 2, y0 = top + (bottom - top - grid) / 2;
-    app->map_x = x0;
-    app->map_y = y0;
-    app->map_width = app->map_height = side;
-    app->map_gap = gap;
-    rounded_box(pixels, width, height, stride, x0 - frame, y0 - frame, grid + 2 * frame,
-                grid + 2 * frame, frame + padding / 2, theme->status);
-    int face = side - edge, columns = (side - padding) / text.advance;
-    unsigned lines = (unsigned)((face - digit.line_height - padding / 2) / text.line_height);
-    if (lines > 2)
-        lines = 2;
-    for (unsigned page = 0; page < PAGE_COUNT; ++page) {
-        int x = x0 + (int)(page % 3) * (side + gap), y = y0 + (2 - (int)(page / 3)) * (side + gap);
-        bool selected = page == app->map_choice;
-        uint32_t key = selected ? theme->menu_selected : theme->menu;
-        uint32_t ink = selected ? theme->menu_selected_text : theme->menu_text;
-        int radius = padding, ring = edge;
-        /* The page that is showing keeps an outline while the selection moves. */
-        if (page == app->current)
-            rounded_box(pixels, width, height, stride, x - ring, y - ring, side + 2 * ring,
-                        side + 2 * ring, radius + ring, theme->cursor);
-        rounded_box(pixels, width, height, stride, x, y, side, side, radius,
-                    blend(key, app->editor.light ? 40 : 96, 0xff000000));
-        rounded_box(pixels, width, height, stride, x, y, side, face, radius, key);
-        char heading[256], label_lines[2][256], number[2] = {(char)('1' + page), 0};
-        app_page_heading(app, page, heading, sizeof(heading));
-        unsigned count = page_label(heading, columns, lines, label_lines);
-        int block = digit.line_height + (int)count * text.line_height;
-        int line_y = y + (face - block) / 2;
-        if (!tiny_font_set_size(app->font, big) ||
-            !label(app, pixels, width, height, stride, number, x + (side - digit.advance) / 2,
-                   line_y + digit.ascender, digit.advance, ink))
-            return false;
-        line_y += digit.line_height;
-        if (count && !tiny_font_set_size(app->font, small))
-            return false;
-        for (unsigned i = 0; i < count; ++i, line_y += text.line_height) {
-            int span = label_columns(label_lines[i]) * text.advance;
-            if (!label(app, pixels, width, height, stride, label_lines[i], x + (side - span) / 2,
-                       line_y + text.ascender, text.advance, ink))
-                return false;
-        }
-    }
-    return tiny_font_set_size(app->font, base);
-}
 static bool paint(struct app *app, uint32_t *pixels, int width, int height, int stride)
 {
     struct editor *ed = &app->editor;
     const struct palette *theme = colors(app);
-    unsigned size = base_font_size(app);
+    unsigned size = render_font_size(app);
     if (!tiny_font_set_size(app->font, size))
         return false;
     struct tiny_font_metrics metrics = tiny_font_metrics(app->font);
@@ -817,9 +708,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             continue;
         }
         if (cache && cache->fenced)
-            rectangle(pixels, width, height, stride, text_x, y, text_width, line_height, theme->code);
+            render_rectangle(pixels, width, height, stride, text_x, y, text_width, line_height, theme->code);
         if (polish && cache->quote)
-            rectangle(pixels, width, height, stride, text_x - padding, y, 2, line_height, theme->quote);
+            render_rectangle(pixels, width, height, stride, text_x - padding, y, 2, line_height, theme->quote);
         struct text_layout layout = text_layout(app, cache);
         int row_height = layout.height, text_y = y + layout.inset;
         int text_cell = layout.cell, text_ascender = layout.ascender;
@@ -827,8 +718,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         bool last = cache && next >= cache->end;
         if (polish && (cache->rule || (cache->heading && cache->heading <= 2 && last))) {
             int rule_y = cache->rule ? y + line_height / 2 : y + row_height - 2;
-            rectangle(pixels, width, height, stride, text_x, rule_y, text_width,
-                      cache->heading == 1 ? 2 : 1, theme->dim);
+            render_rectangle(pixels, width, height, stride, text_x, rule_y, text_width,
+                             cache->heading == 1 ? 2 : 1, theme->dim);
         }
         size_t offset = start;
         unsigned column = polish ? view_indent(app, cache, start) : 0;
@@ -843,14 +734,14 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             int x = text_x + (int)column * text_cell;
             uint32_t color = inline_color(theme, style);
             if (style & MD_CODE)
-                rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
-                          theme->code);
+                render_rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
+                                 theme->code);
             if (highlight(ed, at))
-                rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
-                          theme->search);
+                render_rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
+                                 theme->search);
             if (selected && at >= selection_a && at < selection_b)
-                rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
-                          theme->selection);
+                render_rectangle(pixels, width, height, stride, x, y, text_cell * (int)advance, row_height,
+                                 theme->selection);
             if (highlight(ed, at)) color = theme->search_text;
             if (selected && at >= selection_a && at < selection_b) color = theme->selection_text;
             if (at == ed->cursor) {
@@ -863,18 +754,18 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                 int stroke = (int)((app->scale120 + 119) / 120);
                 int center = text_y + text_ascender * 2 / 3;
                 if (style & MD_BULLET) {
-                    rectangle(pixels, width, height, stride, x + text_cell / 2 - stroke,
-                              center - stroke, 2 * stroke + 1, 2 * stroke + 1, theme->dim);
+                    render_rectangle(pixels, width, height, stride, x + text_cell / 2 - stroke,
+                                     center - stroke, 2 * stroke + 1, 2 * stroke + 1, theme->dim);
                 } else {
                     int side = text_cell - 2 * stroke, left = x + stroke, upper = center - side / 2;
                     uint32_t ink = style & MD_CHECKED ? theme->quote : theme->dim;
-                    rectangle(pixels, width, height, stride, left, upper, side, stroke, ink);
-                    rectangle(pixels, width, height, stride, left, upper, stroke, side, ink);
-                    rectangle(pixels, width, height, stride, left + side - stroke, upper, stroke, side, ink);
-                    rectangle(pixels, width, height, stride, left, upper + side - stroke, side, stroke, ink);
+                    render_rectangle(pixels, width, height, stride, left, upper, side, stroke, ink);
+                    render_rectangle(pixels, width, height, stride, left, upper, stroke, side, ink);
+                    render_rectangle(pixels, width, height, stride, left + side - stroke, upper, stroke, side, ink);
+                    render_rectangle(pixels, width, height, stride, left, upper + side - stroke, side, stroke, ink);
                     if (style & MD_CHECKED)
-                        rectangle(pixels, width, height, stride, left + 2 * stroke, upper + 2 * stroke,
-                                  side - 4 * stroke, side - 4 * stroke, ink);
+                        render_rectangle(pixels, width, height, stride, left + 2 * stroke, upper + 2 * stroke,
+                                         side - 4 * stroke, side - 4 * stroke, ink);
                 }
             } else if (cp != '\t') {
                 if (cp < 32 || cp == 127)
@@ -886,8 +777,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                                                        text_y + text_ascender, status_y, color, style))
                     return false;
                 if (style & (MD_DONE | MD_STRIKE))
-                    rectangle(pixels, width, height, stride, x, text_y + text_ascender * 3 / 4, text_cell,
-                              (int)((app->scale120 + 119) / 120), color);
+                    render_rectangle(pixels, width, height, stride, x, text_y + text_ascender * 3 / 4, text_cell,
+                                     (int)((app->scale120 + 119) / 120), color);
             }
             column += advance;
         }
@@ -905,14 +796,14 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     }
     if (!polish && !ed->command_active && cursor_x >= 0) {
         if (ed->mode == INSERT)
-            rectangle(pixels, width, height, stride, cursor_x, cursor_y, 2, cursor_height,
-                      theme->cursor);
+            render_rectangle(pixels, width, height, stride, cursor_x, cursor_y, 2, cursor_height,
+                             theme->cursor);
         else
-            rectangle(pixels, width, height, stride, cursor_x, cursor_y + cursor_height - 3, cursor_cell, 3,
-                      theme->cursor);
+            render_rectangle(pixels, width, height, stride, cursor_x, cursor_y + cursor_height - 3, cursor_cell, 3,
+                             theme->cursor);
     }
-    rectangle(pixels, width, height, stride, 0, status_y, width, status_line + 2 * padding,
-              theme->status);
+    render_rectangle(pixels, width, height, stride, 0, status_y, width, status_line + 2 * padding,
+                     theme->status);
     char status[512];
     /* Vim modes, the file name and pending keys stay out of the status line; only
      * non-default render modes are worth calling out. */
@@ -922,7 +813,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         char prompt[1100];
         snprintf(prompt, sizeof(prompt), "%c%s_", ed->command_kind ? ed->command_kind : ':',
                  ed->command);
-        if (!label(app, pixels, width, height, stride, prompt, padding, baseline, cell, theme->status_text))
+        if (!render_label(app, pixels, width, height, stride, prompt, padding, baseline, cell, theme->status_text))
             return false;
     } else {
         char position[64];
@@ -938,27 +829,27 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             size_t n = strlen(status);
             snprintf(status + n, sizeof(status) - n, "%sindexing image", n ? "  " : "");
         }
-        if (!label(app, pixels, position_x - cell, height, stride,
-                   ed->message[0] ? ed->message : status, padding, baseline, cell, theme->status_text) ||
-            !label(app, pixels, width, height, stride, position, position_x, baseline, cell, theme->status_text))
+        if (!render_label(app, pixels, position_x - cell, height, stride,
+                          ed->message[0] ? ed->message : status, padding, baseline, cell, theme->status_text) ||
+            !render_label(app, pixels, width, height, stride, position, position_x, baseline, cell, theme->status_text))
             return false;
     }
     if (app->context_menu) {
         static const char *const items[CONTEXT_ITEMS] = {" Copy Image", " Copy Text from Image",
                                                           " Open Image"};
-        rectangle(pixels, width, height, stride, app->context_x, app->context_y, 26 * cell,
-                  CONTEXT_ITEMS * line_height, theme->menu);
-        rectangle(pixels, width, height, stride, app->context_x,
-                  app->context_y + app->context_choice * line_height, 26 * cell, line_height,
-                  theme->menu_selected);
+        render_rectangle(pixels, width, height, stride, app->context_x, app->context_y, 26 * cell,
+                         CONTEXT_ITEMS * line_height, theme->menu);
+        render_rectangle(pixels, width, height, stride, app->context_x,
+                         app->context_y + app->context_choice * line_height, 26 * cell, line_height,
+                         theme->menu_selected);
         for (int i = 0; i < CONTEXT_ITEMS; ++i)
-            if (!label(app, pixels, width, height, stride, items[i], app->context_x,
-                       app->context_y + i * line_height + ascender, cell,
-                       app->context_choice == i ? theme->menu_selected_text : theme->menu_text))
+            if (!render_label(app, pixels, width, height, stride, items[i], app->context_x,
+                              app->context_y + i * line_height + ascender, cell,
+                              app->context_choice == i ? theme->menu_selected_text : theme->menu_text))
                 return false;
     }
     if (app->page_map &&
-        !draw_page_map(app, theme, pixels, width, height, stride, top, status_y, padding))
+        !navigator_draw(app, theme, pixels, width, height, stride, top, status_y, padding))
         return false;
     return true;
 }

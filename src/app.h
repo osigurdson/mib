@@ -122,6 +122,8 @@ void app_toast(struct app *app, const char *text);
 void app_tick(struct app *app);
 /* When the event loop should next call app_tick (session_now ms), or 0 for never. */
 uint64_t app_deadline(const struct app *app);
+/* The :map page under physical pixel (x, y) from the last paint, or -1; see navigator.c. */
+int navigator_page_at(const struct app *app, int x, int y);
 /* Top-down premultiplied ARGB8888 pixels; stride is in uint32_t pixels, not bytes. */
 bool app_paint(struct app *app, uint32_t *pixels, int width, int height, int stride);
 #endif

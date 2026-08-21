@@ -1,13 +1,7 @@
 #ifndef JOT_COLORS_H
 #define JOT_COLORS_H
-#include <stdint.h>
+#include "render-internal.h"
 /* Jot colors and fixed-size upstream palettes; see docs/colors.md. */
-struct palette {
-    uint32_t background, text, dim, link, heading, quote, done, italic;
-    uint32_t code, search, selection, cursor, status, menu, menu_selected, handle;
-    uint32_t title, title_separator, title_hover, title_pressed;
-    uint32_t search_text, selection_text, status_text, menu_text, menu_selected_text;
-};
 static const struct palette dark = {
     0xff18202b, 0xffe5edf5, 0xff697889, 0xff88c0d0,
     0xffebcb8b, 0xffa3be8c, 0xff77868a, 0xffb9a0cb,

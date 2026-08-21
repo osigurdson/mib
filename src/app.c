@@ -373,17 +373,9 @@ void app_pointer(struct app *app, int x, int y, bool extend)
         /* A click on a page shows it; anywhere else closes the map. */
         int px = (int)((int64_t)x * app->scale120 / 120),
             py = (int)((int64_t)y * app->scale120 / 120);
-        int column = -1, row = -1, step_x = app->map_width + app->map_gap,
-            step_y = app->map_height + app->map_gap;
-        if (!extend && step_x > 0 && step_y > 0 && px >= app->map_x && py >= app->map_y) {
-            column = (px - app->map_x) / step_x;
-            row = (py - app->map_y) / step_y;
-            if (column > 2 || row > 2 || (px - app->map_x) % step_x >= app->map_width ||
-                (py - app->map_y) % step_y >= app->map_height)
-                column = -1;
-        }
-        if (column >= 0)
-            app_page_switch(app, (unsigned)((2 - row) * 3 + column));
+        int page = extend ? -1 : navigator_page_at(app, px, py);
+        if (page >= 0)
+            app_page_switch(app, (unsigned)page);
         app->page_map = false;
         app->map_click = !extend;
         app->dirty = true;
