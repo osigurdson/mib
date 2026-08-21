@@ -930,6 +930,10 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
                  editor_column(ed, ed->cursor) + 1);
         int position_x = width - padding - (int)strlen(position) * cell;
         snprintf(status, sizeof(status), "%s", mode);
+        if (app->toast[0] && !ed->message[0]) {
+            size_t n = strlen(status);
+            snprintf(status + n, sizeof(status) - n, "%s%s", n ? "  " : "", app->toast);
+        }
         if (app->work_at && !ed->message[0]) {
             size_t n = strlen(status);
             snprintf(status + n, sizeof(status) - n, "%sindexing image", n ? "  " : "");

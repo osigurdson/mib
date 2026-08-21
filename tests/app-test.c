@@ -83,6 +83,28 @@ static void search_visibility(void)
     }
 }
 
+/* A toast shows in the status bar, survives keys, wakes the event loop and then clears. */
+static void toast(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    static uint32_t before[320 * 200], during[320 * 200], after[320 * 200];
+    assert(app_paint(&app, before, 320, 200, 320));
+    assert(!app_deadline(&app));
+    app_toast(&app, "Image copied");
+    assert(app.dirty && app_deadline(&app) == app.toast_until && app.toast_until);
+    assert(app_paint(&app, during, 320, 200, 320));
+    assert(memcmp(before, during, sizeof(before)));
+    app_input(&app, KEY_TEXT, "l");
+    assert(!strcmp(app.toast, "Image copied"));
+    app.toast_until = 1;
+    app_tick(&app);
+    assert(!app.toast[0] && !app_deadline(&app));
+    assert(app_paint(&app, after, 320, 200, 320));
+    assert(!memcmp(before, after, sizeof(before)));
+    app_close(&app);
+}
+
 static void theme_layout(void)
 {
     struct app app;
@@ -634,6 +656,7 @@ int main(void)
     gutter_layout();
     theme_layout();
     search_visibility();
+    toast();
     decoration_layout();
     rounded_window();
     render_modes();

@@ -52,6 +52,9 @@ struct app {
     int owner_fd, activation_fd;
     void *owner_handle;
     uint64_t page_id, work_at, redraw_at;
+    /* A short status bar notice from app_toast, shown until toast_until (session_now ms). */
+    char toast[64];
+    uint64_t toast_until;
     void (*service)(struct app *, unsigned, void *);
     void *service_data;
     int width, height;
@@ -107,6 +110,14 @@ bool app_open(struct app *app, const char *filename);
 void app_close(struct app *app);
 void app_input(struct app *app, enum editor_key key, const char *text);
 void app_request_close(struct app *app);
+/* Show a brief notice in the status bar, such as "Image copied". Editor messages take
+ * precedence, and the notice clears itself after APP_TOAST_MS. */
+enum { APP_TOAST_MS = 2000 };
+void app_toast(struct app *app, const char *text);
+/* Background work for the event loop: media jobs and toast expiry. */
+void app_tick(struct app *app);
+/* When the event loop should next call app_tick (session_now ms), or 0 for never. */
+uint64_t app_deadline(const struct app *app);
 /* Top-down premultiplied ARGB8888 pixels; stride is in uint32_t pixels, not bytes. */
 bool app_paint(struct app *app, uint32_t *pixels, int width, int height, int stride);
 #endif

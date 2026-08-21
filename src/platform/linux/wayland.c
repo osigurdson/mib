@@ -1044,7 +1044,7 @@ int platform_run(struct app *app)
     /* Initial empty commit asks the compositor to configure the window. */
     wl_surface_commit(client->surface);
     while (client->app->running) {
-        media_tick(client->app);
+        app_tick(client->app);
         if (wl_display_dispatch_pending(client->display) < 0) {
             client->app->failed = true;
             break;
@@ -1077,9 +1077,10 @@ int platform_run(struct app *app)
         int redraw = redraw_delay(client, session_now());
         if (redraw >= 0 && (timeout < 0 || redraw < timeout))
             timeout = redraw;
-        if (app->work_at) {
+        uint64_t deadline = app_deadline(app);
+        if (deadline) {
             uint64_t now = session_now();
-            int remaining = app->work_at <= now ? 0 : (int)(app->work_at - now);
+            int remaining = deadline <= now ? 0 : (int)(deadline - now);
             if (timeout < 0 || remaining < timeout)
                 timeout = remaining;
         }

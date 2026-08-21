@@ -39,7 +39,7 @@ static void changed(struct windows_window *window)
         DestroyWindow(window->handle);
         return;
     }
-    uint64_t now = session_now(), deadline = window->app->work_at;
+    uint64_t now = session_now(), deadline = app_deadline(window->app);
     if (window->app->dirty) {
         if (now >= window->app->redraw_at)
             InvalidateRect(window->handle, NULL, FALSE);
@@ -421,13 +421,13 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
     case WM_TIMER:
         if (wparam == 1) {
             KillTimer(handle, 1);
-            media_tick(window->app);
+            app_tick(window->app);
             changed(window);
         }
         return 0;
     case WM_SETFOCUS:
         session_focus(window->app, true);
-        media_tick(window->app);
+        app_tick(window->app);
         changed(window);
         return 0;
     case WM_KILLFOCUS:
@@ -511,7 +511,7 @@ int platform_run(struct app *app)
         fprintf(stderr, "%s\n", error);
         return EXIT_FAILURE;
     }
-    media_tick(app);
+    app_tick(app);
     changed(&window);
     MSG message;
     int result;

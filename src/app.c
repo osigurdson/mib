@@ -246,9 +246,32 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         app->image_hit = !app->editor.search_failed && hit && app->editor.match_start == hit->start;
         app->ocr_retry = app->editor.search_failed && app->editor.search_pending;
     }
-    media_tick(app);
+    app_tick(app);
     if (app->editor.quit)
         app->running = false;
+}
+
+void app_toast(struct app *app, const char *text)
+{
+    snprintf(app->toast, sizeof(app->toast), "%s", text);
+    app->toast_until = session_now() + APP_TOAST_MS;
+    app->dirty = true;
+}
+
+void app_tick(struct app *app)
+{
+    media_tick(app);
+    if (app->toast_until && session_now() >= app->toast_until) {
+        app->toast[0] = 0;
+        app->toast_until = 0;
+        app->dirty = true;
+    }
+}
+
+uint64_t app_deadline(const struct app *app)
+{
+    uint64_t work = app->work_at, toast = app->toast_until;
+    return !work ? toast : !toast || work < toast ? work : toast;
 }
 
 void app_request_close(struct app *app)
