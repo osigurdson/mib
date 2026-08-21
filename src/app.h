@@ -112,7 +112,7 @@ void app_input(struct app *app, enum editor_key key, const char *text);
 void app_request_close(struct app *app);
 /* Show a brief notice in the status bar, such as "Image copied". Editor messages take
  * precedence, and the notice clears itself after APP_TOAST_MS. */
-enum { APP_TOAST_MS = 2000 };
+enum { APP_TOAST_MS = 1200 };
 void app_toast(struct app *app, const char *text);
 /* Background work for the event loop: media jobs and toast expiry. */
 void app_tick(struct app *app);
