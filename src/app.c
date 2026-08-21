@@ -102,19 +102,25 @@ void app_input(struct app *app, enum editor_key key, const char *text)
             return;
         }
         if (key == KEY_UP || key == KEY_DOWN) {
-            app->context_choice ^= 1;
-            app->dirty = true;
-            return;
-        }
-        if (key == KEY_ENTER) {
-            unsigned request = app->context_choice ? ED_OPEN : ED_COPY_OCR;
-            app->context_menu = false;
-            if (app->service)
-                app->service(app, request, app->service_data);
+            app->context_choice = (app->context_choice + (key == KEY_UP ? CONTEXT_ITEMS - 1 : 1)) %
+                                  CONTEXT_ITEMS;
             app->dirty = true;
             return;
         }
         app->context_menu = false;
+        if (key == KEY_ENTER) {
+            if (app->context_choice == 0) {
+                /* Copy Image: yank the image line, as y does on a selected image. */
+                key = KEY_COPY;
+                text = "";
+            } else {
+                if (app->service)
+                    app->service(app, app->context_choice == 1 ? ED_COPY_OCR : ED_OPEN,
+                                 app->service_data);
+                app->dirty = true;
+                return;
+            }
+        }
     }
     const struct media_entry *selected_image = app->editor.render_mode == RENDER_RAW ? NULL
                                                : media_at(app, app->editor.cursor);
@@ -155,6 +161,10 @@ void app_input(struct app *app, enum editor_key key, const char *text)
                         !app->editor.command_active &&
                         (app->editor.mode == NORMAL || insert) &&
                         !app->editor.pending[0] && block_delete_key;
+    /* y copies a selected image at once, as yy does, ready to paste into other apps. */
+    if (selected_image && app->editor.mode == NORMAL && !app->editor.command_active &&
+        !app->editor.pending[0] && key == KEY_TEXT && text && !strcmp(text, "y"))
+        key = KEY_COPY;
     bool image_insert = selected_image && app->editor.render_mode == RENDER_NORMAL &&
                         !app->editor.command_active && !app->editor.pending[0];
     if (image_insert && app->editor.mode == NORMAL && key == KEY_TEXT && text) {
@@ -374,14 +384,16 @@ void app_pointer(struct app *app, int x, int y, bool extend)
         int px = (int)((int64_t)x * app->scale120 / 120),
             py = (int)((int64_t)y * app->scale120 / 120);
         int width = 26 * app->cell;
-        if (px >= app->context_x && px < app->context_x + width && py >= app->context_y &&
-            py < app->context_y + 2 * app->line_height) {
-            unsigned request = py < app->context_y + app->line_height ? ED_COPY_OCR : ED_OPEN;
-            if (app->service)
-                app->service(app, request, app->service_data);
-        }
         app->context_menu = false;
         app->dirty = true;
+        if (px >= app->context_x && px < app->context_x + width && py >= app->context_y &&
+            py < app->context_y + CONTEXT_ITEMS * app->line_height) {
+            int item = (py - app->context_y) / app->line_height;
+            if (item == 0)
+                app_input(app, KEY_COPY, "");
+            else if (app->service)
+                app->service(app, item == 1 ? ED_COPY_OCR : ED_OPEN, app->service_data);
+        }
         return;
     }
     if (extend) {
@@ -404,7 +416,7 @@ void app_context(struct app *app, int x, int y)
     if (!media_at(app, app->editor.cursor))
         return;
     int px = (int)((int64_t)x * app->scale120 / 120), py = (int)((int64_t)y * app->scale120 / 120);
-    int width = 26 * app->cell, height = 2 * app->line_height;
+    int width = 26 * app->cell, height = CONTEXT_ITEMS * app->line_height;
     if (px + width > app->view_width)
         px = app->view_width - width;
     int bottom =

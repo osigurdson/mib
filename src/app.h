@@ -7,6 +7,9 @@
 /* Round up to whole milliseconds so redraws never exceed 30 FPS. */
 enum { APP_FRAME_INTERVAL_MS = (1000 + 30 - 1) / 30 };
 
+/* The image context menu: Copy Image, Copy Text from Image, Open Image. */
+enum { CONTEXT_ITEMS = 3 };
+
 enum app_title_action { TITLE_NONE, TITLE_MOVE, TITLE_MINIMIZE, TITLE_MAXIMIZE, TITLE_CLOSE };
 
 /* Settings shared by every page and file, kept in the user's config folder. */

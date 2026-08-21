@@ -124,7 +124,8 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | Drag a corner | Resize the selected image, keeping its shape |
 | `gx`, double-click | Open the image in your image viewer |
 | `gx`, `Ctrl`+click | Open the link under the cursor |
-| `yy` | Copy the image, ready to paste into other apps |
+| `y`, `yy` | Copy the selected image, ready to paste into other apps |
+| Right-click | Copy Image, Copy Text from Image, or Open Image |
 | `d`, `x` | Delete the selected image in normal mode |
 | `Delete` | Delete the selected image in normal or insert mode |
 | `Backspace`, `Ctrl+W`, `Ctrl+U` | In insert mode, delete a selected image as a whole block |

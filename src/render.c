@@ -940,19 +940,18 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             return false;
     }
     if (app->context_menu) {
+        static const char *const items[CONTEXT_ITEMS] = {" Copy Image", " Copy Text from Image",
+                                                          " Open Image"};
         rectangle(pixels, width, height, stride, app->context_x, app->context_y, 26 * cell,
-                  2 * line_height, theme->menu);
+                  CONTEXT_ITEMS * line_height, theme->menu);
         rectangle(pixels, width, height, stride, app->context_x,
                   app->context_y + app->context_choice * line_height, 26 * cell, line_height,
                   theme->menu_selected);
-        if (!label(app, pixels, width, height, stride, " Copy Text from Image", app->context_x,
-                   app->context_y + ascender, cell,
-                   app->context_choice == 0 ? theme->menu_selected_text : theme->menu_text))
-            return false;
-        if (!label(app, pixels, width, height, stride, " Open Image", app->context_x,
-                   app->context_y + line_height + ascender, cell,
-                   app->context_choice == 1 ? theme->menu_selected_text : theme->menu_text))
-            return false;
+        for (int i = 0; i < CONTEXT_ITEMS; ++i)
+            if (!label(app, pixels, width, height, stride, items[i], app->context_x,
+                       app->context_y + i * line_height + ascender, cell,
+                       app->context_choice == i ? theme->menu_selected_text : theme->menu_text))
+                return false;
     }
     if (app->page_map &&
         !draw_page_map(app, theme, pixels, width, height, stride, top, status_y, padding))

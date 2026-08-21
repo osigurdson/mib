@@ -125,6 +125,7 @@ static void theme_layout(void)
     assert(app_paint(&app, light, WIDTH, HEIGHT, STRIDE));
     assert(light[app.context_y * STRIDE + x] == 0xffcbdbe8);
     assert(light[(app.context_y + app.line_height) * STRIDE + x] == 0xffe9edf1);
+    assert(light[(app.context_y + 2 * app.line_height) * STRIDE + x] == 0xffe9edf1);
     app.context_menu = false;
     editor_command(&app.editor, "set background=dark");
     assert(!app.editor.light);

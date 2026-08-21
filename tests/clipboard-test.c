@@ -343,8 +343,18 @@ int main(void)
     assert(media_at(&app, app.editor.cursor));
     assert(wl_display_roundtrip(c.display) >= 0);
     assert(read(results[0], &result, 1) == 1 && result == 'F');
+    /* A single y copies the selected image, as does the context menu's Copy Image. */
     app_input(&app, KEY_TEXT, "y");
-    app_input(&app, KEY_TEXT, "y");
+    assert(!app.editor.pending[0]);
+    assert(wl_display_roundtrip(c.display) >= 0);
+    pump_sends(&c);
+    assert(read(results[0], &result, 1) == 1 && result == 'P');
+    app.context_menu = true;
+    app.context_choice = 0;
+    app_input(&app, KEY_DOWN, "");
+    app_input(&app, KEY_UP, "");
+    app_input(&app, KEY_ENTER, "");
+    assert(!app.context_menu);
     assert(wl_display_roundtrip(c.display) >= 0);
     pump_sends(&c);
     assert(read(results[0], &result, 1) == 1 && result == 'P');

@@ -174,7 +174,7 @@ standalone `![](assets/name.png)` lines. In normal rendering, inserting or
 pasting text on an image uses a separate text line. `i`/`I` insert above an image;
 `a`/`A` insert below it. Image paste in insert mode leaves the cursor after the
 image so typing can continue. Raw mode keeps literal source editing. `gx` or double-click opens an image;
-`Ctrl+click` or `gx` opens a link. Right-click an image for Open/Copy Text.
+`Ctrl+click` or `gx` opens a link. `y` copies a selected image; right-click an image to copy it, copy its text or open it.
 Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`
 sidecars used by search/highlighting. `TINYVI_OCR=0` disables automatic OCR.
 Deleting an image keeps its file until the note is successfully saved. Saving
