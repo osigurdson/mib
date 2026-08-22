@@ -36,7 +36,7 @@ static void press_alt(struct wayland_client *client, xkb_keysym_t symbol, bool n
     assert(!"Could not map keysym");
 }
 
-/* Alt+1 to Alt+9 reach the app as KEY_PAGE from the number row and the keypad. An explicit
+/* Alt+0 to Alt+9 reach the app as KEY_PAGE from the number row and the keypad. An explicit
  * file has no pages, so each press reports that instead of typing. */
 static void page_keys(void)
 {
@@ -53,10 +53,13 @@ static void page_keys(void)
         client.xkb_state = xkb_state_new(client.xkb_keymap); assert(client.xkb_state);
         /* The key left of 4 on the number row: "3" in US, a quote in AZERTY. */
         const xkb_keysym_t row = l ? XKB_KEY_quotedbl : XKB_KEY_3;
-        const xkb_keysym_t keys[] = {row, XKB_KEY_KP_3, XKB_KEY_KP_Next};
-        for (unsigned i = 0; i < 3; ++i) {
+        /* And 0 on the number row: "0" in US, a with grave in AZERTY. */
+        const xkb_keysym_t zero = l ? XKB_KEY_agrave : XKB_KEY_0;
+        const xkb_keysym_t keys[] = {row, XKB_KEY_KP_3, XKB_KEY_KP_Next, zero, XKB_KEY_KP_0,
+                                     XKB_KEY_KP_Insert};
+        for (unsigned i = 0; i < 6; ++i) {
             app.editor.message[0] = 0;
-            press_alt(&client, keys[i], i == 1);
+            press_alt(&client, keys[i], i == 1 || i == 4);
             assert(strstr(app.editor.message, "not a single file") && !app.editor.length);
         }
         xkb_state_unref(client.xkb_state); xkb_keymap_unref(client.xkb_keymap);

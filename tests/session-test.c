@@ -132,7 +132,7 @@ static void pages(const char *parent)
     assert(!heading[0]);
     app_page_heading(&app, 4, heading, sizeof(heading));
     assert(!heading[0] && !exists(directory, "5/jot.md"));
-    type(&app, ":map\n");
+    type(&app, ":ls\n");
     assert(app.page_map);
     uint32_t pixels[640 * 480];
     assert(app_paint(&app, pixels, 640, 480, 640));
@@ -142,11 +142,20 @@ static void pages(const char *parent)
     assert(app.page_map && !strcmp(app.editor.text, "one\ntwo"));
     type(&app, "3");
     assert(!app.page_map && app.current == 2 && strstr(app.editor.text, "milk"));
-    type(&app, ":map\n\x1b");
+    type(&app, ":ls\n\x1b");
     assert(!app.page_map && app.current == 2);
+    /* Alt+0 opens the list from normal mode and closes it again; :b N shows page N. */
+    app_input(&app, KEY_PAGE, "0");
+    assert(app.page_map && app.map_choice == 2);
+    app_input(&app, KEY_PAGE, "0");
+    assert(!app.page_map && app.current == 2);
+    type(&app, ":b 1\n");
+    assert(app.current == 0 && !strcmp(app.editor.text, "one\ntwo"));
+    type(&app, ":b3\n");
+    assert(app.current == 2 && strstr(app.editor.text, "milk"));
     /* Up/Down or k/j move the selection from the shown page, stopping at the ends, other
      * keys do nothing, and Enter shows the selected page. */
-    type(&app, ":map\n");
+    type(&app, ":ls\n");
     assert(app.page_map && app.map_choice == 2);
     app_input(&app, KEY_UP, "");
     app_input(&app, KEY_UP, "");
@@ -166,7 +175,7 @@ static void pages(const char *parent)
     assert(!app.page_map && app.current == 0 && !strcmp(app.editor.text, "one\ntwo"));
     app_input(&app, KEY_PAGE, "3");
     /* Clicking a row shows that page; dragging on doesn't start a selection there. */
-    type(&app, ":map\n");
+    type(&app, ":ls\n");
     assert(app_paint(&app, pixels, 640, 480, 640));
     app_pointer(&app, app.map_x + app.map_width / 2, app.map_y + 4 * app.map_height + 2, false);
     assert(!app.page_map && app.current == 4);
@@ -254,8 +263,14 @@ static void pages(const char *parent)
     assert(app_open(&app, file));
     app_input(&app, KEY_PAGE, "2");
     assert(app.current == 0 && strstr(app.editor.message, "not a single file"));
-    type(&app, ":map\n");
+    type(&app, ":ls\n");
     assert(!app.page_map && strstr(app.editor.message, "not a single file"));
+    app.editor.message[0] = 0;
+    app_input(&app, KEY_PAGE, "0");
+    assert(!app.page_map && strstr(app.editor.message, "not a single file"));
+    app.editor.message[0] = 0;
+    type(&app, ":b 2\n");
+    assert(app.current == 0 && strstr(app.editor.message, "not a single file"));
     app_close(&app);
     /* An explicit file opened with settings, as main does, remembers its position too. */
     write_file(directory, "note.txt", "alpha\nbeta\ngamma\n");

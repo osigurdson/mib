@@ -363,15 +363,19 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         return 0;
     }
     case WM_SYSKEYDOWN: {
-        /* Alt+1 to Alt+9 switch pages, from the number row or the keypad (Num Lock on or
-         * off; keypad navigation keys are the ones without the extended-key flag). */
+        /* Alt+1 to Alt+9 switch pages and Alt+0 lists them, from the number row or the keypad
+         * (Num Lock on or off; keypad navigation keys are the ones without the extended-key
+         * flag). */
         static const WPARAM navigation[] = {VK_END,   VK_DOWN, VK_NEXT, VK_LEFT, VK_CLEAR,
                                             VK_RIGHT, VK_HOME, VK_UP,   VK_PRIOR};
         char page[2] = {0};
         bool keypad = false;
-        if (wparam >= '1' && wparam <= '9')
+        if (wparam >= '0' && wparam <= '9')
             page[0] = (char)wparam;
-        else if (wparam >= VK_NUMPAD1 && wparam <= VK_NUMPAD9) {
+        else if (wparam == VK_NUMPAD0 || (wparam == VK_INSERT && !(lparam & (1 << 24)))) {
+            page[0] = '0';
+            keypad = true;
+        } else if (wparam >= VK_NUMPAD1 && wparam <= VK_NUMPAD9) {
             page[0] = (char)('1' + (wparam - VK_NUMPAD1));
             keypad = true;
         } else if (!(lparam & (1 << 24)))

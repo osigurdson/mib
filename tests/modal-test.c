@@ -397,15 +397,33 @@ static void registers(void)
     assert(!ed.registers[1].text && !ed.register_text);
 }
 
-/* :map asks the app for the page map; quitting also guards the app's other pages. */
+/* :ls (or :buffers, :files) asks the app for the list of pages and :b N for page N;
+ * quitting also guards the app's other pages. */
 static void page_commands(void)
 {
     reset("notes");
-    editor_command(&ed, "map");
-    assert(ed.requests & ED_PAGE_MAP && !ed.message[0]);
-    ed.requests = 0;
-    editor_command(&ed, "map x y");
+    const char *lists[] = {"ls", "buffers", "files"};
+    for (unsigned i = 0; i < 3; ++i) {
+        editor_command(&ed, lists[i]);
+        assert(ed.requests == ED_PAGE_MAP && !ed.message[0]);
+        ed.requests = 0;
+    }
+    editor_command(&ed, "ls x y");
     assert(!ed.requests && strstr(ed.message, "Unknown command"));
+    ed.message[0] = 0;
+    const char *switches[] = {"b 3", "b3", "buffer 9", "b  1"};
+    const unsigned targets[] = {2, 2, 8, 0};
+    for (unsigned i = 0; i < 4; ++i) {
+        editor_command(&ed, switches[i]);
+        assert(ed.requests == ED_PAGE_SWITCH && ed.page_target == targets[i] && !ed.message[0]);
+        ed.requests = 0;
+    }
+    const char *bad[] = {"b", "b 0", "b 10", "b x", "b3 4", "buffer"};
+    for (unsigned i = 0; i < 6; ++i) {
+        editor_command(&ed, bad[i]);
+        assert(!ed.requests && strstr(ed.message, ":b 1 to :b 9"));
+        ed.message[0] = 0;
+    }
     ed.modified = false;
     ed.other_modified = 4;
     const char *quits[] = {"q", "x", "wq"};

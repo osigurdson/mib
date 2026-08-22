@@ -446,8 +446,9 @@ static void handle_key(struct wayland_client *client, uint32_t key)
     bool alt = xkb_state_mod_name_is_active(client->xkb_state, XKB_MOD_NAME_ALT,
                                             XKB_STATE_MODS_EFFECTIVE) > 0;
     if (alt && !control) {
-        /* Alt+1 to Alt+9 switch pages. The number row goes by position (evdev codes 2 to 10)
-         * so layouts with symbols there still work; the keypad works with Num Lock off too. */
+        /* Alt+1 to Alt+9 switch pages and Alt+0 lists them. The number row goes by position
+         * (evdev codes 2 to 11) so layouts with symbols there still work; the keypad works
+         * with Num Lock off too. */
         static const xkb_keysym_t keypad[][2] = {
             {XKB_KEY_KP_1, XKB_KEY_KP_End},   {XKB_KEY_KP_2, XKB_KEY_KP_Down},
             {XKB_KEY_KP_3, XKB_KEY_KP_Next},  {XKB_KEY_KP_4, XKB_KEY_KP_Left},
@@ -458,6 +459,8 @@ static void handle_key(struct wayland_client *client, uint32_t key)
         char page[2] = {0};
         if (key >= 2 && key <= 10)
             page[0] = (char)('1' + key - 2);
+        else if (key == 11 || symbol == XKB_KEY_KP_0 || symbol == XKB_KEY_KP_Insert)
+            page[0] = '0';
         for (unsigned i = 0; i < 9; ++i)
             if (symbol == keypad[i][0] || symbol == keypad[i][1])
                 page[0] = (char)('1' + i);

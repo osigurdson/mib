@@ -20,7 +20,7 @@ bool render_label(struct app *app, uint32_t *pixels, int width, int height, int 
                   const char *text, int x, int baseline, int cell, uint32_t color);
 /* The editor's font size for the app's zoom and scale. */
 unsigned render_font_size(const struct app *app);
-/* The :map overlay between rows top and bottom; see navigator.c. */
+/* The page list overlay between rows top and bottom; see navigator.c. */
 bool navigator_draw(struct app *app, const struct palette *theme, uint32_t *pixels, int width,
                     int height, int stride, int top, int bottom, int padding);
 #endif

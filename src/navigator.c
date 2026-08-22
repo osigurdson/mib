@@ -1,4 +1,4 @@
-/* The navigator: the :map page selector. It draws the nine pages and maps clicks back to
+/* The navigator: the page list (Alt+0, :ls). It draws the nine pages and maps clicks back to
  * them; everything else about it lives in this file, so it can be replaced on its own. */
 #include "app.h"
 #include "render-internal.h"
@@ -25,7 +25,7 @@ static void fit_text(const char *text, int columns, char *out, size_t size)
         snprintf(out, size, "%.*s", (int)offset, text);
     }
 }
-/* The :map overlay: a menu listing the nine pages top to bottom, each row its number and
+/* The page list: a menu listing the nine pages top to bottom, each row its number and
  * the page's first H1 (or a dash). The selected row uses the selected menu colors and the
  * page that is showing has a dot at the end of its row. */
 bool navigator_draw(struct app *app, const struct palette *theme, uint32_t *pixels,

@@ -8,7 +8,7 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `src/keys.c`: normal, visual and insert mode keys, motions, text objects, operators.
 - `src/ex.c`, `src/substitute.c`: `:` commands. `src/history.c`: grouped undo/redo.
 - `src/app.c`, `src/media.c`: app-level input (images, clipboard paste), shared by both platforms.
-- `src/navigator.c`: the `:map` page selector, its drawing (`navigator_draw`) and click
+- `src/navigator.c`: the page list (`Alt+0`, `:ls`), its drawing (`navigator_draw`) and click
   hit-testing (`navigator_page_at`). It uses the `render_*` helpers and `struct palette` that
   `src/render.c` shares through `src/render-internal.h`.
 - `src/pages.c`: the nine pages `1/` to `9/` in the notes folder (`app.root`), each with

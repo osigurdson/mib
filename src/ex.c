@@ -130,10 +130,20 @@ void editor_command(struct editor *ed, const char *command)
         ed->quit = true;
     else if (!strcmp(p, "q"))
         quit(ed);
-    else if (!strcmp(p, "map")) {
+    else if (!strcmp(p, "ls") || !strcmp(p, "buffers") || !strcmp(p, "files")) {
         if (argument && *argument)
             goto unknown;
-        ed->requests |= ED_PAGE_MAP;
+        ed->requests |= ED_PAGE_MAP; /* the list of pages, which stand in for buffers */
+    } else if (!strcmp(p, "b") || !strcmp(p, "buffer") ||
+               (p[0] == 'b' && p[1] >= '0' && p[1] <= '9' && !p[2])) {
+        /* :b N, :bN and :buffer N show page N. */
+        const char *number = p[1] && p[1] <= '9' ? p + 1 : argument;
+        if (number && number[0] >= '1' && number[0] <= '9' && !number[1] &&
+            (number != p + 1 || !argument || !*argument)) {
+            ed->page_target = (unsigned)(number[0] - '1');
+            ed->requests |= ED_PAGE_SWITCH;
+        } else
+            snprintf(ed->message, sizeof(ed->message), "Pages are :b 1 to :b 9");
     } else if (!strcmp(p, "e!"))
         editor_reload(ed);
     else if (!strcmp(p, "u") || !strcmp(p, "undo"))

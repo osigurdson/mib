@@ -157,18 +157,19 @@ Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 ## Pages
 
 The notes folder holds nine pages, `1/` to `9/`, each its own Markdown scratchpad with its
-own `jot.md` and `assets/`. The map lists them from 1 to 9.
+own `jot.md` and `assets/`. Pages are Jot's buffers, so `:ls` and `:b` work as in Vim.
 
 | Keys | Action |
 |---|---|
 | `Alt+1` … `Alt+9` | In normal mode, show that page (number row or keypad) |
-| `:map` | Show the list of pages |
-| `1` … `9` on the map | Show that page |
-| `Up` `Down` or `k` `j`, then `Enter` on the map | Select a page and show it |
-| `Esc` on the map | Close it |
+| `Alt+0`, `:ls` | Show the list of pages (`:buffers` and `:files` too) |
+| `:b N`, `:bN`, `:buffer N` | Show page N |
+| `1` … `9` in the list | Show that page |
+| `Up` `Down` or `k` `j`, then `Enter` in the list | Select a page and show it |
+| `Esc` or `Alt+0` in the list | Close it |
 
 All nine pages always exist; there is nothing to create, name or delete. A page's folder
-appears the first time it is shown. The map labels each page with its first `# Heading`,
+appears the first time it is shown. The list labels each page with its first `# Heading`,
 read from the page itself, or a dash. The selection starts on the page that is showing,
 which keeps a dot as the selection moves. Clicking a page also shows it.
 
@@ -197,7 +198,7 @@ Press `:` to open it. Up and Down browse your history.
 |---|---|
 | `:w` | Save the current page or file |
 | `:q`, `:wq`, `:x` | Close the window |
-| `:map` | Show the [pages](#pages) |
+| `:ls`, `:b N` | List the [pages](#pages), or show page N |
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |

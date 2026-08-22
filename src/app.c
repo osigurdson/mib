@@ -59,6 +59,16 @@ void app_close(struct app *app)
     *app = (struct app){0};
 }
 
+/* The page list (:ls or Alt+0), starting on the page that is showing. */
+static void open_page_list(struct app *app)
+{
+    if (app->root) {
+        app->page_map = true;
+        app->map_choice = app->current;
+    } else
+        snprintf(app->editor.message, sizeof(app->editor.message),
+                 "Pages 1 to 9 need the notes folder, not a single file");
+}
 void app_input(struct app *app, enum editor_key key, const char *text)
 {
     media_sync(app);
@@ -67,9 +77,9 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     uint64_t search_serial = app->editor.search_serial;
     bool digit = key == KEY_TEXT && text && text[0] >= '1' && text[0] <= '9' && !text[1];
     if (app->page_map) {
-        /* The map takes the keyboard: a digit (with or without Alt) shows that page, Up/Down
-         * or k/j move the selection and Enter shows it, Esc closes the map, and other keys
-         * are ignored rather than editing unseen text. Pages run 1 to 9 down the list. */
+        /* The list takes the keyboard: a digit (with or without Alt) shows that page, Up/Down
+         * or k/j move the selection and Enter shows it, Esc or Alt+0 closes the list, and other
+         * keys are ignored rather than editing unseen text. Pages run 1 to 9 down the list. */
         unsigned choice = app->map_choice;
         char letter = key == KEY_TEXT && text && text[0] && !text[1] ? text[0] : 0;
         if ((key == KEY_UP || letter == 'k') && choice > 0)
@@ -90,8 +100,11 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         /* Only from normal mode with nothing pending, so a switch never splits a command. */
         struct editor *ed = &app->editor;
         if (ed->mode == NORMAL && !ed->command_active && !ed->pending[0] && text &&
-            text[0] >= '1' && text[0] <= '9') {
-            app_page_switch(app, (unsigned)(text[0] - '1'));
+            text[0] >= '0' && text[0] <= '9') {
+            if (text[0] == '0') /* Alt+0 shows the list of pages */
+                open_page_list(app);
+            else
+                app_page_switch(app, (unsigned)(text[0] - '1'));
             app->context_menu = false;
         }
         app->dirty = true;
@@ -215,16 +228,12 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     }
     if (requests & ED_ZOOM_RESET)
         app->font_size = 18;
-    if (requests & ED_PAGE_MAP) {
-        if (app->root) {
-            app->page_map = true;
-            app->map_choice = app->current;
-        }
-        else
-            snprintf(app->editor.message, sizeof(app->editor.message),
-                     "Pages 1 to 9 need the notes folder, not a single file");
-    }
-    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP);
+    if (requests & ED_PAGE_MAP)
+        open_page_list(app);
+    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP |
+                              ED_PAGE_SWITCH);
+    if (requests & ED_PAGE_SWITCH)
+        app_page_switch(app, app->editor.page_target);
     if ((app->editor.requests & ED_COPY) && image_name[0] && app->editor.register_text &&
         !strcmp(app->editor.register_text, image_markup))
         if ((app->clipboard_image = session_path(app, image_name)))

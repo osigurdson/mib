@@ -57,7 +57,8 @@ enum editor_request {
     ED_ZOOM_IN = 128,
     ED_ZOOM_OUT = 256,
     ED_ZOOM_RESET = 512,
-    ED_PAGE_MAP = 1024
+    ED_PAGE_MAP = 1024,
+    ED_PAGE_SWITCH = 2048 /* to page_target */
 };
 enum color_scheme { COLOR_JOT, COLOR_TOKYONIGHT, COLOR_CATPPUCCIN, COLOR_KANAGAWA, COLOR_EVERFOREST, COLOR_COUNT };
 const char *editor_colorscheme_name(enum color_scheme scheme);
@@ -83,7 +84,7 @@ struct editor {
     size_t command_length, anchor, visual_first, visual_last, search_origin;
     size_t match_start, match_end, desired_column;
     unsigned viewport_rows, viewport_columns;
-    unsigned requests, put_count;
+    unsigned requests, put_count, page_target;
     bool put_after, register_linewise;
     /* The unnamed register mirrors the system clipboard. registers[] holds "0 then "a to "z;
      * register_name is the "x prefix of the command being run, or 0. */
