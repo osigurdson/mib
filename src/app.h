@@ -43,6 +43,9 @@ struct app {
     struct md_cache markdown;
     struct tiny_font *font;
     struct media *media;
+    /* Full paths of the images this window pasted or dropped, on every page. */
+    char **imports;
+    unsigned import_count;
     char *directory, *clipboard_image;
     uint64_t media_revision;
     bool media_scanned, image_hit, ocr_retry;

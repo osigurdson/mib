@@ -147,8 +147,9 @@ start of text after an image and Delete from the end of text before an image
 remove that image block, preserving the neighboring text and line boundary.
 
 Deleted image files and OCR sidecars are removed only after a successful save,
-provided their asset paths no longer appear in the note. Before saving, undo and
-quitting without saving retain the files. A save that cleans up images resets
+provided their asset paths no longer appear in the note. Before saving, undo
+retains the files. When the window closes, images it pasted that no saved page mentions
+are removed too, so a paste that was undone or discarded with `:q!` leaves nothing behind. A save that cleans up images resets
 undo/redo history and clears a local register that refers to a removed image.
 Ordinary saves keep history. Clipboard references to removed files can expire.
 

@@ -66,8 +66,8 @@ static void pages_test(const char *root, const unsigned char *png, size_t bytes)
     assert(!exists(second) && exists(first));
     app_close(&app);
     char path[1300];
-    const char *files[] = {"2/jot.md", "1/jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock"};
-    for (unsigned i = 0; i < 5; ++i) {
+    const char *files[] = {"2/jot.md", "1/jot.md", "AGENTS.md", "CLAUDE.md"};
+    for (unsigned i = 0; i < 4; ++i) {
         snprintf(path, sizeof(path), "%s/%s", directory, files[i]);
         assert(platform_file_remove(path));
     }
@@ -79,6 +79,53 @@ static void pages_test(const char *root, const unsigned char *png, size_t bytes)
     }
     free(first);
     free(second);
+}
+/* Closing a window removes the images it pasted that no saved page mentions, on every page,
+ * with their OCR text, as when a paste is undone or the window closes with :q!. */
+static void close_test(const char *root, const unsigned char *png, size_t bytes)
+{
+    char directory[1200];
+    snprintf(directory, sizeof(directory), "%s/close", root);
+    struct app app;
+    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(media_paste_image(&app, png, bytes)); /* page 1, never saved */
+    char *unsaved = media_target(&app), sidecar[1400];
+    assert(unsaved);
+    snprintf(sidecar, sizeof(sidecar), "%s.txt", unsaved);
+    assert(session_write_new(sidecar, "ocr", 3));
+    assert(app_page_switch(&app, 1));
+    assert(media_paste_image(&app, png, bytes)); /* page 2, saved */
+    char *saved = media_target(&app);
+    app_input(&app, KEY_CTRL_S, "");
+    assert(media_paste_image(&app, png, bytes)); /* page 2, pasted then undone */
+    app.editor.cursor = app.editor.length - 1;
+    char *undone = media_target(&app);
+    assert(saved && undone && strcmp(saved, undone));
+    app_input(&app, KEY_ESCAPE, "");
+    app_input(&app, KEY_TEXT, "u");
+    assert(!app.editor.modified);
+    /* A second window that never pasted anything removes nothing. */
+    struct app other;
+    assert(app_open(&other, NULL) && session_open(&other, directory) == 1);
+    app_close(&other);
+    assert(exists(unsaved) && exists(sidecar) && exists(undone));
+    app_close(&app);
+    assert(!exists(unsaved) && !exists(sidecar) && !exists(undone) && exists(saved));
+    char path[1300];
+    const char *files[] = {"1/jot.md", "2/jot.md", "AGENTS.md", "CLAUDE.md"};
+    for (unsigned i = 0; i < 4; ++i) {
+        snprintf(path, sizeof(path), "%s/%s", directory, files[i]);
+        assert(platform_file_remove(path));
+    }
+    assert(platform_file_remove(saved));
+    const char *folders[] = {"2/assets", "2", "1/assets", "1", ""};
+    for (unsigned i = 0; i < 5; ++i) {
+        snprintf(path, sizeof(path), "%s/%s", directory, folders[i]);
+        remove_dir(path);
+    }
+    free(unsaved);
+    free(saved);
+    free(undone);
 }
 static void cleanup_test(const char *root, const unsigned char *png, size_t bytes)
 {
@@ -183,7 +230,7 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     free(txt);
     free(tsv);
     /* Leave no temporary page files behind. */
-    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock"};
+    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md"};
     for (unsigned i = 0; i < sizeof(files) / sizeof(files[0]); ++i) {
         char full[1400];
         snprintf(full, sizeof(full), "%s/%s", directory, files[i]);
@@ -523,6 +570,7 @@ int main(int argc, char **argv)
     resize_test(directory, png, bytes);
     cleanup_test(directory, png, bytes);
     pages_test(directory, png, bytes);
+    close_test(directory, png, bytes);
     int w, h;
     assert(image_info(png, bytes, &w, &h) && w == 320 && h == 180);
     struct image image = {0};

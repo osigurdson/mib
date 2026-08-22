@@ -14,6 +14,8 @@ struct media_entry {
     bool ocr_done;
 };
 struct media;
+/* Stop image work on every page, then remove images this window pasted that no saved note
+ * mentions. Call before the notes folder and pages are released. */
 void media_close(struct app *app);
 /* Stop a media state's OCR job and free it, as media_close does for app->media. */
 void media_free(struct media *m);

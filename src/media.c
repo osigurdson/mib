@@ -581,6 +581,14 @@ static bool store_image(struct app *app, const unsigned char *data, size_t lengt
             fclose(file);
         if (!file && missing)
             written = session_write_exclusive(path, (const char *)data, bytes);
+        if (written) { /* remembered for media_close */
+            char **imports = realloc(app->imports, (app->import_count + 1) * sizeof(*imports));
+            if (imports) {
+                app->imports = imports;
+                imports[app->import_count++] = path;
+                path = NULL;
+            }
+        }
         free(path);
     }
     free(encoded);
@@ -1017,10 +1025,58 @@ void media_free(struct media *m)
     free(m->entries);
     free(m);
 }
+/* Whether a saved note in this window's notes folder (or its explicit file) mentions the
+ * image, by its unique file name. Unreadable notes count as mentioning it. */
+static bool saved_reference(const struct app *app, const char *image)
+{
+    const char *slash = strrchr(image, '/'), *backslash = strrchr(image, '\\');
+    const char *name = slash > backslash ? slash + 1 : backslash ? backslash + 1 : image;
+    for (unsigned page = 0; page < (app->root ? PAGE_COUNT : 1); ++page) {
+        char *path = NULL;
+        if (app->root) {
+            size_t n = strlen(app->root) + 16;
+            if ((path = malloc(n)))
+                snprintf(path, n, "%s/%u/jot.md", app->root, page + 1);
+        } else if (app->editor.filename) {
+            size_t n = strlen(app->editor.filename) + 1;
+            if ((path = malloc(n)))
+                memcpy(path, app->editor.filename, n);
+        }
+        struct editor note = {0};
+        bool found = !path || !editor_open(&note, path) || strstr(note.text, name);
+        editor_destroy(&note);
+        free(path);
+        if (found)
+            return true;
+    }
+    return false;
+}
 void media_close(struct app *app)
 {
+    /* Stop OCR on every page first, so it can't recreate sidecars removed below. */
     media_free(app->media);
     app->media = NULL;
+    for (unsigned i = 0; i < PAGE_COUNT; ++i) {
+        media_free(app->pages[i].media);
+        app->pages[i].media = NULL;
+    }
+    /* A pasted image is written at once. If the window closes without a saved note using it
+     * (the paste was undone, deleted or discarded), remove it and its OCR text. */
+    for (unsigned i = 0; i < app->import_count; ++i) {
+        if (!saved_reference(app, app->imports[i])) {
+            const char *suffixes[] = {"", ".txt", ".tsv"};
+            for (unsigned s = 0; s < 3; ++s) {
+                char path[4096];
+                int n = snprintf(path, sizeof(path), "%s%s", app->imports[i], suffixes[s]);
+                if (n > 0 && (size_t)n < sizeof(path))
+                    platform_file_remove(path);
+            }
+        }
+        free(app->imports[i]);
+    }
+    free(app->imports);
+    app->imports = NULL;
+    app->import_count = 0;
 }
 
 struct ocr_word {
