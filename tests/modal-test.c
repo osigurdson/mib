@@ -36,8 +36,8 @@ static void readonly_mode(void)
 {
     reset("one two\nthree\n");
     uint64_t revision = ed.revision;
-    editor_command(&ed, "set polish");
-    assert(ed.render_mode == RENDER_POLISH && ed.mode == NORMAL);
+    editor_command(&ed, "set view=reading");
+    assert(ed.view == VIEW_READING && ed.mode == NORMAL);
     const char *edits[] = {"i", "a", "I", "A", "o", "O", "s", "S", "dd", "cw", "x", "X",
                            "p", "P", "u", "rX", "~", ">>", "<<", "J", "D", "C"};
     for (unsigned i = 0; i < sizeof(edits) / sizeof(edits[0]); ++i) {
@@ -70,8 +70,8 @@ static void readonly_mode(void)
     ed.cursor = 0;
     keys("vly");
     assert(ed.mode == NORMAL && ed.register_length == 2 && !strcmp(ed.register_text, "on"));
-    editor_command(&ed, "set normal");
-    assert(ed.render_mode == RENDER_NORMAL);
+    editor_command(&ed, "set view=normal");
+    assert(ed.view == VIEW_NORMAL);
     keys("u");
     expect(""); /* rejected edits did not consume or clear undo history */
 }
@@ -144,7 +144,7 @@ static void case_operators(void)
     expect("one two\nthree\n");
     keys("u");
     expect("one two\nTHREE\n");
-    editor_command(&ed, "set polish");
+    editor_command(&ed, "set view=reading");
     keys("gU");
     expect("one two\nTHREE\n");
     assert(strstr(ed.message, "read-only") && !ed.pending[0]);
@@ -223,10 +223,10 @@ static void dot_repeat(void)
     keys("\"Add.");
     assert(!strcmp(ed.registers[1].text, "one\ntwo\n"));
     expect("three\n");
-    /* Read-only polish blocks the repeat. */
+    /* The read-only reading view blocks the repeat. */
     reset("abc\n");
     keys("x");
-    editor_command(&ed, "set polish");
+    editor_command(&ed, "set view=reading");
     keys(".");
     expect("bc\n");
     assert(strstr(ed.message, "read-only"));
@@ -282,8 +282,8 @@ static void marks_and_jumps(void)
     assert(strstr(ed.message, "Mark not set") && ed.cursor == 0);
     keys("mA");
     assert(strstr(ed.message, "not supported"));
-    /* Read-only polish still allows jumping. */
-    editor_command(&ed, "set polish");
+    /* The read-only reading view still allows jumping. */
+    editor_command(&ed, "set view=reading");
     keys("5G");
     editor_input(&ed, KEY_CTRL_O, "");
     assert(ed.cursor == 0 && !ed.message[0]);
@@ -306,7 +306,7 @@ static void format(void)
     expect("  word word word word word word word word word word word word word word word\n"
            "  word word word word word \n");
     assert(ed.cursor == strlen("  word word word word word word word word word word word word word word word\n  "));
-    editor_command(&ed, "set polish");
+    editor_command(&ed, "set view=reading");
     keys("gq");
     assert(strstr(ed.message, "read-only"));
 }
@@ -355,7 +355,7 @@ static void replace_mode(void)
     keys("y");
     editor_input(&ed, KEY_ESCAPE, "");
     expect("ax\nyd\n");
-    editor_command(&ed, "set polish");
+    editor_command(&ed, "set view=reading");
     keys("R");
     assert(ed.mode == NORMAL && strstr(ed.message, "read-only"));
 }
@@ -481,10 +481,24 @@ int main(void)
         assert(strstr(ed.message, "Unknown command"));
         expect("notes");
     }
+    editor_command(&ed, "set view=source");
+    assert(ed.view == VIEW_SOURCE);
+    editor_command(&ed, "set view=normal");
+    assert(ed.view == VIEW_NORMAL);
+    editor_command(&ed, "set view?");
+    assert(!strcmp(ed.message, "view=normal"));
+    editor_command(&ed, "set view=polish"); /* the old names are gone */
+    assert(ed.view == VIEW_NORMAL && strstr(ed.message, "source, normal and reading"));
     editor_command(&ed, "set raw");
-    assert(ed.render_mode == RENDER_RAW);
-    editor_command(&ed, "set normal");
-    assert(ed.render_mode == RENDER_NORMAL);
+    assert(ed.view == VIEW_NORMAL && strstr(ed.message, "Unknown"));
+    /* :h, :help and :help with a topic all ask for the help card. */
+    const char *helps[] = {"h", "he", "help", "help marks"};
+    for (unsigned i = 0; i < 4; ++i) {
+        ed.requests = 0;
+        editor_command(&ed, helps[i]);
+        assert(ed.requests == ED_HELP);
+    }
+    ed.requests = 0;
     uint64_t revision = ed.revision;
     const char *schemes[] = {"jot", "tokyonight", "catppuccin", "kanagawa", "everforest"};
     for (unsigned i = 0; i < COLOR_COUNT; ++i) {
@@ -511,10 +525,10 @@ int main(void)
     assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_JOT);
     editor_command(&ed, "set background=invalid");
     assert(strstr(ed.message, "Unknown command") && !ed.light);
-    editor_command(&ed, "set polish");
+    editor_command(&ed, "set view=reading");
     editor_command(&ed, "set bg=light");
     editor_command(&ed, "colorscheme catppuccin");
-    assert(ed.colorscheme == COLOR_CATPPUCCIN && ed.light && ed.render_mode == RENDER_POLISH);
+    assert(ed.colorscheme == COLOR_CATPPUCCIN && ed.light && ed.view == VIEW_READING);
     const char *retired[] = {"default", "desert", "evening", "peachpuff"};
     for (unsigned i = 0; i < sizeof(retired) / sizeof(retired[0]); ++i) {
         char command[80];
@@ -523,7 +537,7 @@ int main(void)
         assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_CATPPUCCIN);
     }
     editor_command(&ed, "colorscheme jot");
-    editor_command(&ed, "set normal");
+    editor_command(&ed, "set view=normal");
     reset("one two three\nfour five\nsix\n");
     keys("2dw");
     expect("three\nfour five\nsix\n");

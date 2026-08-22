@@ -1,7 +1,7 @@
 #ifndef RENDER_INTERNAL_H
 #define RENDER_INTERNAL_H
 #include "app.h"
-/* Shared between render.c and navigator.c. Pixels are premultiplied ARGB8888 with stride in
+/* Shared between render.c and the overlays in navigator.c and help.c. Pixels are premultiplied ARGB8888 with stride in
  * pixels; drawing is clipped to width x height. */
 struct palette {
     uint32_t background, text, dim, link, heading, quote, done, italic;
@@ -23,4 +23,7 @@ unsigned render_font_size(const struct app *app);
 /* The page list overlay between rows top and bottom; see navigator.c. */
 bool navigator_draw(struct app *app, const struct palette *theme, uint32_t *pixels, int width,
                     int height, int stride, int top, int bottom, int padding);
+/* The :help card between rows top and bottom; see help.c. */
+bool help_draw(struct app *app, const struct palette *theme, uint32_t *pixels, int width,
+               int height, int stride, int top, int bottom, int padding);
 #endif

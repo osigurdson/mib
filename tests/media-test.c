@@ -121,7 +121,7 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     char reference[300];
     snprintf(reference, sizeof(reference), "inline ![](%s) text\n", name);
     assert(editor_replace(&app.editor, 0, app.editor.length, reference, strlen(reference)));
-    app.editor.render_mode = RENDER_RAW;
+    app.editor.view = VIEW_SOURCE;
     app_input(&app, KEY_CTRL_S, "");
     assert(exists(path) && app.editor.history);
     assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
@@ -154,7 +154,7 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     app_input(&app, KEY_TEXT, "u");
     assert(!strstr(app.editor.text, name));
     /* Saving an image deletion in insert mode starts a fresh grouped edit. */
-    app.editor.render_mode = RENDER_NORMAL;
+    app.editor.view = VIEW_NORMAL;
     assert(media_paste_image(&app, png, bytes));
     app.editor.mode = INSERT;
     app.editor.cursor = 0;
@@ -306,14 +306,14 @@ static void image_typing_test(const char *directory, const unsigned char *png, s
     app_input(&app, KEY_ESCAPE, "");
     assert(editor_replace(&app.editor, 0, app.editor.length, markup, strlen(markup)));
     /* Raw mode continues to edit the literal source, without image redirects. */
-    app.editor.render_mode = RENDER_RAW;
+    app.editor.view = VIEW_SOURCE;
     app.editor.cursor = 0;
     app_input(&app, KEY_TEXT, "i");
     app_input(&app, KEY_TEXT, "literal");
     app_input(&app, KEY_ESCAPE, "");
     assert(!strncmp(app.editor.text, "literal![](", 11));
     app_input(&app, KEY_TEXT, "u");
-    app.editor.render_mode = RENDER_NORMAL;
+    app.editor.view = VIEW_NORMAL;
     /* Saving and reopening keeps the image reference and asset intact. */
     char *note_path = session_path(&app, "typing.md");
     assert(note_path && editor_save(&app.editor, note_path));
@@ -443,14 +443,14 @@ static void resize_test(const char *root, const unsigned char *png, size_t bytes
     assert(editor_replace(&app.editor, e->start + 2, e->alt_end, "", 0));
     app.editor.cursor = 0;
 
-    /* Polish is read-only, raw shows source, and text lines keep their behaviour. */
-    editor_command(&app.editor, "set polish");
+    /* Reading is read-only, source shows source, and text lines keep their behaviour. */
+    editor_command(&app.editor, "set view=reading");
     keys(&app, "+");
     assert(!strcmp(alt(&app), ""));
-    editor_command(&app.editor, "set raw");
+    editor_command(&app.editor, "set view=source");
     keys(&app, "+");
     assert(!strcmp(alt(&app), ""));
-    editor_command(&app.editor, "set normal");
+    editor_command(&app.editor, "set view=normal");
     size_t text_line = app.editor.length;
     assert(editor_replace(&app.editor, text_line, text_line, "text\n", 5));
     app.editor.cursor = text_line;
@@ -537,20 +537,20 @@ int main(int argc, char **argv)
     assert(media_paste_image(&app, png, bytes));
     uint64_t original_revision = app.editor.revision;
     size_t original_length = app.editor.length;
-    editor_command(&app.editor, "set polish");
+    editor_command(&app.editor, "set view=reading");
     assert(!media_paste_image(&app, png, bytes));
     media_paste_text(&app, "cannot paste", 12);
     media_import_file(&app, "unused.png");
     media_import_uris(&app, "file:///unused.png", 18);
     assert(app.editor.revision == original_revision && app.editor.length == original_length);
-    editor_command(&app.editor, "set raw");
+    editor_command(&app.editor, "set view=source");
     uint32_t raw_pixels[320 * 200];
     assert(app_paint(&app, raw_pixels, 320, 200, 320));
     assert(app_view_rows(&app, 0) == 1 && app_view_next(&app, 0) < app.editor.length);
     app_input(&app, KEY_TEXT, "d");
     assert(app.editor.revision == original_revision && app.editor.pending[0] == 'd');
     app_input(&app, KEY_ESCAPE, "");
-    editor_command(&app.editor, "set normal");
+    editor_command(&app.editor, "set view=normal");
     free(png);
     assert(strstr(app.editor.text, "![](assets/"));
     const struct media_entry *entry = media_at(&app, app.editor.cursor);
@@ -681,10 +681,10 @@ int main(int argc, char **argv)
     assert(app_open(&other, NULL));
     other.directory = session_path(&app, "other");
     assert(other.directory && session_mkdir(other.directory));
-    editor_command(&other.editor, "set polish");
+    editor_command(&other.editor, "set view=reading");
     assert(!media_paste_fragment(&other, (unsigned char *)fragment, fragment_length));
     assert(other.editor.length == 0);
-    editor_command(&other.editor, "set normal");
+    editor_command(&other.editor, "set view=normal");
     assert(media_paste_fragment(&other, (unsigned char *)fragment, fragment_length));
     free(fragment);
     assert(strstr(other.editor.text, "before\n") && strstr(other.editor.text, "after\n"));

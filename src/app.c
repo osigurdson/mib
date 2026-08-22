@@ -76,6 +76,15 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     app->image_hit = false;
     uint64_t search_serial = app->editor.search_serial;
     bool digit = key == KEY_TEXT && text && text[0] >= '1' && text[0] <= '9' && !text[1];
+    if (app->help) {
+        /* The card takes the keyboard until Esc, q or Enter closes it, so :q closes the card
+         * rather than the window. */
+        if (key == KEY_ESCAPE || key == KEY_ENTER ||
+            (key == KEY_TEXT && text && !strcmp(text, "q")))
+            app->help = false;
+        app->dirty = true;
+        return;
+    }
     if (app->page_map) {
         /* The list takes the keyboard: a digit (with or without Alt) shows that page, Up/Down
          * or k/j move the selection and Enter shows it, Esc or Alt+0 closes the list, and other
@@ -137,11 +146,11 @@ void app_input(struct app *app, enum editor_key key, const char *text)
             }
         }
     }
-    const struct media_entry *selected_image = app->editor.render_mode == RENDER_RAW ? NULL
+    const struct media_entry *selected_image = app->editor.view == VIEW_SOURCE ? NULL
                                                : media_at(app, app->editor.cursor);
     /* Images are atomic blocks in normal rendering. Do not join a neighboring
      * text line into the source reference when deleting across its boundary. */
-    if (!selected_image && app->editor.render_mode == RENDER_NORMAL &&
+    if (!selected_image && app->editor.view == VIEW_NORMAL &&
         app->editor.mode == INSERT && !app->editor.command_active) {
         size_t cursor = app->editor.cursor;
         if (key == KEY_BACKSPACE && cursor &&
@@ -161,18 +170,18 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     }
     if (selected_image)
         snprintf(image_name, sizeof(image_name), "%s", selected_image->name);
-    app->editor.extra_search = app->editor.render_mode == RENDER_RAW ? NULL : media_search;
+    app->editor.extra_search = app->editor.view == VIEW_SOURCE ? NULL : media_search;
     app->editor.extra_search_data = app;
     /* Set on every key: opening a page replaces the editor and its hooks. */
     app->editor.image_resize = media_resize;
     app->editor.image_resize_data = app;
     bool insert = app->editor.mode == INSERT;
-    bool block_view = app->editor.render_mode == RENDER_NORMAL;
+    bool block_view = app->editor.view == VIEW_NORMAL;
     bool block_delete_key = key == KEY_DELETE ||
         (block_view && insert && (key == KEY_BACKSPACE || key == KEY_CTRL_W || key == KEY_CTRL_U)) ||
         (app->editor.mode == NORMAL && key == KEY_TEXT && text &&
          (!strcmp(text, "d") || (block_view && !strcmp(text, "x"))));
-    bool delete_image = selected_image && app->editor.render_mode != RENDER_POLISH &&
+    bool delete_image = selected_image && app->editor.view != VIEW_READING &&
                         !app->editor.command_active &&
                         (app->editor.mode == NORMAL || insert) &&
                         !app->editor.pending[0] && block_delete_key;
@@ -180,7 +189,7 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     if (selected_image && app->editor.mode == NORMAL && !app->editor.command_active &&
         !app->editor.pending[0] && key == KEY_TEXT && text && !strcmp(text, "y"))
         key = KEY_COPY;
-    bool image_insert = selected_image && app->editor.render_mode == RENDER_NORMAL &&
+    bool image_insert = selected_image && app->editor.view == VIEW_NORMAL &&
                         !app->editor.command_active && !app->editor.pending[0];
     if (image_insert && app->editor.mode == NORMAL && key == KEY_TEXT && text) {
         if (!strcmp(text, "i") || !strcmp(text, "I"))
@@ -230,7 +239,9 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         app->font_size = 18;
     if (requests & ED_PAGE_MAP)
         open_page_list(app);
-    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP |
+    if (requests & ED_HELP)
+        app->help = true;
+    app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP | ED_HELP |
                               ED_PAGE_SWITCH | ED_SAVE_ALL | ED_QUIT_ALL);
     if (requests & ED_PAGE_SWITCH)
         app_page_switch(app, app->editor.page_target);
@@ -320,7 +331,7 @@ void app_scroll(struct app *app, int rows)
 }
 int app_image_corner(const struct app *app, int x, int y)
 {
-    if (!app->image_box || app->editor.render_mode != RENDER_NORMAL)
+    if (!app->image_box || app->editor.view != VIEW_NORMAL)
         return -1;
     int64_t scale = app->scale120 ? app->scale120 : 120;
     int px = (int)(x * scale / 120), py = (int)(y * scale / 120);
@@ -376,6 +387,12 @@ void app_pointer(struct app *app, int x, int y, bool extend)
     if (app->map_click && extend)
         return; /* The rest of the click that closed the map. */
     app->map_click = false;
+    if (app->help) { /* a click anywhere closes the card */
+        app->help = false;
+        app->map_click = !extend;
+        app->dirty = true;
+        return;
+    }
     if (app->page_map) {
         /* A click on a page shows it; anywhere else closes the map. */
         int px = (int)((int64_t)x * app->scale120 / 120),

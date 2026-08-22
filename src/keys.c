@@ -1091,7 +1091,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         command_input(ed, key, text);
         return;
     }
-    if (ed->render_mode == RENDER_POLISH &&
+    if (ed->view == VIEW_READING &&
         (key == KEY_CUT || key == KEY_CTRL_V || key == KEY_DELETE || key == KEY_BACKSPACE ||
          key == KEY_TAB || key == KEY_SHIFT_TAB || key == KEY_CTRL_W)) {
         editor_can_edit(ed);
@@ -1265,7 +1265,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     if (!count)
         count = 1;
     bool visual = ed->mode == VISUAL || ed->mode == VISUAL_LINE;
-    if (ed->render_mode == RENDER_POLISH &&
+    if (ed->view == VIEW_READING &&
         ((!visual && (strchr("dc><iaIAoOsSxXDCJRr~pPu", *p) ||
                       (p[0] == 'g' && p[1] && strchr("uU~q", p[1])))) ||
          (visual && (strchr("dc><JuU~xspP", *p) || !strcmp(p, "gq"))))) {
@@ -1305,7 +1305,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
     }
     /* On a selected image, + and - change its width by 10% per count and = resets it. */
     if (!op && !visual && !p[1] && strchr("+-=", *p) && ed->image_resize &&
-        ed->render_mode != RENDER_RAW) {
+        ed->view != VIEW_SOURCE) {
         char spec[16] = "";
         if (*p != '=')
             snprintf(spec, sizeof(spec), "%c%u%%", *p, (unsigned)min(1000, count * 10));

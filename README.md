@@ -114,10 +114,10 @@ bold/italic combinations, strikethrough, and simple pipe tables. Tables have
 bold headers, left/center/right alignment, escaped pipes (`\|`), and wrapping
 cell text. They support up to 16 columns with matching cell counts. Very wide
 tables or rows taller than the viewport show as source so all text stays
-accessible. Polish mode hides syntax, adds hanging list indents and a pronounced
-heading size hierarchy with H1/H2 separators, and stays read-only. Normal mode
+accessible. The reading view hides syntax, adds hanging list indents and a pronounced
+heading size hierarchy with H1/H2 separators, and stays read-only. The normal view
 uses a subtler heading size hierarchy while keeping source markers visible.
-Raw mode always shows the exact source. Parsing uses fixed-size line storage; unusually
+The source view always shows the exact source. Parsing uses fixed-size line storage; unusually
 complex inline formatting falls back to literal text when that storage fills.
 
 ## Platforms and source organization
@@ -149,32 +149,34 @@ counts, operators/text objects, grouped undo/redo, smart-case incremental search
 Ex ranges/substitutions, clipboard paste/yank, wrapping, and conservative
 Markdown styling. See the [complete key reference](docs/keys.md).
 
+`:help` (`:h`) shows a short card with the views and page keys.
 `Ctrl+S` saves, `Ctrl+Q` quits, and `Ctrl+plus/minus/0` changes the font size.
-Choose a render mode with `:set raw`, `:set normal`, or `:set polish`:
+Choose a view with `:set view=source`, `:set view=normal`, or `:set view=reading`
+(`:set view?` shows the current one):
 
-- **Raw** shows plain source, including literal image markup, with no Markdown styling.
+- **Source** shows plain source, including literal image markup, with no Markdown styling.
 - **Normal** is the default: styled Markdown with visible syntax and inline images.
-- **Polish** is a read-only reading view. It conceals supported Markdown markers,
+- **Reading** is a read-only reading view. It conceals supported Markdown markers,
   removes the gutter, centers the reading column, and adds breathing room.
 
-Raw and normal remain editable and show line numbers. Polish keeps navigation,
-search, selection, copying, saving, and link/image opening; switch to raw or
+Source and normal remain editable and show line numbers. Reading keeps navigation,
+search, selection, copying, saving, and link/image opening; switch to source or
 normal to edit. Selections and copies still refer to the underlying Markdown
 source.
 
 Search highlights turn off when you enter insert mode. The query is retained;
-`n`/`N` or a new search shows highlights again in any render mode. Use `:set background=light` or
+`n`/`N` or a new search shows highlights again in any view. Use `:set background=light` or
 `:set background=dark` (`bg` also works), and `:colorscheme {name}` (`:colo`).
 Built-in schemes are `jot` (the original look), `tokyonight`, `catppuccin`,
 `kanagawa`, and `everforest`. All support light/dark backgrounds. `:colorscheme` reports the current scheme; `:set background?`
-reports the background setting. Scratch pages remember render mode, background,
+reports the background setting. Scratch pages remember the view, background,
 and colorscheme when closed. Jot with a dark background is the default.
 See [colorscheme behavior and provenance](docs/colors.md). Saves always use the current page or file.
-In raw and normal, paste screenshots or drop image files to import them. Images stay as
+In the source and normal views, paste screenshots or drop image files to import them. Images stay as
 standalone `![](assets/name.png)` lines. In normal rendering, inserting or
 pasting text on an image uses a separate text line. `i`/`I` insert above an image;
 `a`/`A` insert below it. Image paste in insert mode leaves the cursor after the
-image so typing can continue. Raw mode keeps literal source editing. `gx` or double-click opens an image;
+image so typing can continue. The source view keeps literal source editing. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. `y` copies a selected image; right-click an image to copy it, copy its text or open it.
 Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`
 sidecars used by search/highlighting. `TINYVI_OCR=0` disables automatic OCR.

@@ -277,7 +277,7 @@ empty-page Wayland launches measured 742–750 KiB idle PSS, below 1 MiB.
   stayed plain, text wrapped correctly, and inline images fit the view.
 
 `make page-preview` builds a reproducible, window-free preview utility:
-`./.build/linux/tools/page-preview notes.md preview.ppm 18 150` (font size and scale in 120ths). Append `light` or `dark` for the palette, `raw`, `normal` or `polish` for the
-render mode, and `decorated` for the Wayland client title bar.
+`./.build/linux/tools/page-preview notes.md preview.ppm 18 150` (font size and scale in 120ths). Append `light` or `dark` for the palette, `source`, `normal` or `reading` for the
+view, and `decorated` for the Wayland client title bar.
 Native Windows hardware testing and compositor-dependent activation behavior
 remain environmental validation limits; see [windows.md](windows.md).

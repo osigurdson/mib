@@ -205,7 +205,7 @@ static struct app_settings current_settings(const struct app *app)
         .width = app->maximized ? app->restore_width : app->width,
         .height = app->maximized ? app->restore_height : app->height,
         .font_size = app->font_size,
-        .render_mode = app->editor.render_mode,
+        .view = app->editor.view,
         .colorscheme = app->editor.colorscheme,
         .maximized = app->maximized,
         .light = app->editor.light,
@@ -216,12 +216,11 @@ static void apply_settings(struct app *app, const struct app_settings *s)
     app->width = app->restore_width = s->width;
     app->height = app->restore_height = s->height;
     app->font_size = s->font_size;
-    app->editor.render_mode = s->render_mode;
+    app->editor.view = s->view;
     app->editor.colorscheme = s->colorscheme;
     app->maximized = s->maximized;
     app->editor.light = s->light;
 }
-static const char *const render_names[] = {"raw", "normal", "polish"};
 /* Lines of "key = value"; blank lines, # comments and bad values are ignored. */
 static void parse_settings(const char *text, struct app_settings *s)
 {
@@ -250,10 +249,12 @@ static void parse_settings(const char *text, struct app_settings *s)
                     s->colorscheme = (enum color_scheme)i;
         } else if (!strcmp(key, "background") && (!strcmp(value, "light") || !strcmp(value, "dark")))
             s->light = !strcmp(value, "light");
-        else if (!strcmp(key, "render")) {
-            for (unsigned i = RENDER_RAW; i <= RENDER_POLISH; ++i)
-                if (!strcmp(value, render_names[i]))
-                    s->render_mode = (enum render_mode)i;
+        else if (!strcmp(key, "view") || !strcmp(key, "render")) {
+            /* render = raw/normal/polish is the old spelling of view. */
+            static const char *const old[] = {"raw", "normal", "polish"};
+            for (unsigned i = 0; i < VIEW_COUNT; ++i)
+                if (!strcmp(value, editor_view_name((enum view_mode)i)) || !strcmp(value, old[i]))
+                    s->view = (enum view_mode)i;
         } else if (!strcmp(key, "font_size") && numeric && number >= 8 && number <= 48)
             s->font_size = (unsigned)number;
         else if (!strcmp(key, "width") && numeric && number >= 200 && number <= 10000)
@@ -278,7 +279,7 @@ static bool parse_legacy(const char *text, struct app_settings *s)
         s->height = (int)h;
     if (font >= 8 && font <= 48)
         s->font_size = font;
-    s->render_mode = render <= RENDER_POLISH ? (enum render_mode)render : RENDER_NORMAL;
+    s->view = render < VIEW_COUNT ? (enum view_mode)render : VIEW_NORMAL;
     s->colorscheme = COLOR_JOT;
     for (unsigned i = 0; i < COLOR_COUNT; ++i)
         if (!strcmp(scheme, editor_colorscheme_name((enum color_scheme)i)))
@@ -323,10 +324,10 @@ static bool write_settings(const struct app_settings *s)
         int n = snprintf(text, sizeof(text),
                          "# Jot settings, shared by every page. Jot updates this file when a\n"
                          "# window closes, keeping changes made here to other settings.\n"
-                         "colorscheme = %s\nbackground = %s\nrender = %s\nfont_size = %u\n"
+                         "colorscheme = %s\nbackground = %s\nview = %s\nfont_size = %u\n"
                          "width = %d\nheight = %d\nmaximized = %s\n",
                          editor_colorscheme_name(s->colorscheme), s->light ? "light" : "dark",
-                         render_names[s->render_mode], s->font_size, s->width, s->height,
+                         editor_view_name(s->view), s->font_size, s->width, s->height,
                          s->maximized ? "true" : "false");
         ok = n > 0 && (size_t)n < sizeof(text) &&
              platform_file_write_atomic(path, text, (size_t)n, error, sizeof(error));
@@ -516,7 +517,7 @@ static void save_settings(struct app *app)
     KEEP(width)
     KEEP(height)
     KEEP(font_size)
-    KEEP(render_mode)
+    KEEP(view)
     KEEP(colorscheme)
     KEEP(maximized)
     KEEP(light)

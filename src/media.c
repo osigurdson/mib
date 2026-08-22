@@ -604,7 +604,7 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
     size_t p = ed->cursor, a, b;
     bool lines;
     bool visual = editor_selection(ed, &a, &b, &lines), own = !editor_change_active(ed);
-    if (!visual && ed->mode == INSERT && ed->render_mode == RENDER_NORMAL) {
+    if (!visual && ed->mode == INSERT && ed->view == VIEW_NORMAL) {
         const struct media_entry *image = media_at(app, p);
         if (image)
             p = image->start;
@@ -626,7 +626,7 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
     }
     size_t at = p;
     editor_replace(ed, p, p, markup, strlen(markup));
-    ed->cursor = !visual && ed->mode == INSERT && ed->render_mode == RENDER_NORMAL
+    ed->cursor = !visual && ed->mode == INSERT && ed->view == VIEW_NORMAL
                      ? at + strlen(markup) : at;
     if (visual)
         ed->mode = NORMAL;
@@ -641,7 +641,7 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
 bool media_prepare_insert(struct app *app)
 {
     struct editor *ed = &app->editor;
-    if (ed->render_mode != RENDER_NORMAL || ed->mode != INSERT)
+    if (ed->view != VIEW_NORMAL || ed->mode != INSERT)
         return true;
     const struct media_entry *image = media_at(app, ed->cursor);
     if (!image)
@@ -670,7 +670,7 @@ void media_paste_text(struct app *app, const char *text, size_t length)
             continue;
         normal[n++] = text[i] == '\r' ? '\n' : text[i];
     }
-    bool image_line = app->editor.render_mode == RENDER_NORMAL &&
+    bool image_line = app->editor.view == VIEW_NORMAL &&
                       app->editor.mode == NORMAL && media_at(app, app->editor.cursor);
     if (image_line && normal[n - 1] != '\n')
         normal[n++] = '\n';

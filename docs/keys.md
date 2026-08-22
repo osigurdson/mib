@@ -1,12 +1,12 @@
 # Jot key reference
 
-Raw and normal modes show line numbers. The gutter reserves four digits and grows
+The source and normal views show line numbers. The gutter reserves four digits and grows
 for longer notes, with two character cells between the numbers and text. Scratch
 pages and files open in normal mode with the cursor where you left it, saved on `:w` and
 when Jot closes. Closing with unsaved changes keeps the position from the last save. A page
 with no remembered position opens at the end, and a file at the beginning. Positions live in
-`~/.local/state/jot/positions` (`$XDG_STATE_HOME/jot`, or `%LOCALAPPDATA%\jot` on Windows). The bottom line shows the line and column, plus `RAW` or
-`POLISH [read only]` outside normal rendering, and messages.
+`~/.local/state/jot/positions` (`$XDG_STATE_HOME/jot`, or `%LOCALAPPDATA%\jot` on Windows). The bottom line shows the line and column, plus `SOURCE` or
+`READING` outside the normal view, and messages.
 
 Counts work with motions and operators, such as `3w`, `5j`, `d3j` and `2dd`.
 
@@ -141,7 +141,7 @@ past the text area. Resizes are one undo step each, and `.` repeats `+`, `-` and
 
 In normal rendering, typed and pasted text stays on a separate line from an
 image. Pasting an image in insert mode places the cursor after it so you can
-continue typing. In insert mode, `d` types text like any other letter. Raw mode
+continue typing. In insert mode, `d` types text like any other letter. The source view
 still edits the literal Markdown source. In normal rendering, Backspace from the
 start of text after an image and Delete from the end of text before an image
 remove that image block, preserving the neighboring text and line boundary.
@@ -205,9 +205,11 @@ Press `:` to open it. Up and Down browse your history.
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
-| `:set raw` | Editable plain source, with no Markdown styling or inline images |
-| `:set normal` | Editable styled source with inline images (default) |
-| `:set polish` | Read-only reading view; conceal supported markers and hide the gutter |
+| `:h`, `:help` | Show a short card with the views and page keys; `Esc`, `q` or a click closes it |
+| `:set view=source` | Editable plain source, with no Markdown styling or inline images |
+| `:set view=normal` | Editable styled source with inline images (default) |
+| `:set view=reading` | Read-only reading view; conceal supported markers and hide the gutter |
+| `:set view?` | Show the current view |
 | `:set background=light`, `:set background=dark` | Set the background option (`bg` is an alias) |
 | `:set background?` | Show the background setting |
 | `:colorscheme {name}`, `:colo {name}` | Choose jot, tokyonight, catppuccin, kanagawa, or everforest |
@@ -221,7 +223,7 @@ Press `:` to open it. Up and Down browse your history.
 
 Ranges can use `%`, `.`, `$`, line numbers, `'<,'>` and `+n` or `-n`.
 
-Render mode, background, colorscheme, zoom and window size are shared by every page and file,
+The view, background, colorscheme, zoom and window size are shared by every page and file,
 and kept in `~/.config/jot/config` (`$XDG_CONFIG_HOME/jot/config`, or `%APPDATA%\jot\config` on
 Windows). Closing a window writes back only the settings it changed, so you can also edit the
 file by hand:
@@ -229,7 +231,7 @@ file by hand:
 ```
 colorscheme = kanagawa
 background = dark
-render = normal
+view = normal
 font_size = 18
 width = 800
 height = 560
@@ -237,10 +239,11 @@ maximized = false
 ```
 
 The first time Jot runs without this file, it copies the opened page's old per-page settings
-into it. In polish, movement,
+into it. An old `render = raw|normal|polish` line still works and is rewritten as `view`.
+In the reading view, movement,
 search, visual selection, copying, saving and link/image opening remain available.
 Typing, paste, drops, deletion, substitutions, undo and redo are blocked. Switch
-to raw or normal to edit. Copies retain the selected Markdown source.
+to the source or normal view to edit. Copies retain the selected Markdown source.
 
 ## Window
 

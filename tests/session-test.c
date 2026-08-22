@@ -93,7 +93,7 @@ static void pages(const char *parent)
     snprintf(directory, sizeof(directory), "%s/pages", parent);
     struct app app;
     assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
-    editor_command(&app.editor, "set raw");
+    editor_command(&app.editor, "set view=source");
     type(&app, "ione\ntwo\x1b");
     assert(app.current == 0 && strstr(app.editor.filename, "jot.md"));
     /* Alt+digit only switches from normal mode. */
@@ -495,7 +495,7 @@ int main(void)
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
     text = session_read(settings, 4096, &n);
-    assert(text && strstr(text, "render = normal\n"));
+    assert(text && strstr(text, "view = normal\n"));
     free(text);
     uint32_t pixels[320 * 200];
     assert(app_paint(&app, pixels, 320, 200, 320));
@@ -539,15 +539,15 @@ int main(void)
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1 && !app.editor.light);
     app_close(&app);
-    const char *mode_commands[] = {"set raw", "set normal", "set polish"};
-    for (unsigned mode = RENDER_RAW; mode <= RENDER_POLISH; ++mode) {
+    const char *mode_commands[] = {"set view=source", "set view=normal", "set view=reading"};
+    for (unsigned mode = VIEW_SOURCE; mode <= VIEW_READING; ++mode) {
         assert(app_open(&app, NULL));
         assert(session_open(&app, directory) == 1);
         editor_command(&app.editor, mode_commands[mode]);
         app_close(&app);
         assert(app_open(&app, NULL));
-        assert(session_open(&app, directory) == 1 && app.editor.render_mode == (enum render_mode)mode);
-        assert(editor_reload(&app.editor) && app.editor.render_mode == (enum render_mode)mode);
+        assert(session_open(&app, directory) == 1 && app.editor.view == (enum view_mode)mode);
+        assert(editor_reload(&app.editor) && app.editor.view == (enum view_mode)mode);
         app_close(&app);
     }
     for (unsigned scheme = 0; scheme < COLOR_COUNT; ++scheme) {
@@ -585,7 +585,8 @@ int main(void)
         app_close(&app);
     }
 
-    /* Every page shares one set of settings, and the old page file is no longer read. */
+    /* Every page shares one set of settings, and the old page file is no longer read.
+     * render = polish is the old spelling of view = reading. */
     const char *shared = "# mine\ncolorscheme = kanagawa\nbackground = dark\nrender = polish\n"
                          "font_size = 20\nwidth = 1000\nheight = 700\nmaximized = false\n"
                          "bogus = 1\nwidth = tiny\n";
@@ -597,7 +598,7 @@ int main(void)
     assert(app_open(&b, NULL) && session_open(&b, other) == 1);
     for (struct app *p = &a; p; p = p == &a ? &b : NULL)
         assert(p->editor.colorscheme == COLOR_KANAGAWA && !p->editor.light &&
-               p->editor.render_mode == RENDER_POLISH && p->font_size == 20 && p->width == 1000 &&
+               p->editor.view == VIEW_READING && p->font_size == 20 && p->width == 1000 &&
                p->height == 700 && !p->maximized);
     /* Closing without changes leaves a hand-edited file alone. */
     app_close(&b);
@@ -612,7 +613,7 @@ int main(void)
     app_close(&b);
     assert(app_open(&a, NULL) && session_open(&a, other) == 1);
     assert(a.editor.colorscheme == COLOR_EVERFOREST && a.editor.light &&
-           a.editor.render_mode == RENDER_POLISH);
+           a.editor.view == VIEW_READING);
     app_close(&a);
     /* Explicit files use the same settings. */
     char file[1200];

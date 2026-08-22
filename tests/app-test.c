@@ -60,7 +60,7 @@ static void search_visibility(void)
         struct app app;
         assert(app_open(&app, NULL));
         if (raw)
-            editor_command(&app.editor, "set raw");
+            editor_command(&app.editor, "set view=source");
         assert(editor_replace(&app.editor, 0, 0, "sd sd\n", 6));
         app.editor.cursor = 0;
         app_input(&app, KEY_TEXT, "/");
@@ -280,6 +280,47 @@ static void rounded_window(void)
     app_close(&app);
 }
 
+static void type(struct app *app, const char *keys)
+{
+    for (; *keys; ++keys) {
+        char text[2] = {*keys, 0};
+        if (*keys == '\n')
+            app_input(app, KEY_ENTER, NULL);
+        else
+            app_input(app, KEY_TEXT, text);
+    }
+}
+/* :help shows a card that takes the keyboard until Esc, q, Enter or a click closes it. */
+static void help_card(void)
+{
+    struct app app;
+    assert(app_open(&app, NULL));
+    assert(editor_replace(&app.editor, 0, 0, "notes\n", 6));
+    app.editor.cursor = 0;
+    enum { WIDTH = 800, HEIGHT = 560 };
+    uint32_t *plain = malloc(WIDTH * HEIGHT * sizeof(*plain)),
+             *card = malloc(WIDTH * HEIGHT * sizeof(*card));
+    assert(plain && card);
+    assert(app_paint(&app, plain, WIDTH, HEIGHT, WIDTH));
+    type(&app, ":help\n");
+    assert(app.help);
+    assert(app_paint(&app, card, WIDTH, HEIGHT, WIDTH));
+    assert(memcmp(plain, card, WIDTH * HEIGHT * sizeof(*card)));
+    type(&app, ":xdd"); /* ignored, so :q closes the card rather than the window */
+    assert(app.help && !app.editor.command_active && app.editor.length == 6);
+    type(&app, "q");
+    assert(!app.help && !app.editor.quit && app.editor.length == 6);
+    type(&app, ":h marks\n");
+    assert(app.help);
+    app_input(&app, KEY_ESCAPE, NULL);
+    assert(!app.help);
+    type(&app, ":he\n");
+    app_pointer(&app, 10, 10, false);
+    assert(!app.help);
+    free(plain);
+    free(card);
+    app_close(&app);
+}
 static void render_modes(void)
 {
     struct app app;
@@ -291,17 +332,17 @@ static void render_modes(void)
     enum { WIDTH = 320, HEIGHT = 400 };
     uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
     assert(pixels);
-    assert(app.editor.render_mode == RENDER_NORMAL);
+    assert(app.editor.view == VIEW_NORMAL);
     assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
     int normal_height = app.line_height;
     size_t second = (size_t)(strstr(note, "**bold") - note);
     assert(app_view_next(&app, second) < editor_line_end(&app.editor, second));
-    editor_command(&app.editor, "set raw");
+    editor_command(&app.editor, "set view=source");
     assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
     assert(app.gutter == 6 * app.cell && app.line_height == normal_height);
     assert(app_hit_test(&app, app.text_x, app.padding + app.line_height / 2) == 0);
     uint64_t revision = app.editor.revision;
-    editor_command(&app.editor, "set polish");
+    editor_command(&app.editor, "set view=reading");
     assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
     assert(app.gutter == 0 && app.text_x > app.padding && app.line_height > normal_height);
     assert(app_view_next(&app, second) == editor_line_end(&app.editor, second) + 1);
@@ -331,7 +372,7 @@ static void render_modes(void)
     assert(app.editor.revision == revision && !strcmp(app.editor.text, note));
     app_input(&app, KEY_TEXT, "d");
     assert(app.editor.revision == revision && !strcmp(app.editor.text, note));
-    editor_command(&app.editor, "set normal");
+    editor_command(&app.editor, "set view=normal");
     assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
     assert(app.gutter == 6 * app.cell && app.line_height == normal_height);
     assert(!strcmp(app.editor.text, note));
@@ -367,7 +408,7 @@ static void markdown_notes(void)
     assert(app_open(&app, NULL));
     const char *note = "## Heading\n  12. a long nested list item with several words for wrapping\n---\n";
     assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
-    editor_command(&app.editor, "set polish");
+    editor_command(&app.editor, "set view=reading");
     uint32_t pixels[400 * 400];
     assert(app_paint(&app, pixels, 400, 400, 400));
     assert(app_view_rows(&app, 0) == 2);
@@ -379,7 +420,7 @@ static void markdown_notes(void)
                        app.padding + app_view_height(&app, 0) + app.line_height) == wrap);
     size_t rule = (size_t)(strstr(note, "---") - note);
     assert(app_view_next(&app, rule) == strlen(note));
-    editor_command(&app.editor, "set raw");
+    editor_command(&app.editor, "set view=source");
     assert(app_paint(&app, pixels, 400, 400, 400));
     assert(app_view_rows(&app, 0) == 1);
     assert(!strcmp(app.editor.text, note));
@@ -415,7 +456,7 @@ static void markdown_tables(void)
     struct app app;
     assert(app_open(&app, NULL));
     assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
-    editor_command(&app.editor, "set polish");
+    editor_command(&app.editor, "set view=reading");
     uint32_t pixels[400 * 400];
     assert(app_paint(&app, pixels, 400, 400, 400));
     assert(app_view_rows(&app, separator) == 0);
@@ -438,7 +479,7 @@ static void markdown_tables(void)
     assert(app_paint(&app, pixels, 120, 200, 120));
     assert(app_view_next(&app, body) < last);
     app.editor.cursor = app.editor.top = 0;
-    editor_command(&app.editor, "set raw");
+    editor_command(&app.editor, "set view=source");
     assert(app_paint(&app, pixels, 400, 400, 400));
     assert(app_view_rows(&app, separator) == 1);
     assert(app_hit_test(&app, app.text_x, app.padding) == 0);
@@ -446,7 +487,7 @@ static void markdown_tables(void)
     const char *code = "```\n| a | b |\n| --- | --- |\n```\n";
     assert(editor_replace(&app.editor, 0, app.editor.length, code, strlen(code)));
     app.editor.cursor = app.editor.top = 0;
-    editor_command(&app.editor, "set polish");
+    editor_command(&app.editor, "set view=reading");
     assert(app_paint(&app, pixels, 400, 400, 400));
     size_t code_separator = (size_t)(strstr(code, "| ---") - code);
     assert(app_view_rows(&app, code_separator) == 1 && !app.markdown.table.count);
@@ -491,7 +532,7 @@ static void normal_markdown_styles(void)
                 assert(pixels[y * width + app.padding] == background); /* gutter stays clear */
             }
             assert(pixels[(app.padding + 5 * app.line_height) * width + app.text_x] == code);
-            editor_command(&app.editor, "set raw");
+            editor_command(&app.editor, "set view=source");
             assert(app_paint(&app, pixels, width, height, width));
             assert(pixels[(app.padding + 5 * app.line_height) * width + app.text_x] == background);
             free(pixels);
@@ -517,7 +558,7 @@ static void heading_layout(void)
             uint32_t *pixels = malloc((size_t)width * height * sizeof(*pixels));
             assert(pixels);
             int normal_h1 = 0;
-            const char *modes[] = {"set normal", "set polish", "set raw"};
+            const char *modes[] = {"set view=normal", "set view=reading", "set view=source"};
             for (unsigned mode = 0; mode < 3; ++mode) {
                 editor_command(&app.editor, modes[mode]);
                 app.editor.cursor = app.editor.top = 0;
@@ -627,7 +668,7 @@ static void colorschemes(void)
     app.editor.cursor = 4;
     app.client_decorated = true;
     uint32_t pixels[400 * 300];
-    const char *modes[] = {"set raw", "set normal", "set polish"};
+    const char *modes[] = {"set view=source", "set view=normal", "set view=reading"};
     for (unsigned scheme = 0; scheme < COLOR_COUNT; ++scheme) {
         assert(editor_colorscheme(&app.editor, editor_colorscheme_name((enum color_scheme)scheme)));
         for (unsigned light = 0; light < 2; ++light) {
@@ -660,6 +701,7 @@ int main(void)
     decoration_layout();
     rounded_window();
     render_modes();
+    help_card();
     markdown_notes();
     markdown_tables();
     normal_markdown_styles();
@@ -693,7 +735,7 @@ int main(void)
     int status_y = HEIGHT - app.line_height - 2 * app.padding;
     assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
     app_input(&app, KEY_TEXT, ":");
-    app_input(&app, KEY_TEXT, "set normal");
+    app_input(&app, KEY_TEXT, "set view=normal");
     assert(app_paint(&app, padded, WIDTH, HEIGHT, STRIDE));
     assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
     bool status_changed = false;

@@ -5,7 +5,8 @@
 #include <stdint.h>
 
 enum editor_mode { NORMAL, INSERT, VISUAL, VISUAL_LINE };
-enum render_mode { RENDER_RAW, RENDER_NORMAL, RENDER_POLISH };
+/* What :set view= shows: plain source, styled Markdown, or the read-only reading view. */
+enum view_mode { VIEW_SOURCE, VIEW_NORMAL, VIEW_READING, VIEW_COUNT };
 enum editor_key {
     KEY_TEXT,
     KEY_ESCAPE,
@@ -60,10 +61,13 @@ enum editor_request {
     ED_PAGE_MAP = 1024,
     ED_PAGE_SWITCH = 2048, /* to page_target */
     ED_SAVE_ALL = 4096, /* the other pages; the editor has saved its own */
-    ED_QUIT_ALL = 8192 /* after ED_SAVE_ALL, if every page saved */
+    ED_QUIT_ALL = 8192, /* after ED_SAVE_ALL, if every page saved */
+    ED_HELP = 16384
 };
 enum color_scheme { COLOR_JOT, COLOR_TOKYONIGHT, COLOR_CATPPUCCIN, COLOR_KANAGAWA, COLOR_EVERFOREST, COLOR_COUNT };
 const char *editor_colorscheme_name(enum color_scheme scheme);
+/* "source", "normal" or "reading", as :set view= and the config file spell them. */
+const char *editor_view_name(enum view_mode view);
 struct edit_history;
 struct editor_register {
     char *text;
@@ -74,7 +78,7 @@ struct editor {
     char *text, *filename;
     size_t length, capacity, cursor, top, left;
     enum editor_mode mode;
-    enum render_mode render_mode;
+    enum view_mode view;
     enum color_scheme colorscheme;
     bool modified, command_active, quit, crlf;
     /* Another page (1 to 9) with unsaved changes, or 0. The app sets it so quitting

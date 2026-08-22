@@ -16,7 +16,7 @@ enum app_title_action { TITLE_NONE, TITLE_MOVE, TITLE_MINIMIZE, TITLE_MAXIMIZE, 
 struct app_settings {
     int width, height;
     unsigned font_size;
-    enum render_mode render_mode;
+    enum view_mode view;
     enum color_scheme colorscheme;
     bool maximized, light;
 };
@@ -81,6 +81,7 @@ struct app {
     char *root; /* The notes folder holding 1/ to 9/; NULL for explicit files. */
     struct page pages[PAGE_COUNT];
     bool page_map, map_click;
+    bool help; /* the :help card is showing */
     int map_x, map_y, map_width, map_height;
 };
 size_t app_view_next(struct app *app, size_t start);

@@ -9,6 +9,11 @@ const char *editor_colorscheme_name(enum color_scheme scheme)
     static const char *const names[] = {"jot", "tokyonight", "catppuccin", "kanagawa", "everforest"};
     return (unsigned)scheme < COLOR_COUNT ? names[scheme] : "jot";
 }
+const char *editor_view_name(enum view_mode view)
+{
+    static const char *const names[] = {"source", "normal", "reading"};
+    return (unsigned)view < VIEW_COUNT ? names[view] : "normal";
+}
 bool editor_colorscheme(struct editor *ed, const char *name)
 {
     for (unsigned i = 0; i < COLOR_COUNT; ++i) {
@@ -154,7 +159,9 @@ void editor_command(struct editor *ed, const char *command)
             ed->requests |= ED_PAGE_SWITCH;
         } else
             snprintf(ed->message, sizeof(ed->message), "Pages are :b 1 to :b 9");
-    } else if (!strcmp(p, "e!"))
+    } else if (*p && strlen(p) <= strlen("help") && !strncmp(p, "help", strlen(p)))
+        ed->requests |= ED_HELP; /* :h, :help and :help topic all show the one card */
+    else if (!strcmp(p, "e!"))
         editor_reload(ed);
     else if (!strcmp(p, "u") || !strcmp(p, "undo"))
         editor_undo(ed, false);
@@ -169,16 +176,23 @@ void editor_command(struct editor *ed, const char *command)
         else if (!editor_colorscheme(ed, argument))
             snprintf(ed->message, sizeof(ed->message), "Cannot find color scheme: %.200s", argument);
     } else if (!strcmp(p, "set") && argument) {
-        if (!strcmp(argument, "raw") || !strcmp(argument, "normal") ||
-            !strcmp(argument, "polish")) {
+        if (!strncmp(argument, "view=", 5)) {
+            unsigned view = 0;
+            while (view < VIEW_COUNT && strcmp(argument + 5, editor_view_name((enum view_mode)view)))
+                ++view;
+            if (view == VIEW_COUNT) {
+                snprintf(ed->message, sizeof(ed->message), "Views are source, normal and reading");
+                return;
+            }
             editor_change_end(ed);
-            ed->render_mode = !strcmp(argument, "raw") ? RENDER_RAW
-                              : !strcmp(argument, "polish") ? RENDER_POLISH : RENDER_NORMAL;
+            ed->view = (enum view_mode)view;
             ed->mode = NORMAL;
             ed->pending[0] = 0;
             ed->top = editor_line_start(ed, ed->top);
             editor_clamp(ed);
-        } else if (!strcmp(argument, "background=light") || !strcmp(argument, "bg=light"))
+        } else if (!strcmp(argument, "view?") || !strcmp(argument, "view"))
+            snprintf(ed->message, sizeof(ed->message), "view=%s", editor_view_name(ed->view));
+        else if (!strcmp(argument, "background=light") || !strcmp(argument, "bg=light"))
             ed->light = true;
         else if (!strcmp(argument, "background=dark") || !strcmp(argument, "bg=dark"))
             ed->light = false;
