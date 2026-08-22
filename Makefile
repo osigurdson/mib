@@ -39,8 +39,11 @@ MEMORY := src/platform/linux/memory.c
 FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
 FONT_DATA := $(GEN)/font-data.h
+CLANG_FORMAT ?= clang-format
+# Every C file Jot owns; third_party/ keeps its upstream formatting.
+FORMAT_FILES = $(shell git ls-files '*.c' '*.h' '*.inc' ':!third_party')
 
-.PHONY: all run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
+.PHONY: all format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
 all: jot
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -189,6 +192,12 @@ $(TOOL_BIN)/font-preview: tools/font-preview.c src/editor.c src/keys.c src/ex.c 
 subset-font: | $(GEN)
 	$(PYTHON) tools/subset-font.py fonts/JetBrainsMonoNerdFontMono-Regular.ttf fonts/editor.tvf
 	$(PYTHON) tools/embed-font.py fonts/editor.tvf $(FONT_DATA)
+
+format:
+	$(CLANG_FORMAT) -i $(FORMAT_FILES)
+
+format-check:
+	$(CLANG_FORMAT) --dry-run -Werror $(FORMAT_FILES)
 
 memory: jot
 	$(PYTHON) tools/measure-memory.py --binary "$(LINUX_BUILD_DIR)/jot"

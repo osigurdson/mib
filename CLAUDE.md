@@ -27,6 +27,7 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 ## Checks
 
 - `make test`: unit and integration tests. Add modal behaviour tests to `tests/modal-test.c`.
+- `make format-check`: C files follow `.clang-format`; run `make format` before committing.
 - `make windows`: cross-compiles the Windows build; run it after touching shared or Windows code.
 - `make vim-compare`: types each case in `tests/vim-compare.toml` into the real Jot binary (in a
   private headless Mutter session) and into Vim, then compares the saved files.

@@ -221,6 +221,9 @@ fonts, glyphs, or sizes used.
 
 ```sh
 make test
+# Apply or check the C style in .clang-format (needs clang-format):
+make format
+make format-check
 # Optional real-app Linux workflows (Mutter, dbus-run-session, Python PyGObject):
 make test-linux-e2e
 # Optional Vim parity check (the same tools plus Vim):
