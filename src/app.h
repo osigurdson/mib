@@ -106,6 +106,9 @@ bool app_page_switch(struct app *app, unsigned index);
 void app_page_heading(struct app *app, unsigned index, char *heading, size_t size);
 /* The first other page with unsaved changes (1 to 9), or 0. */
 unsigned app_page_modified(const struct app *app);
+/* Save every other page with unsaved changes, as :wa does after saving the shown one.
+ * False, with the reason in the message, if one could not be saved. */
+bool app_pages_save(struct app *app);
 void app_pages_close(struct app *app);
 int app_main(int argc, char **argv);
 bool app_open(struct app *app, const char *filename);

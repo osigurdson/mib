@@ -257,6 +257,37 @@ static void pages(const char *parent)
     assert(app.editor.cursor == 0);
     assert(!exists(directory, "5/jot.md") && !exists(directory, "2/jot.md"));
     app_close(&app);
+    /* :wa saves every page with changes and leaves the shown one as it was; :wqa saves and
+     * quits, and :qa is :q. */
+    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    type(&app, "ggOfirst\x1b");
+    app_input(&app, KEY_PAGE, "6");
+    type(&app, "ggOsixth\x1b");
+    app_input(&app, KEY_PAGE, "3");
+    type(&app, "ggl");
+    cursor = app.editor.cursor;
+    type(&app, ":qa\n");
+    assert(app.running && strstr(app.editor.message, "Unsaved changes in page"));
+    type(&app, ":wa\n");
+    assert(app.current == 2 && app.editor.cursor == cursor && !app.editor.modified);
+    assert(!app_page_modified(&app) && strstr(app.editor.message, "Saved all pages"));
+    char *page_text = session_read(strcat(strcpy(positions, directory), "/1/jot.md"), 1 << 20,
+                                   &length);
+    assert(page_text && !strncmp(page_text, "first\n", 6));
+    free(page_text);
+    page_text = session_read(strcat(strcpy(positions, directory), "/6/jot.md"), 1 << 20, &length);
+    assert(page_text && !strncmp(page_text, "sixth\n", 6));
+    free(page_text);
+    app_input(&app, KEY_PAGE, "1");
+    assert(!strncmp(app.editor.text, "first\n", 6) && !app.editor.modified);
+    type(&app, "ddu");
+    app_input(&app, KEY_PAGE, "6");
+    type(&app, "dd:wqa\n");
+    assert(!app.running && !app_page_modified(&app) && !app.editor.modified);
+    page_text = session_read(strcat(strcpy(positions, directory), "/6/jot.md"), 1 << 20, &length);
+    assert(page_text && !strcmp(page_text, "six\nlines\n"));
+    free(page_text);
+    app_close(&app);
     /* Explicit files have no pages. */
     char file[1200];
     snprintf(file, sizeof(file), "%s/note.txt", directory);

@@ -58,7 +58,9 @@ enum editor_request {
     ED_ZOOM_OUT = 256,
     ED_ZOOM_RESET = 512,
     ED_PAGE_MAP = 1024,
-    ED_PAGE_SWITCH = 2048 /* to page_target */
+    ED_PAGE_SWITCH = 2048, /* to page_target */
+    ED_SAVE_ALL = 4096, /* the other pages; the editor has saved its own */
+    ED_QUIT_ALL = 8192 /* after ED_SAVE_ALL, if every page saved */
 };
 enum color_scheme { COLOR_JOT, COLOR_TOKYONIGHT, COLOR_CATPPUCCIN, COLOR_KANAGAWA, COLOR_EVERFOREST, COLOR_COUNT };
 const char *editor_colorscheme_name(enum color_scheme scheme);

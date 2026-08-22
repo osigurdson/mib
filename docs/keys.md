@@ -174,8 +174,8 @@ read from the page itself, or a dash. The selection starts on the page that is s
 which keeps a dot as the selection moves. Clicking a page also shows it.
 
 Each page keeps its own cursor, scroll position, undo history, marks and jumps; registers,
-search and settings are shared. `:w` and `Ctrl+S` save the page that is showing, and
-quitting is blocked while any page has unsaved changes. Pasted images go into the page's
+search and settings are shared. `:w` and `Ctrl+S` save the page that is showing, `:wa`
+saves every page, and quitting is blocked while any page has unsaved changes. Pasted images go into the page's
 own `assets/`, and yanking an image line in one page and pasting it in another copies the
 image across. Explicit files have no other pages.
 
@@ -197,7 +197,10 @@ Press `:` to open it. Up and Down browse your history.
 | Command | Action |
 |---|---|
 | `:w` | Save the current page or file |
-| `:q`, `:wq`, `:x` | Close the window |
+| `:wa` | Save every page with changes |
+| `:q`, `:qa`, `:wq`, `:x` | Close the window (with every page saved) |
+| `:wqa`, `:xa` | Save every page, then close the window |
+| `:q!`, `:qa!` | Close the window, discarding unsaved changes |
 | `:ls`, `:b N` | List the [pages](#pages), or show page N |
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
@@ -260,4 +263,5 @@ This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
 image containing OCR matches and highlights matching OCR words. The font subset,
 ASCII case handling and bounded regex subset are intentional limitations.
 Pages and explicit files both protect unsaved changes on quit, on every page. Use `:w` or
-`Ctrl+S` to save, `:wq` to save and quit, or `:q!` to discard edits.
+`Ctrl+S` to save, `:wa` to save every page, `:wq` or `:wqa` to save and quit, or `:q!` to
+discard edits.

@@ -189,6 +189,49 @@ unsigned app_page_modified(const struct app *app)
             return i + 1;
     return 0;
 }
+bool app_pages_save(struct app *app)
+{
+    struct editor *ed = &app->editor;
+    unsigned saved = 0;
+    for (unsigned i = 0; app->root && i < PAGE_COUNT; ++i) {
+        struct page *page = &app->pages[i], *here = &app->pages[app->current];
+        if (i == app->current || !page->loaded || !page->modified)
+            continue;
+        char *folder = page_path(app, i, NULL);
+        if (!folder)
+            return false;
+        /* Swap the page in just to save it, with its own folder and images, as a switch
+         * would, then put the shown page back. */
+        editor_change_end(ed);
+        bool fresh = page->fresh;
+        struct media *media = page->media;
+        stash(ed, here);
+        here->media = app->media;
+        unstash(ed, page);
+        char *directory = app->directory;
+        app->directory = folder;
+        app->media = media;
+        bool ok = editor_save(ed, ed->filename);
+        stash(ed, page);
+        page->fresh = fresh;
+        page->media = app->media;
+        app->media = here->media;
+        unstash(ed, here);
+        free(app->directory);
+        app->directory = directory;
+        if (!ok) {
+            char reason[sizeof(ed->message)];
+            snprintf(reason, sizeof(reason), "%s", ed->message);
+            snprintf(ed->message, sizeof(ed->message), "Could not save page %u: %.200s", i + 1,
+                     reason);
+            return false;
+        }
+        ++saved;
+    }
+    if (saved)
+        snprintf(ed->message, sizeof(ed->message), "Saved all pages");
+    return true;
+}
 void app_pages_close(struct app *app)
 {
     for (unsigned i = 0; i < PAGE_COUNT; ++i)

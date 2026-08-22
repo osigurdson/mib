@@ -418,6 +418,16 @@ static void page_commands(void)
         assert(ed.requests == ED_PAGE_SWITCH && ed.page_target == targets[i] && !ed.message[0]);
         ed.requests = 0;
     }
+    /* :wa and friends save this file and ask the app for the others; :wqa and :xa then quit. */
+    const char *saves[] = {"wa", "wall", "wqa", "wqall", "xa", "xall"};
+    editor_command(&ed, "wa"); /* this file has no name, so nothing more happens */
+    assert(!ed.requests && strstr(ed.message, "No filename"));
+    ed.modified = false;
+    for (unsigned i = 0; i < 6; ++i) {
+        editor_command(&ed, saves[i]);
+        assert(ed.requests == (ED_SAVE_ALL | (i < 2 ? 0 : ED_QUIT_ALL)) && !ed.quit);
+        ed.requests = 0;
+    }
     const char *bad[] = {"b", "b 0", "b 10", "b x", "b3 4", "buffer"};
     for (unsigned i = 0; i < 6; ++i) {
         editor_command(&ed, bad[i]);

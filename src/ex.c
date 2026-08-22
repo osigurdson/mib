@@ -126,10 +126,20 @@ void editor_command(struct editor *ed, const char *command)
             if (leave)
                 quit(ed);
         }
-    } else if (!strcmp(p, "q!"))
+    } else if (!strcmp(p, "wa") || !strcmp(p, "wall") || !strcmp(p, "wqa") ||
+               !strcmp(p, "wqall") || !strcmp(p, "xa") || !strcmp(p, "xall")) {
+        /* Save every page with changes; :wqa and :xa then quit. */
+        if (argument && *argument) {
+            snprintf(ed->message, sizeof(ed->message), "Save uses the current page or file");
+            return;
+        }
+        if (ed->modified && !editor_save(ed, ed->filename))
+            return;
+        ed->requests |= ED_SAVE_ALL | (p[0] == 'x' || p[1] == 'q' ? ED_QUIT_ALL : 0);
+    } else if (!strcmp(p, "q!") || !strcmp(p, "qa!") || !strcmp(p, "qall!"))
         ed->quit = true;
-    else if (!strcmp(p, "q"))
-        quit(ed);
+    else if (!strcmp(p, "q") || !strcmp(p, "qa") || !strcmp(p, "qall"))
+        quit(ed); /* :q already closes every page */
     else if (!strcmp(p, "ls") || !strcmp(p, "buffers") || !strcmp(p, "files")) {
         if (argument && *argument)
             goto unknown;

@@ -231,9 +231,11 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     if (requests & ED_PAGE_MAP)
         open_page_list(app);
     app->editor.requests &= ~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP |
-                              ED_PAGE_SWITCH);
+                              ED_PAGE_SWITCH | ED_SAVE_ALL | ED_QUIT_ALL);
     if (requests & ED_PAGE_SWITCH)
         app_page_switch(app, app->editor.page_target);
+    if ((requests & ED_SAVE_ALL) && app_pages_save(app) && (requests & ED_QUIT_ALL))
+        app->editor.quit = true;
     if ((app->editor.requests & ED_COPY) && image_name[0] && app->editor.register_text &&
         !strcmp(app->editor.register_text, image_markup))
         if ((app->clipboard_image = session_path(app, image_name)))
