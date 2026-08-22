@@ -12,8 +12,6 @@ bool app_open(struct app *app, const char *filename)
                         .restore_width = 800,
                         .restore_height = 560,
                         .scale120 = 120,
-                        .owner_fd = -1,
-                        .activation_fd = -1,
                         .font_size = 18,
                         .follow_cursor = true,
                         .dirty = true,

@@ -46,8 +46,8 @@ static void remove_folder(const char *path)
 static void remove_notes(const char *root)
 {
     char path[1300];
-    const char *top[] = {"AGENTS.md", "CLAUDE.md", ".tinyvi.lock"};
-    for (unsigned i = 0; i < 3; ++i) {
+    const char *top[] = {"AGENTS.md", "CLAUDE.md"};
+    for (unsigned i = 0; i < 2; ++i) {
         snprintf(path, sizeof(path), "%s/%s", root, top[i]);
         remove_file(path);
     }
@@ -412,11 +412,12 @@ int main(void)
     struct app app;
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
+    /* A second window may open the same folder. */
     struct app second;
     assert(app_open(&second, NULL));
-    assert(session_open(&second, directory) == 0);
+    assert(session_open(&second, directory) == 1);
     app_close(&second);
-    /* Pages live in 1/ to 9/; the agent notes and lock belong to the whole folder. */
+    /* Pages live in 1/ to 9/; the agent notes belong to the whole folder. */
     char *page = session_path(&app, "jot.md"), *agents = malloc(strlen(directory) + 16);
     assert(page && agents && strstr(page, "/1/jot.md"));
     sprintf(agents, "%s/AGENTS.md", directory);
@@ -647,5 +648,5 @@ int main(void)
     free(agents);
     /* Remove only the known files in this unique test directory. */
     remove_notes(directory);
-    puts("Private pages, ownership, manual saves/close protection, external reload and preferences passed");
+    puts("Private pages, shared folders, manual saves/close protection, external reload and preferences passed");
 }

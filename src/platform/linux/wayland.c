@@ -5,7 +5,6 @@
 #include "platform.h"
 #include "session.h"
 #include "viewporter-client-protocol.h"
-#include "xdg-activation-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 #include "xdg-decoration-unstable-v1-client-protocol.h"
 #include "cursor-shape-v1-client-protocol.h"
@@ -43,7 +42,6 @@ struct wayland_client {
     struct wp_viewport *viewport;
     struct wp_fractional_scale_manager_v1 *scale_manager;
     struct wp_fractional_scale_v1 *fractional_scale;
-    struct xdg_activation_v1 *activation;
     struct wl_seat *seat;
     struct wl_keyboard *keyboard;
     struct wl_pointer *pointer;
@@ -952,9 +950,7 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
         client->seat =
             wl_registry_bind(registry, name, &wl_seat_interface, version < 4 ? version : 4);
         wl_seat_add_listener(client->seat, &seat_listener, client);
-    } else if (strcmp(interface, xdg_activation_v1_interface.name) == 0)
-        client->activation = wl_registry_bind(registry, name, &xdg_activation_v1_interface, 1);
-    else if (strcmp(interface, wl_data_device_manager_interface.name) == 0)
+    } else if (strcmp(interface, wl_data_device_manager_interface.name) == 0)
         client->data_manager = wl_registry_bind(registry, name, &wl_data_device_manager_interface,
                                                 version < 3 ? version : 3);
     else if (strcmp(interface, wl_shm_interface.name) == 0)
@@ -1087,35 +1083,23 @@ int platform_run(struct app *app)
             if (timeout < 0 || remaining < timeout)
                 timeout = remaining;
         }
-        struct pollfd sockets[20] = {socket,
-                                     {.fd = app->activation_fd, .events = POLLIN},
-                                     {.fd = client->receive_fd, .events = POLLIN}};
+        struct pollfd sockets[20] = {socket, {.fd = client->receive_fd, .events = POLLIN}};
         struct clipboard_source *send_sources[16];
-        unsigned send_slots[16], count = 3;
+        unsigned send_slots[16], count = 2;
         for (struct clipboard_source *p = client->sources; p; p = p->next)
             for (unsigned i = 0; i < 4; ++i)
                 if (p->sends[i].fd >= 0) {
-                    send_sources[count - 3] = p;
-                    send_slots[count - 3] = i;
+                    send_sources[count - 2] = p;
+                    send_slots[count - 2] = i;
                     sockets[count++] = (struct pollfd){.fd = p->sends[i].fd, .events = POLLOUT};
                 }
         int ready = poll(sockets, count, timeout);
-        for (unsigned i = 3; i < count; ++i)
+        for (unsigned i = 2; i < count; ++i)
             if (sockets[i].revents)
-                send_ready(send_sources[i - 3], send_slots[i - 3]);
-        if (sockets[2].revents)
+                send_ready(send_sources[i - 2], send_slots[i - 2]);
+        if (sockets[1].revents)
             receive_ready(client);
         socket = sockets[0];
-        if (sockets[1].revents & POLLIN) {
-            char token[1024];
-            ssize_t n = recv(app->activation_fd, token, sizeof(token) - 1, 0);
-            if (n >= 0) {
-                token[n] = 0;
-                if (client->activation && *token)
-                    xdg_activation_v1_activate(client->activation, token, client->surface);
-                app->dirty = true;
-            }
-        }
         if (ready < 0 && errno == EINTR)
             continue;
         if (ready < 0 || (socket.revents & (POLLERR | POLLHUP | POLLNVAL))) {
@@ -1143,8 +1127,6 @@ cleanup:
         wl_data_device_manager_destroy(client->data_manager);
     app->service = NULL;
     app->service_data = NULL;
-    if (client->activation)
-        xdg_activation_v1_destroy(client->activation);
     if (client->cursor_device)
         wp_cursor_shape_device_v1_destroy(client->cursor_device);
     if (client->cursor_manager)

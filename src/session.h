@@ -6,9 +6,9 @@
 struct app;
 uint64_t session_now(void);
 /* Open the notes folder holding pages 1/ to 9/: name is a page number to show first, a
-   folder path, or NULL for $JOT_DIR or ~/Documents/jot. Acquire ownership of the folder,
-   open the page's text and restore preferences. Return 1 for an owned folder, 0 when an
-   existing window was notified, -1 on error. */
+   folder path, or NULL for $JOT_DIR or ~/Documents/jot. Open the page's text and restore
+   preferences. Return 1, or -1 on error. Several windows may open the same folder; a save
+   refuses to overwrite a page another window changed (see editor_write). */
 int session_open(struct app *app, const char *name);
 /* 1 to 9 when name is a single page digit, otherwise 0. */
 unsigned session_page_number(const char *name);

@@ -447,12 +447,6 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
         PostQuitMessage(0);
         return 0;
     case WM_NCDESTROY:
-        if (window->app->scratch) {
-            wchar_t name[64];
-            swprintf(name, 64, L"Local\\TinyViPage-%016llx",
-                     (unsigned long long)window->app->page_id);
-            RemovePropW(handle, name);
-        }
         SetWindowLongPtrW(handle, GWLP_USERDATA, 0);
         break;
     default:
@@ -492,9 +486,6 @@ static bool open_window(struct windows_window *window, struct app *app, int show
     if (!handle)
         return false;
     if (app->scratch) {
-        wchar_t name[64];
-        swprintf(name, 64, L"Local\\TinyViPage-%016llx", (unsigned long long)app->page_id);
-        SetPropW(handle, name, (HANDLE)1);
         wchar_t *title = windows_utf16(app->directory);
         if (title) {
             SetWindowTextW(handle, title);

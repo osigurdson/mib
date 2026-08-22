@@ -44,12 +44,7 @@ int app_main(int argc, char **argv)
     if (file)
         session_load_settings(&app);
     else {
-        int opened = session_open(&app, name);
-        if (!opened) {
-            app_close(&app);
-            return EXIT_SUCCESS;
-        }
-        if (opened < 0)
+        if (session_open(&app, name) < 0)
             goto failed;
     }
     int status = platform_run(&app);

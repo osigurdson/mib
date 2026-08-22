@@ -44,13 +44,12 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(NOT PROTOCOLS_DIR)
         message(FATAL_ERROR "wayland-protocols development package is required")
     endif()
-    set(PROTOCOL_NAMES xdg-shell viewporter fractional-scale-v1 xdg-activation-v1
+    set(PROTOCOL_NAMES xdg-shell viewporter fractional-scale-v1
                        xdg-decoration-unstable-v1 cursor-shape-v1 tablet-unstable-v2)
     set(PROTOCOL_XMLS
         "${PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
         "${PROTOCOLS_DIR}/stable/viewporter/viewporter.xml"
         "${PROTOCOLS_DIR}/staging/fractional-scale/fractional-scale-v1.xml"
-        "${PROTOCOLS_DIR}/staging/xdg-activation/xdg-activation-v1.xml"
         "${PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
         "${PROTOCOLS_DIR}/staging/cursor-shape/cursor-shape-v1.xml"
         "${PROTOCOLS_DIR}/unstable/tablet/tablet-unstable-v2.xml")

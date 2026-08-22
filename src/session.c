@@ -16,9 +16,7 @@
 #else
 #include <fcntl.h>
 #include <sys/file.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <unistd.h>
 #endif
 
@@ -579,7 +577,7 @@ static char *resolve(const char *name)
     path = windows_utf8(!wcsncmp(w, L"\\\\?\\UNC\\", 8) ? w : w + 4);
     free(w);
 #else
-    /* Canonicalize after mkdir to merge relative/symlink aliases for ownership. */
+    /* Canonicalize after mkdir to merge relative/symlink aliases. */
 #endif
     return path;
 }
@@ -644,90 +642,6 @@ static bool migrate(struct app *app)
     free(old);
     return ok;
 }
-#ifdef _WIN32
-struct owner_window {
-    const wchar_t *property;
-    HWND handle;
-};
-static BOOL CALLBACK find_owner(HWND window, LPARAM value)
-{
-    struct owner_window *owner = (void *)value;
-    if (GetPropW(window, owner->property)) {
-        owner->handle = window;
-        return FALSE;
-    }
-    return TRUE;
-}
-#endif
-static int ownership(struct app *app)
-{
-#ifdef _WIN32
-    uint64_t hash = 14695981039346656037ull;
-    for (const unsigned char *p = (const unsigned char *)app->directory; *p; ++p) {
-        unsigned char c = *p;
-        if (c >= 'A' && c <= 'Z')
-            c += 'a' - 'A';
-        if (c == '\\')
-            c = '/';
-        hash = (hash ^ c) * 1099511628211ull;
-    }
-    wchar_t name[64];
-    swprintf(name, 64, L"Local\\TinyViPage-%016llx", (unsigned long long)hash);
-    HANDLE mutex = CreateMutexW(NULL, FALSE, name);
-    if (!mutex)
-        return -1;
-    if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        struct owner_window owner = {.property = name};
-        EnumWindows(find_owner, (LPARAM)&owner);
-        HWND window = owner.handle;
-        if (window) {
-            ShowWindow(window, SW_RESTORE);
-            SetForegroundWindow(window);
-        }
-        CloseHandle(mutex);
-        return 0;
-    }
-    app->owner_handle = mutex;
-    app->page_id = hash;
-    return 1;
-#else
-    char *lock = session_path(app, ".tinyvi.lock");
-    if (!lock)
-        return -1;
-    int fd = open(lock, O_RDWR | O_CREAT | O_CLOEXEC, 0600);
-    free(lock);
-    if (fd < 0)
-        return -1;
-    /* A short stable abstract socket name avoids sockaddr_un path limits. */
-    uint64_t hash = 14695981039346656037ull;
-    for (const unsigned char *p = (const unsigned char *)app->directory; *p; ++p)
-        hash = (hash ^ *p) * 1099511628211ull;
-    struct sockaddr_un addr = {.sun_family = AF_UNIX};
-    snprintf(addr.sun_path + 1, sizeof(addr.sun_path) - 1, "tinyvi-%lu-%016llx",
-             (unsigned long)getuid(), (unsigned long long)hash);
-    int sock = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-    if (flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        const char *token = getenv("XDG_ACTIVATION_TOKEN");
-        if (!token)
-            token = "";
-        if (sock >= 0) {
-            sendto(sock, token, strlen(token) + 1, 0, (struct sockaddr *)&addr, sizeof(addr));
-            close(sock);
-        }
-        close(fd);
-        return 0;
-    }
-    if (sock < 0 || bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-        if (sock >= 0)
-            close(sock);
-        close(fd);
-        return -1;
-    }
-    app->owner_fd = fd;
-    app->activation_fd = sock;
-    return 1;
-#endif
-}
 static bool private_folder(const char *path)
 {
     if (!session_mkdir(path))
@@ -740,7 +654,6 @@ static bool private_folder(const char *path)
 }
 int session_open(struct app *app, const char *name)
 {
-    app->owner_fd = app->activation_fd = -1;
     unsigned start = session_page_number(name);
     app->directory = resolve(name);
     if (!app->directory || !private_folder(app->directory))
@@ -756,13 +669,11 @@ int session_open(struct app *app, const char *name)
     if (!app->root)
         goto failed;
     strcpy(app->root, app->directory);
-    /* One window owns the whole notes folder, since it switches between all nine pages. */
-    int owned = ownership(app);
-    if (owned <= 0) {
-        if (owned < 0)
-            goto failed;
-        return 0;
-    }
+    /* Jot once allowed one window per notes folder and held this lock to enforce it. */
+    char *lock = session_path(app, ".tinyvi.lock");
+    if (lock)
+        platform_file_remove(lock);
+    free(lock);
     char *first = session_path(app, "1");
     bool fresh = first && !directory(first);
     free(first);
@@ -846,15 +757,6 @@ void session_close(struct app *app)
 {
     save_settings(app);
     session_save_positions(app);
-#ifdef _WIN32
-    if (app->owner_handle)
-        CloseHandle(app->owner_handle);
-#else
-    if (app->owner_fd >= 0)
-        close(app->owner_fd);
-    if (app->activation_fd >= 0)
-        close(app->activation_fd);
-#endif
     free(app->directory);
     app->directory = NULL;
     free(app->root);

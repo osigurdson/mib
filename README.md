@@ -33,7 +33,7 @@ last, move it into your wiki or knowledge base, then clear the page and reuse it
 
 Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
 libxkbcommon development files, `wayland-scanner`, and `wayland-protocols` with
-xdg-shell, viewporter, fractional-scale-v1, xdg-activation-v1, xdg-decoration,
+xdg-shell, viewporter, fractional-scale-v1, xdg-decoration,
 cursor-shape, and tablet-v2. Tests also use
 the Wayland server development package; Tesseract tests are optional. Normal builds use the checked-in
 19,164-byte subset; there are no downloads or font-library build steps.
@@ -105,8 +105,8 @@ when it is created. A folder from before numbered pages has its `default/` page 
 `1/` (and `default/room2/` to `default/room9/` to `2/` to `9/`) the first time it opens.
 Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external changes on focus when
 no local edits are pending, and a save is refused if the file changed on disk since it
-was read (`:e!` reloads, `:w!` overwrites). One process owns the notes folder; a second launch requests
-activation of that window. Pages and explicit files both
+was read (`:e!` reloads, `:w!` overwrites), so several Jot windows can share the notes
+folder; each launch opens a new window. Pages and explicit files both
 protect unsaved changes on quit.
 
 Markdown presentation supports headings, nested bullet/numbered/task lists,
@@ -205,7 +205,7 @@ unsupported. Regex/case operations implement a deliberately small subset; see
 
 `src/editor.c` holds the portable text buffer and file operations; `keys.c`,
 `ex.c`, `substitute.c` and `history.c` implement the editing language. `session.c`
-handles page persistence/ownership, while `media.c` handles asset references and
+handles page persistence, while `media.c` handles asset references and
 external OCR. PNG/JPEG codecs are vendored from stb with bounded allocations.
 `src/app.c` handles shared input/lifetime/close policy and `src/render.c` paints
 through the pitch-aware `app_paint` interface. `src/tiny-font.c` implements the
@@ -230,7 +230,7 @@ make clean
 ```
 
 Tests cover modal editing, grouped undo, regex captures/ranges, UTF-8 boundaries,
-safe file saves, page ownership/manual saves/reload, image round trips, OCR sidecar
+safe file saves, changed-on-disk refusals, manual saves/reload, image round trips, OCR sidecar
 search, input translation, DPI rendering and small-window wrapping. Private native clipboard integration tests avoid replacing the desktop clipboard;
 see the parity report for their coverage and limits. The optional native Linux
 suite starts a private headless Mutter compositor and D-Bus session, launches the

@@ -49,9 +49,7 @@ struct app {
     bool scratch, maximized, context_menu, client_decorated, tiled;
     int context_x, context_y, context_choice;
     enum app_title_action title_hover, title_pressed;
-    int owner_fd, activation_fd;
-    void *owner_handle;
-    uint64_t page_id, work_at, redraw_at;
+    uint64_t work_at, redraw_at;
     /* A short status bar notice from app_toast, shown until toast_until (session_now ms). */
     char toast[64];
     uint64_t toast_until;
