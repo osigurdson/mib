@@ -245,7 +245,8 @@ static void parse_settings(const char *text, struct app_settings *s)
             for (unsigned i = 0; i < COLOR_COUNT; ++i)
                 if (!strcmp(value, editor_colorscheme_name((enum color_scheme)i)))
                     s->colorscheme = (enum color_scheme)i;
-        } else if (!strcmp(key, "background") && (!strcmp(value, "light") || !strcmp(value, "dark")))
+        } else if (!strcmp(key, "background") &&
+                   (!strcmp(value, "light") || !strcmp(value, "dark")))
             s->light = !strcmp(value, "light");
         else if (!strcmp(key, "view") || !strcmp(key, "render")) {
             /* render = raw/normal/polish is the old spelling of view. */
@@ -449,8 +450,8 @@ void session_save_positions(struct app *app)
     for (unsigned i = 0; i < PAGE_COUNT; ++i) {
         const struct page *p = &app->pages[i];
         if (p->loaded)
-            add_position(fresh, &count, p->filename, p->modified, p->text, p->length,
-                         p->cursor, p->top);
+            add_position(fresh, &count, p->filename, p->modified, p->text, p->length, p->cursor,
+                         p->top);
     }
     if (!count)
         return;

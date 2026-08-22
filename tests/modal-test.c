@@ -38,14 +38,14 @@ static void readonly_mode(void)
     uint64_t revision = ed.revision;
     editor_command(&ed, "set view=reading");
     assert(ed.view == VIEW_READING && ed.mode == NORMAL);
-    const char *edits[] = {"i", "a", "I", "A", "o", "O", "s", "S", "dd", "cw", "x", "X",
-                           "p", "P", "u", "rX", "~", ">>", "<<", "J", "D", "C"};
+    const char *edits[] = {"i", "a", "I", "A", "o",  "O", "s",  "S",  "dd", "cw", "x",
+                           "X", "p", "P", "u", "rX", "~", ">>", "<<", "J",  "D",  "C"};
     for (unsigned i = 0; i < sizeof(edits) / sizeof(edits[0]); ++i) {
         keys(edits[i]);
         expect("one two\nthree\n");
         assert(ed.revision == revision && ed.mode == NORMAL && !(ed.requests & ED_PASTE));
     }
-    const enum editor_key special[] = {KEY_CUT, KEY_CTRL_V, KEY_DELETE, KEY_BACKSPACE,
+    const enum editor_key special[] = {KEY_CUT, KEY_CTRL_V,    KEY_DELETE, KEY_BACKSPACE,
                                        KEY_TAB, KEY_SHIFT_TAB, KEY_CTRL_W, KEY_CTRL_R};
     for (unsigned i = 0; i < sizeof(special) / sizeof(special[0]); ++i) {
         editor_input(&ed, special[i], "");
@@ -305,7 +305,9 @@ static void format(void)
     keys("gqq");
     expect("  word word word word word word word word word word word word word word word\n"
            "  word word word word word \n");
-    assert(ed.cursor == strlen("  word word word word word word word word word word word word word word word\n  "));
+    assert(
+        ed.cursor ==
+        strlen("  word word word word word word word word word word word word word word word\n  "));
     editor_command(&ed, "set view=reading");
     keys("gq");
     assert(strstr(ed.message, "read-only"));
@@ -364,7 +366,8 @@ static void registers(void)
 {
     reset("one\ntwo\nthree\n");
     keys("\"ayy");
-    assert(ed.registers[1].text && !strcmp(ed.registers[1].text, "one\n") && ed.registers[1].linewise);
+    assert(ed.registers[1].text && !strcmp(ed.registers[1].text, "one\n") &&
+           ed.registers[1].linewise);
     assert(!ed.registers[0].text && (ed.requests & ED_COPY));
     ed.requests = 0;
     keys("j\"Ayiw");
@@ -474,8 +477,8 @@ int main(void)
     format();
     replace_mode();
     reset("notes");
-    const char *removed[] = {"set nu", "set nonu", "set number", "set nonumber", "noh", "nohlsearch",
-                             "set md", "set nomd", "set light", "set dark"};
+    const char *removed[] = {"set nu",     "set nonu", "set number", "set nonumber", "noh",
+                             "nohlsearch", "set md",   "set nomd",   "set light",    "set dark"};
     for (unsigned i = 0; i < sizeof(removed) / sizeof(removed[0]); ++i) {
         editor_command(&ed, removed[i]);
         assert(strstr(ed.message, "Unknown command"));
@@ -534,7 +537,8 @@ int main(void)
         char command[80];
         snprintf(command, sizeof(command), "colorscheme %s", retired[i]);
         editor_command(&ed, command);
-        assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_CATPPUCCIN);
+        assert(strstr(ed.message, "Cannot find color scheme") &&
+               ed.colorscheme == COLOR_CATPPUCCIN);
     }
     editor_command(&ed, "colorscheme jot");
     editor_command(&ed, "set view=normal");

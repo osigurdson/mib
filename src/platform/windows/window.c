@@ -305,7 +305,8 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
                              : app_image_corner(window->app, MulDiv(point.x, 96, (int)window->dpi),
                                                 MulDiv(point.y, 96, (int)window->dpi));
             if (corner >= 0) {
-                SetCursor(LoadCursorW(NULL, corner == 0 || corner == 3 ? IDC_SIZENWSE : IDC_SIZENESW));
+                SetCursor(
+                    LoadCursorW(NULL, corner == 0 || corner == 3 ? IDC_SIZENWSE : IDC_SIZENESW));
                 return TRUE;
             }
         }
@@ -479,10 +480,9 @@ static bool open_window(struct windows_window *window, struct app *app, int show
     if (!AdjustWindowRectExForDpi(&size, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi))
         return false;
     bool maximized = app->maximized;
-    HWND handle =
-        CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Jot",
-                        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left,
-                        size.bottom - size.top, NULL, NULL, instance, window);
+    HWND handle = CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Jot", WS_OVERLAPPEDWINDOW,
+                                  CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left,
+                                  size.bottom - size.top, NULL, NULL, instance, window);
     if (!handle)
         return false;
     if (app->scratch) {

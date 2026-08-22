@@ -329,7 +329,7 @@ static void image_typing_test(const char *directory, const unsigned char *png, s
     char surrounded[512];
     snprintf(surrounded, sizeof(surrounded), "before\n%safter", markup);
     const enum editor_key deletes[] = {KEY_BACKSPACE, KEY_DELETE, KEY_BACKSPACE,
-                                       KEY_CTRL_W, KEY_CTRL_U, KEY_TEXT};
+                                       KEY_CTRL_W,    KEY_CTRL_U, KEY_TEXT};
     for (unsigned i = 0; i < sizeof(deletes) / sizeof(deletes[0]); ++i) {
         assert(editor_replace(&app.editor, 0, app.editor.length, surrounded, strlen(surrounded)));
         app.editor.mode = i == 5 ? NORMAL : INSERT;

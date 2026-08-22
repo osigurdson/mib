@@ -19,7 +19,8 @@ bool editor_can_edit(struct editor *ed)
 {
     if (ed->view != VIEW_READING)
         return true;
-    snprintf(ed->message, sizeof(ed->message), "Reading view is read-only (:set view=normal to edit)");
+    snprintf(ed->message, sizeof(ed->message),
+             "Reading view is read-only (:set view=normal to edit)");
     return false;
 }
 

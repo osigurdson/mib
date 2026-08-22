@@ -1,8 +1,8 @@
 #ifndef RENDER_INTERNAL_H
 #define RENDER_INTERNAL_H
 #include "app.h"
-/* Shared between render.c and the overlays in navigator.c and help.c. Pixels are premultiplied ARGB8888 with stride in
- * pixels; drawing is clipped to width x height. */
+/* Shared between render.c and the overlays in navigator.c and help.c. Pixels are premultiplied
+ * ARGB8888 with stride in pixels; drawing is clipped to width x height. */
 struct palette {
     uint32_t background, text, dim, link, heading, quote, done, italic;
     uint32_t code, search, selection, cursor, status, menu, menu_selected, handle;

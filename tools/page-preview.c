@@ -18,7 +18,8 @@ int main(int argc, char **argv)
             app.editor.light = !strcmp(argv[i], "light");
         else if (!strcmp(argv[i], "decorated"))
             app.client_decorated = true;
-        else if (!strcmp(argv[i], "source") || !strcmp(argv[i], "normal") || !strcmp(argv[i], "reading")) {
+        else if (!strcmp(argv[i], "source") || !strcmp(argv[i], "normal") ||
+                 !strcmp(argv[i], "reading")) {
             char command[32];
             snprintf(command, sizeof(command), "set view=%s", argv[i]);
             editor_command(&app.editor, command);

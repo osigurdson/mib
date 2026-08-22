@@ -23,7 +23,9 @@ struct md_span {
     unsigned style;
 };
 enum { MD_TABLE_COLUMNS = 16 };
-struct md_cell { size_t start, end; };
+struct md_cell {
+    size_t start, end;
+};
 struct md_table {
     struct md_cell cells[MD_TABLE_COLUMNS];
     unsigned char align[MD_TABLE_COLUMNS]; /* 0 left, 1 center, 2 right */
@@ -41,7 +43,10 @@ struct md_cache {
     unsigned indent, heading;
     bool rule;
 };
-struct md_block { unsigned indent, heading; bool rule; };
+struct md_block {
+    unsigned indent, heading;
+    bool rule;
+};
 unsigned markdown_cells(const char *text, size_t start, size_t end, struct md_cell *cells);
 void markdown_table(const char *text, size_t length, size_t start, size_t end,
                     struct md_table *table, bool continuation);

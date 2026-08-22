@@ -9,7 +9,8 @@ void *platform_allocate_zeroed(size_t bytes)
 void platform_release(void *memory, size_t bytes)
 {
     (void)bytes;
-    if (memory) VirtualFree(memory, 0, MEM_RELEASE);
+    if (memory)
+        VirtualFree(memory, 0, MEM_RELEASE);
 }
 
 void platform_trim_heap(void)

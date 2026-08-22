@@ -75,8 +75,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     uint64_t search_serial = app->editor.search_serial;
     bool digit = key == KEY_TEXT && text && text[0] >= '1' && text[0] <= '9' && !text[1];
     if (app->help) {
-        /* The card takes the keyboard until Esc, q or Enter closes it, so :q closes the card
-         * rather than the window. */
+        /* The card takes the keyboard until Esc, q or Enter closes it, so :q closes
+         * the card rather than the window. */
         if (key == KEY_ESCAPE || key == KEY_ENTER ||
             (key == KEY_TEXT && text && !strcmp(text, "q")))
             app->help = false;
@@ -84,9 +84,10 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         return;
     }
     if (app->page_map) {
-        /* The list takes the keyboard: a digit (with or without Alt) shows that page, Up/Down
-         * or k/j move the selection and Enter shows it, Esc or Alt+0 closes the list, and other
-         * keys are ignored rather than editing unseen text. Pages run 1 to 9 down the list. */
+        /* The list takes the keyboard: a digit (with or without Alt) shows that
+         * page, Up/Down or k/j move the selection and Enter shows it, Esc or Alt+0
+         * closes the list, and other keys are ignored rather than editing unseen
+         * text. Pages run 1 to 9 down the list. */
         unsigned choice = app->map_choice;
         char letter = key == KEY_TEXT && text && text[0] && !text[1] ? text[0] : 0;
         if ((key == KEY_UP || letter == 'k') && choice > 0)
@@ -104,7 +105,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         return;
     }
     if (key == KEY_PAGE) {
-        /* Only from normal mode with nothing pending, so a switch never splits a command. */
+        /* Only from normal mode with nothing pending, so a switch never splits a
+         * command. */
         struct editor *ed = &app->editor;
         if (ed->mode == NORMAL && !ed->command_active && !ed->pending[0] && text &&
             text[0] >= '0' && text[0] <= '9') {
@@ -124,8 +126,8 @@ void app_input(struct app *app, enum editor_key key, const char *text)
             return;
         }
         if (key == KEY_UP || key == KEY_DOWN) {
-            app->context_choice = (app->context_choice + (key == KEY_UP ? CONTEXT_ITEMS - 1 : 1)) %
-                                  CONTEXT_ITEMS;
+            app->context_choice =
+                (app->context_choice + (key == KEY_UP ? CONTEXT_ITEMS - 1 : 1)) % CONTEXT_ITEMS;
             app->dirty = true;
             return;
         }
@@ -144,15 +146,14 @@ void app_input(struct app *app, enum editor_key key, const char *text)
             }
         }
     }
-    const struct media_entry *selected_image = app->editor.view == VIEW_SOURCE ? NULL
-                                               : media_at(app, app->editor.cursor);
+    const struct media_entry *selected_image =
+        app->editor.view == VIEW_SOURCE ? NULL : media_at(app, app->editor.cursor);
     /* Images are atomic blocks in normal rendering. Do not join a neighboring
      * text line into the source reference when deleting across its boundary. */
-    if (!selected_image && app->editor.view == VIEW_NORMAL &&
-        app->editor.mode == INSERT && !app->editor.command_active) {
+    if (!selected_image && app->editor.view == VIEW_NORMAL && app->editor.mode == INSERT &&
+        !app->editor.command_active) {
         size_t cursor = app->editor.cursor;
-        if (key == KEY_BACKSPACE && cursor &&
-            app->editor.text[cursor - 1] == '\n')
+        if (key == KEY_BACKSPACE && cursor && app->editor.text[cursor - 1] == '\n')
             selected_image = media_at(app, cursor - 1);
         else if (key == KEY_DELETE && cursor < app->editor.length &&
                  app->editor.text[cursor] == '\n')
@@ -176,14 +177,15 @@ void app_input(struct app *app, enum editor_key key, const char *text)
     bool insert = app->editor.mode == INSERT;
     bool block_view = app->editor.view == VIEW_NORMAL;
     bool block_delete_key = key == KEY_DELETE ||
-        (block_view && insert && (key == KEY_BACKSPACE || key == KEY_CTRL_W || key == KEY_CTRL_U)) ||
-        (app->editor.mode == NORMAL && key == KEY_TEXT && text &&
-         (!strcmp(text, "d") || (block_view && !strcmp(text, "x"))));
+                            (block_view && insert &&
+                             (key == KEY_BACKSPACE || key == KEY_CTRL_W || key == KEY_CTRL_U)) ||
+                            (app->editor.mode == NORMAL && key == KEY_TEXT && text &&
+                             (!strcmp(text, "d") || (block_view && !strcmp(text, "x"))));
     bool delete_image = selected_image && app->editor.view != VIEW_READING &&
-                        !app->editor.command_active &&
-                        (app->editor.mode == NORMAL || insert) &&
+                        !app->editor.command_active && (app->editor.mode == NORMAL || insert) &&
                         !app->editor.pending[0] && block_delete_key;
-    /* y copies a selected image at once, as yy does, ready to paste into other apps. */
+    /* y copies a selected image at once, as yy does, ready to paste into other
+     * apps. */
     if (selected_image && app->editor.mode == NORMAL && !app->editor.command_active &&
         !app->editor.pending[0] && key == KEY_TEXT && text && !strcmp(text, "y"))
         key = KEY_COPY;
@@ -213,8 +215,9 @@ void app_input(struct app *app, enum editor_key key, const char *text)
         editor_change_end(&app->editor);
         if (insert) {
             size_t removed = before - app->editor.length;
-            app->editor.cursor = cursor < start ? cursor :
-                                 cursor >= start + removed ? cursor - removed : start;
+            app->editor.cursor = cursor < start              ? cursor
+                                 : cursor >= start + removed ? cursor - removed
+                                                             : start;
             if (app->editor.cursor > app->editor.length)
                 app->editor.cursor = app->editor.length;
             app->editor.mode = INSERT;
@@ -342,7 +345,8 @@ int app_image_corner(const struct app *app, int x, int y)
     }
     return -1;
 }
-/* Corner drags keep the aspect ratio, following whichever direction moved further. */
+/* Corner drags keep the aspect ratio, following whichever direction moved
+ * further. */
 static void drag_image(struct app *app, int x, int y)
 {
     int64_t scale = app->scale120 ? app->scale120 : 120;

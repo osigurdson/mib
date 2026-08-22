@@ -6,7 +6,8 @@
 
 const char *editor_colorscheme_name(enum color_scheme scheme)
 {
-    static const char *const names[] = {"jot", "tokyonight", "catppuccin", "kanagawa", "everforest"};
+    static const char *const names[] = {"jot", "tokyonight", "catppuccin", "kanagawa",
+                                        "everforest"};
     return (unsigned)scheme < COLOR_COUNT ? names[scheme] : "jot";
 }
 const char *editor_view_name(enum view_mode view)
@@ -17,7 +18,8 @@ const char *editor_view_name(enum view_mode view)
 bool editor_colorscheme(struct editor *ed, const char *name)
 {
     for (unsigned i = 0; i < COLOR_COUNT; ++i) {
-        if (strcmp(name, editor_colorscheme_name((enum color_scheme)i))) continue;
+        if (strcmp(name, editor_colorscheme_name((enum color_scheme)i)))
+            continue;
         ed->colorscheme = (enum color_scheme)i;
         return true;
     }
@@ -62,8 +64,7 @@ static void quit(struct editor *ed)
 {
     unsigned page = ed->other_modified;
     if (ed->modified)
-        snprintf(ed->message, sizeof(ed->message),
-                 "Unsaved changes (:w to save, :q! to discard)");
+        snprintf(ed->message, sizeof(ed->message), "Unsaved changes (:w to save, :q! to discard)");
     else if (page)
         snprintf(ed->message, sizeof(ed->message),
                  "Unsaved changes in page %u (Alt+%u to visit, :q! to discard)", page, page);
@@ -133,8 +134,8 @@ void editor_command(struct editor *ed, const char *command)
             if (leave)
                 quit(ed);
         }
-    } else if (!strcmp(p, "wa") || !strcmp(p, "wall") || !strcmp(p, "wqa") ||
-               !strcmp(p, "wqall") || !strcmp(p, "xa") || !strcmp(p, "xall")) {
+    } else if (!strcmp(p, "wa") || !strcmp(p, "wall") || !strcmp(p, "wqa") || !strcmp(p, "wqall") ||
+               !strcmp(p, "xa") || !strcmp(p, "xall")) {
         /* Save every page with changes; :wqa and :xa then quit. */
         if (argument && *argument) {
             snprintf(ed->message, sizeof(ed->message), "Save uses the current page or file");
@@ -174,13 +175,16 @@ void editor_command(struct editor *ed, const char *command)
     else if (strlen(p) >= 4 && strlen(p) <= strlen("colorscheme") &&
              !strncmp(p, "colorscheme", strlen(p))) {
         if (!argument || !*argument)
-            snprintf(ed->message, sizeof(ed->message), "%s", editor_colorscheme_name(ed->colorscheme));
+            snprintf(ed->message, sizeof(ed->message), "%s",
+                     editor_colorscheme_name(ed->colorscheme));
         else if (!editor_colorscheme(ed, argument))
-            snprintf(ed->message, sizeof(ed->message), "Cannot find color scheme: %.200s", argument);
+            snprintf(ed->message, sizeof(ed->message), "Cannot find color scheme: %.200s",
+                     argument);
     } else if (!strcmp(p, "set") && argument) {
         if (!strncmp(argument, "view=", 5)) {
             unsigned view = 0;
-            while (view < VIEW_COUNT && strcmp(argument + 5, editor_view_name((enum view_mode)view)))
+            while (view < VIEW_COUNT &&
+                   strcmp(argument + 5, editor_view_name((enum view_mode)view)))
                 ++view;
             if (view == VIEW_COUNT) {
                 snprintf(ed->message, sizeof(ed->message), "Views are source, normal and reading");
@@ -200,10 +204,12 @@ void editor_command(struct editor *ed, const char *command)
             ed->light = false;
         else if (!strcmp(argument, "background?") || !strcmp(argument, "bg?") ||
                  !strcmp(argument, "background") || !strcmp(argument, "bg"))
-            snprintf(ed->message, sizeof(ed->message), "background=%s", ed->light ? "light" : "dark");
+            snprintf(ed->message, sizeof(ed->message), "background=%s",
+                     ed->light ? "light" : "dark");
         else
             goto unknown;
-    } else if (strlen(p) >= 3 && strlen(p) <= strlen("resize") && !strncmp(p, "resize", strlen(p))) {
+    } else if (strlen(p) >= 3 && strlen(p) <= strlen("resize") &&
+               !strncmp(p, "resize", strlen(p))) {
         if (!ed->image_resize ||
             !ed->image_resize(ed, ed->cursor, argument ? argument : "", ed->image_resize_data))
             snprintf(ed->message, sizeof(ed->message), "No image under the cursor");

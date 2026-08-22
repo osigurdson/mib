@@ -60,11 +60,18 @@ enum editor_request {
     ED_ZOOM_RESET = 512,
     ED_PAGE_MAP = 1024,
     ED_PAGE_SWITCH = 2048, /* to page_target */
-    ED_SAVE_ALL = 4096, /* the other pages; the editor has saved its own */
-    ED_QUIT_ALL = 8192, /* after ED_SAVE_ALL, if every page saved */
+    ED_SAVE_ALL = 4096,    /* the other pages; the editor has saved its own */
+    ED_QUIT_ALL = 8192,    /* after ED_SAVE_ALL, if every page saved */
     ED_HELP = 16384
 };
-enum color_scheme { COLOR_JOT, COLOR_TOKYONIGHT, COLOR_CATPPUCCIN, COLOR_KANAGAWA, COLOR_EVERFOREST, COLOR_COUNT };
+enum color_scheme {
+    COLOR_JOT,
+    COLOR_TOKYONIGHT,
+    COLOR_CATPPUCCIN,
+    COLOR_KANAGAWA,
+    COLOR_EVERFOREST,
+    COLOR_COUNT
+};
 const char *editor_colorscheme_name(enum color_scheme scheme);
 /* "source", "normal" or "reading", as :set view= and the config file spell them. */
 const char *editor_view_name(enum view_mode view);
@@ -84,8 +91,7 @@ struct editor {
     /* Another page (1 to 9) with unsaved changes, or 0. The app sets it so quitting
      * protects every page. */
     unsigned other_modified;
-    bool light, search_forward, search_word, search_failed,
-        search_pending, search_hidden;
+    bool light, search_forward, search_word, search_failed, search_pending, search_hidden;
     char command[1024], message[256], search[256], pending[40];
     size_t command_length, anchor, visual_first, visual_last, search_origin;
     size_t match_start, match_end, desired_column;

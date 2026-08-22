@@ -111,8 +111,8 @@ static int redraw_delay(const struct wayland_client *client, uint64_t now)
 
 static uint32_t window_buffer_format(const struct app *app)
 {
-    return app_corner_radius(app, app->width, app->height, 120) > 0
-               ? WL_SHM_FORMAT_ARGB8888 : WL_SHM_FORMAT_XRGB8888;
+    return app_corner_radius(app, app->width, app->height, 120) > 0 ? WL_SHM_FORMAT_ARGB8888
+                                                                    : WL_SHM_FORMAT_XRGB8888;
 }
 static bool update_surface_regions(struct wayland_client *client)
 {
@@ -211,9 +211,9 @@ static bool draw(struct wayland_client *client)
         return false;
     }
     struct wl_shm_pool *pool = wl_shm_create_pool(client->shm, fd, size);
-    struct wl_buffer *buffer =
-        pool ? wl_shm_pool_create_buffer(pool, 0, width, height, stride,
-                                         window_buffer_format(client->app)) : NULL;
+    struct wl_buffer *buffer = pool ? wl_shm_pool_create_buffer(pool, 0, width, height, stride,
+                                                                window_buffer_format(client->app))
+                                    : NULL;
     if (pool)
         wl_shm_pool_destroy(pool);
     /* The compositor keeps its own mapping; our pixels are never reused. */
@@ -308,7 +308,7 @@ static const struct wl_surface_listener wl_surface_listener = {
 };
 
 static void decoration_configure(void *data, struct zxdg_toplevel_decoration_v1 *decoration,
-                                  uint32_t mode)
+                                 uint32_t mode)
 {
     (void)decoration;
     ((struct wayland_client *)data)->pending_csd =
@@ -353,7 +353,8 @@ static void toplevel_configure(void *data, struct xdg_toplevel *toplevel, int32_
     client->fullscreen = false;
     client->app->tiled = false;
     uint32_t *state;
-    wl_array_for_each(state, states) {
+    wl_array_for_each(state, states)
+    {
         if (*state == XDG_TOPLEVEL_STATE_MAXIMIZED)
             maximized = true;
         if (*state == XDG_TOPLEVEL_STATE_FULLSCREEN)
@@ -677,8 +678,12 @@ static uint32_t resize_edge(const struct wayland_client *client, int x, int y)
         left |= x < 20;
         right |= x >= app->width - 20;
     }
-    return (left ? XDG_TOPLEVEL_RESIZE_EDGE_LEFT : right ? XDG_TOPLEVEL_RESIZE_EDGE_RIGHT : 0) |
-           (top ? XDG_TOPLEVEL_RESIZE_EDGE_TOP : bottom ? XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM : 0);
+    return (left    ? XDG_TOPLEVEL_RESIZE_EDGE_LEFT
+            : right ? XDG_TOPLEVEL_RESIZE_EDGE_RIGHT
+                    : 0) |
+           (top      ? XDG_TOPLEVEL_RESIZE_EDGE_TOP
+            : bottom ? XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM
+                     : 0);
 }
 static uint32_t pointer_shape(const struct wayland_client *client)
 {
@@ -693,15 +698,24 @@ static uint32_t pointer_shape(const struct wayland_client *client)
     if (client->dragging || client->app->title_pressed != TITLE_NONE)
         return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
     switch (resize_edge(client, client->pointer_x, client->pointer_y)) {
-    case XDG_TOPLEVEL_RESIZE_EDGE_TOP: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_N_RESIZE;
-    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_S_RESIZE;
-    case XDG_TOPLEVEL_RESIZE_EDGE_LEFT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_W_RESIZE;
-    case XDG_TOPLEVEL_RESIZE_EDGE_RIGHT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_E_RESIZE;
-    case XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NW_RESIZE;
-    case XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NE_RESIZE;
-    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SW_RESIZE;
-    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SE_RESIZE;
-    default: return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
+    case XDG_TOPLEVEL_RESIZE_EDGE_TOP:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_N_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_S_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_LEFT:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_W_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_RIGHT:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_E_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NW_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NE_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SW_RESIZE;
+    case XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SE_RESIZE;
+    default:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
     }
 }
 static void update_cursor(struct wayland_client *client)
@@ -726,8 +740,8 @@ static void update_cursor(struct wayland_client *client)
 static void cursor_device(struct wayland_client *client)
 {
     if (client->cursor_manager && client->pointer && !client->cursor_device) {
-        client->cursor_device = wp_cursor_shape_manager_v1_get_pointer(client->cursor_manager,
-                                                                      client->pointer);
+        client->cursor_device =
+            wp_cursor_shape_manager_v1_get_pointer(client->cursor_manager, client->pointer);
         update_cursor(client);
     }
 }
@@ -781,7 +795,7 @@ static void toggle_maximized(struct wayland_client *client)
         xdg_toplevel_set_maximized(client->toplevel);
 }
 static bool decoration_button(struct wayland_client *client, uint32_t serial, uint32_t time,
-                               uint32_t button, uint32_t state)
+                              uint32_t button, uint32_t state)
 {
     enum app_title_action hit = app_title_hit(client->app, client->pointer_x, client->pointer_y);
     if (button == 0x110 && state == WL_POINTER_BUTTON_STATE_RELEASED &&
@@ -819,8 +833,8 @@ static bool decoration_button(struct wayland_client *client, uint32_t serial, ui
         client->app->dirty = true;
     }
     if (button == 0x111)
-        xdg_toplevel_show_window_menu(client->toplevel, client->seat, serial,
-                                      client->pointer_x, client->pointer_y);
+        xdg_toplevel_show_window_menu(client->toplevel, client->seat, serial, client->pointer_x,
+                                      client->pointer_y);
     else if (button == 0x110) {
         if (hit == TITLE_MOVE) {
             bool twice = client->title_click && time - client->title_click < 400 &&
@@ -961,10 +975,10 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
         client->scale_manager =
             wl_registry_bind(registry, name, &wp_fractional_scale_manager_v1_interface, 1);
     else if (strcmp(interface, wp_cursor_shape_manager_v1_interface.name) == 0) {
-        client->cursor_manager = wl_registry_bind(registry, name, &wp_cursor_shape_manager_v1_interface, 1);
+        client->cursor_manager =
+            wl_registry_bind(registry, name, &wp_cursor_shape_manager_v1_interface, 1);
         cursor_device(client);
-    }
-    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
+    } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
         client->decoration_manager =
             wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
@@ -1033,7 +1047,7 @@ int platform_run(struct app *app)
             client->decoration_manager, client->toplevel);
         zxdg_toplevel_decoration_v1_add_listener(client->decoration, &decoration_listener, client);
         zxdg_toplevel_decoration_v1_set_mode(client->decoration,
-                                            ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+                                             ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     }
     xdg_toplevel_set_title(client->toplevel, "Jot");
     xdg_toplevel_set_app_id(client->toplevel, "dev.jot.Jot");

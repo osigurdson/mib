@@ -14,8 +14,8 @@ void platform_trim_heap(void);
 /* Paths are UTF-8. Missing files are distinguished from errors; caller fclose's. */
 FILE *platform_file_open_read(const char *path, bool *missing, char *error, size_t error_size);
 /* Replace a regular file only after a successful complete write. */
-bool platform_file_write_atomic(const char *path, const char *data, size_t length,
-                                char *error, size_t error_size);
+bool platform_file_write_atomic(const char *path, const char *data, size_t length, char *error,
+                                size_t error_size);
 /* Remove a file; an already missing file counts as success. */
 bool platform_file_remove(const char *path);
 #endif

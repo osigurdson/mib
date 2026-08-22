@@ -12,9 +12,12 @@ static void gutter_layout(void)
     char *lines = malloc(100000);
     assert(lines);
     memset(lines, '\n', 100000);
-    const struct { size_t lines; int digits; } layouts[] = {
-        {9, 4}, {10, 4}, {99, 4}, {100, 4}, {999, 4}, {1000, 4},
-        {9999, 4}, {10000, 5}, {99999, 5}, {100000, 6},
+    const struct {
+        size_t lines;
+        int digits;
+    } layouts[] = {
+        {9, 4},    {10, 4},   {99, 4},    {100, 4},   {999, 4},
+        {1000, 4}, {9999, 4}, {10000, 5}, {99999, 5}, {100000, 6},
     };
     for (size_t i = 0; i < sizeof(layouts) / sizeof(layouts[0]); ++i) {
         assert(editor_replace(&app.editor, 0, app.editor.length, lines, layouts[i].lines - 1));
@@ -131,7 +134,7 @@ static void theme_layout(void)
     assert(app.editor.viewport_columns == columns && app.editor.viewport_rows == rows);
     assert(light[0] == 0xfffaf9f6 && light[(HEIGHT - 1) * STRIDE] == 0xffe5e8eb);
     int x = app.padding + app.gutter, y = app.padding;
-    assert(light[y * STRIDE + x + app.cell] == 0xffeeede7); /* inline code */
+    assert(light[y * STRIDE + x + app.cell] == 0xffeeede7);     /* inline code */
     assert(light[y * STRIDE + x + 7 * app.cell] == 0xfff5dc8e); /* search */
     for (int row = 0; row < HEIGHT; ++row)
         for (int col = WIDTH; col < STRIDE; ++col)
@@ -183,8 +186,10 @@ static void decoration_layout(void)
         assert(pixels[0] == 0);
         assert(pixels[WIDTH / 2] == (app.editor.light ? 0xfff2f1ee : 0xff1d2733));
         assert(app_title_hit(&app, 20, y) == TITLE_MOVE);
-        assert(app_title_hit(&app, (WIDTH - 5 * h / 2) * 120 / (int)scales[i], y) == TITLE_MINIMIZE);
-        assert(app_title_hit(&app, (WIDTH - 3 * h / 2) * 120 / (int)scales[i], y) == TITLE_MAXIMIZE);
+        assert(app_title_hit(&app, (WIDTH - 5 * h / 2) * 120 / (int)scales[i], y) ==
+               TITLE_MINIMIZE);
+        assert(app_title_hit(&app, (WIDTH - 3 * h / 2) * 120 / (int)scales[i], y) ==
+               TITLE_MAXIMIZE);
         assert(app_title_hit(&app, (WIDTH - h / 2) * 120 / (int)scales[i], y) == TITLE_CLOSE);
         for (enum app_title_action action = TITLE_MINIMIZE; action <= TITLE_CLOSE; ++action) {
             int stroke = (int)(scales[i] / 120);
@@ -192,14 +197,16 @@ static void decoration_layout(void)
             app.title_hover = action;
             assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
             uint32_t hover = action == TITLE_CLOSE ? 0xffc74242
-                             : app.editor.light ? 0xffe0e2df : 0xff303e4e;
+                             : app.editor.light    ? 0xffe0e2df
+                                                   : 0xff303e4e;
             assert(pixels[h / 2 * WIDTH + sample] == hover);
             app.title_pressed = action;
             if (action == TITLE_MAXIMIZE)
                 app.maximized = true; /* the restore button shares the same feedback */
             assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
             uint32_t pressed = action == TITLE_CLOSE ? 0xffa83333
-                               : app.editor.light ? 0xffcdd3d0 : 0xff3d5064;
+                               : app.editor.light    ? 0xffcdd3d0
+                                                     : 0xff3d5064;
             assert(pixels[h / 2 * WIDTH + sample] == pressed);
             app.title_hover = TITLE_NONE;
             assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
@@ -325,8 +332,9 @@ static void render_modes(void)
 {
     struct app app;
     assert(app_open(&app, NULL));
-    const char *note = "# Head\n**bold** [label](https://example.com/a/very/long/destination) tail\n"
-                       "> quote\n- [x] task\n```\n# raw\n```\n";
+    const char *note =
+        "# Head\n**bold** [label](https://example.com/a/very/long/destination) tail\n"
+        "> quote\n- [x] task\n```\n# raw\n```\n";
     assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
     app.editor.cursor = 0;
     enum { WIDTH = 320, HEIGHT = 400 };
@@ -387,7 +395,8 @@ static unsigned style_at(const char *text, const char *needle)
     size_t at = (size_t)(strstr(text, needle) - text);
     unsigned style = 0;
     for (size_t i = 0; i < n; ++i)
-        if (at >= spans[i].start && at < spans[i].end) style |= spans[i].style;
+        if (at >= spans[i].start && at < spans[i].end)
+            style |= spans[i].style;
     return style;
 }
 static void markdown_notes(void)
@@ -406,7 +415,8 @@ static void markdown_notes(void)
     assert(!markdown_block("1234567890. text", 0, 16).indent);
     struct app app;
     assert(app_open(&app, NULL));
-    const char *note = "## Heading\n  12. a long nested list item with several words for wrapping\n---\n";
+    const char *note =
+        "## Heading\n  12. a long nested list item with several words for wrapping\n---\n";
     assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
     editor_command(&app.editor, "set view=reading");
     uint32_t pixels[400 * 400];
@@ -417,7 +427,7 @@ static void markdown_notes(void)
     assert(wrap > list && wrap < editor_line_end(&app.editor, list));
     /* Continuation text begins under the first item character, not the number. */
     assert(app_hit_test(&app, app.text_x + 6 * app.cell,
-                       app.padding + app_view_height(&app, 0) + app.line_height) == wrap);
+                        app.padding + app_view_height(&app, 0) + app.line_height) == wrap);
     size_t rule = (size_t)(strstr(note, "---") - note);
     assert(app_view_next(&app, rule) == strlen(note));
     editor_command(&app.editor, "set view=source");
@@ -464,17 +474,15 @@ static void markdown_tables(void)
     int body_rows = app_view_rows(&app, body);
     assert(body_rows > 1);
     /* Clicking wrapped/hidden source and a right-aligned number. */
-    assert(app_hit_test(&app, app.text_x + app.cell,
-                       app.padding + app.line_height) == body + 4);
-    assert(app_hit_test(&app, app.text_x + app.cell,
-                       app.padding + 2 * app.line_height) ==
+    assert(app_hit_test(&app, app.text_x + app.cell, app.padding + app.line_height) == body + 4);
+    assert(app_hit_test(&app, app.text_x + app.cell, app.padding + 2 * app.line_height) ==
            (size_t)(strstr(note, "several") - note));
     unsigned content = (app.editor.viewport_columns - 1) / 2 - 3;
     int number_x = app.text_x + (int)(2 * content + 2) * app.cell;
     assert(app_hit_test(&app, number_x, app.padding + app.line_height) ==
            (size_t)(strstr(note, "42") - note));
     assert(app_hit_test(&app, app.text_x + app.cell,
-                       app.padding + (body_rows + 1) * app.line_height) == last + 2);
+                        app.padding + (body_rows + 1) * app.line_height) == last + 2);
     /* A resize must retain access to long rows through the source fallback. */
     assert(app_paint(&app, pixels, 120, 200, 120));
     assert(app_view_next(&app, body) < last);
@@ -519,10 +527,12 @@ static void normal_markdown_styles(void)
             bool slanted = false;
             for (int y = 0; y < app.line_height; ++y)
                 for (int x = app.text_x + 3 * app.cell; x < app.text_x + 10 * app.cell; ++x)
-                    slanted |= (pixels[(app.padding + y) * width + x] != background) !=
-                               (pixels[(app.padding + app.line_height + y) * width + x] != background);
+                    slanted |=
+                        (pixels[(app.padding + y) * width + x] != background) !=
+                        (pixels[(app.padding + app.line_height + y) * width + x] != background);
             assert(slanted);
-            int strike_y = app.padding + 2 * app.line_height + tiny_font_metrics(app.font).ascender * 3 / 4;
+            int strike_y =
+                app.padding + 2 * app.line_height + tiny_font_metrics(app.font).ascender * 3 / 4;
             for (int x = app.text_x + 2 * app.cell; x < app.text_x + 6 * app.cell; ++x)
                 assert(pixels[strike_y * width + x] == text);
             /* Fence markers, content and empty lines all shade through the right edge. */
@@ -543,8 +553,9 @@ static void normal_markdown_styles(void)
 
 static void heading_layout(void)
 {
-    const char *note = "# Heading\n## Heading\n### Heading\n#### Heading\n##### Heading\n###### Heading\n"
-                       "body\n# A much longer heading with enough words to wrap across several lines\ntail\n";
+    const char *note =
+        "# Heading\n## Heading\n### Heading\n#### Heading\n##### Heading\n###### Heading\n"
+        "body\n# A much longer heading with enough words to wrap across several lines\ntail\n";
     const unsigned scales[] = {120, 180, 240};
     for (unsigned light = 0; light < 2; ++light) {
         for (unsigned scale = 0; scale < 3; ++scale) {
@@ -565,28 +576,35 @@ static void heading_layout(void)
                 app.follow_cursor = false;
                 assert(app_paint(&app, pixels, width, height, width));
                 size_t p = 0;
-                int y = app.padding, first_height = app_view_height(&app, 0), previous = first_height;
-                if (mode == 0) normal_h1 = first_height;
-                if (mode == 1) assert(first_height > normal_h1);
+                int y = app.padding, first_height = app_view_height(&app, 0),
+                    previous = first_height;
+                if (mode == 0)
+                    normal_h1 = first_height;
+                if (mode == 1)
+                    assert(first_height > normal_h1);
                 for (unsigned level = 1; level <= 6; ++level) {
                     int h = app_view_height(&app, p);
                     assert(h <= previous);
-                    if (mode == 2) assert(h == app.line_height);
+                    if (mode == 2)
+                        assert(h == app.line_height);
                     /* Every heading's left edge maps to its own source line. */
                     int logical_x = (app.text_x + 1) * 120 / (int)app.scale120;
                     int logical_y = (y + h / 2) * 120 / (int)app.scale120;
-                    assert(app_hit_test(&app, logical_x, logical_y) == p + (mode == 1 ? level + 1 : 0));
+                    assert(app_hit_test(&app, logical_x, logical_y) ==
+                           p + (mode == 1 ? level + 1 : 0));
                     previous = h;
                     y += h;
                     p = editor_line_end(&app.editor, p) + 1;
                 }
                 unsigned base_size = 18 * 64 * app.scale120 / 120;
-                unsigned heading_size = mode == 0 ? (base_size * 135 + 50) / 100
-                                       : mode == 1 ? (base_size * 190 + 50) / 100 : base_size;
+                unsigned heading_size = mode == 0   ? (base_size * 135 + 50) / 100
+                                        : mode == 1 ? (base_size * 190 + 50) / 100
+                                                    : base_size;
                 int heading_cell = tiny_font_metrics_at(heading_size).advance;
                 unsigned target_column = mode == 1 ? 3 : 6;
-                int logical_click_x = (app.text_x + (int)target_column * heading_cell + heading_cell / 2)
-                                      * 120 / (int)app.scale120;
+                int logical_click_x =
+                    (app.text_x + (int)target_column * heading_cell + heading_cell / 2) * 120 /
+                    (int)app.scale120;
                 int logical_click_y = (app.padding + first_height / 2) * 120 / (int)app.scale120;
                 assert(app_hit_test(&app, logical_click_x, logical_click_y) ==
                        target_column + (mode == 1 ? 2 : 0));
@@ -595,10 +613,12 @@ static void heading_layout(void)
                     assert(app_paint(&app, pixels, width, height, width));
                     int cursor_x = app.text_x + 6 * heading_cell + heading_cell / 2;
                     int cursor_y = app.padding + first_height - 2;
-                    assert(pixels[cursor_y * width + cursor_x] == (light ? 0xff1d6972 : 0xff8fbcbb));
+                    assert(pixels[cursor_y * width + cursor_x] ==
+                           (light ? 0xff1d6972 : 0xff8fbcbb));
                     app.editor.cursor = 0;
                 }
-                if (mode != 2) assert(first_height > previous);
+                if (mode != 2)
+                    assert(first_height > previous);
                 assert(app_view_height(&app, p) == app.line_height); /* body size restored */
                 p = editor_line_end(&app.editor, p) + 1;
                 y += app.line_height;
@@ -633,34 +653,26 @@ static void heading_layout(void)
 
 static void colorschemes(void)
 {
-    const uint32_t backgrounds[COLOR_COUNT][2] = {
-        {0xff18202b, 0xfffaf9f6},
-        {0xff1a1b26, 0xffe1e2e7},
-        {0xff1e1e2e, 0xffeff1f5},
-        {0xff1f1f28, 0xfff2ecbc},
-        {0xff2d353b, 0xfffdf6e3}
-    };
-    const uint32_t searches[COLOR_COUNT][2] = {
-        {0xff66502c, 0xfff5dc8e},
-        {0xff3d59a1, 0xff7890dd},
-        {0xff3e5767, 0xffa8daf0},
-        {0xff2d4f67, 0xffb5cbd2},
-        {0xffa7c080, 0xff8da101}
-    };
-    const uint32_t search_text[COLOR_COUNT][2] = {
-        {0xffe5edf5, 0xff263342},
-        {0xffc0caf5, 0xff3760bf},
-        {0xffcdd6f4, 0xff4c4f69},
-        {0xffdcd7ba, 0xff545464},
-        {0xff2d353b, 0xfffdf6e3}
-    };
-    const uint32_t status_backgrounds[COLOR_COUNT][2] = {
-        {0xff283443, 0xffe5e8eb},
-        {0xff16161e, 0xffd0d5e3},
-        {0xff181825, 0xffe6e9ef},
-        {0xff16161d, 0xffd5cea3},
-        {0xff3d484d, 0xffefebd4}
-    };
+    const uint32_t backgrounds[COLOR_COUNT][2] = {{0xff18202b, 0xfffaf9f6},
+                                                  {0xff1a1b26, 0xffe1e2e7},
+                                                  {0xff1e1e2e, 0xffeff1f5},
+                                                  {0xff1f1f28, 0xfff2ecbc},
+                                                  {0xff2d353b, 0xfffdf6e3}};
+    const uint32_t searches[COLOR_COUNT][2] = {{0xff66502c, 0xfff5dc8e},
+                                               {0xff3d59a1, 0xff7890dd},
+                                               {0xff3e5767, 0xffa8daf0},
+                                               {0xff2d4f67, 0xffb5cbd2},
+                                               {0xffa7c080, 0xff8da101}};
+    const uint32_t search_text[COLOR_COUNT][2] = {{0xffe5edf5, 0xff263342},
+                                                  {0xffc0caf5, 0xff3760bf},
+                                                  {0xffcdd6f4, 0xff4c4f69},
+                                                  {0xffdcd7ba, 0xff545464},
+                                                  {0xff2d353b, 0xfffdf6e3}};
+    const uint32_t status_backgrounds[COLOR_COUNT][2] = {{0xff283443, 0xffe5e8eb},
+                                                         {0xff16161e, 0xffd0d5e3},
+                                                         {0xff181825, 0xffe6e9ef},
+                                                         {0xff16161d, 0xffd5cea3},
+                                                         {0xff3d484d, 0xffefebd4}};
     struct app app;
     assert(app_open(&app, NULL));
     assert(editor_replace(&app.editor, 0, 0, "MMMM\n", 5));
@@ -740,8 +752,8 @@ int main(void)
     assert(app.editor.viewport_rows == (unsigned)((status_y - app.padding) / app.line_height));
     bool status_changed = false;
     for (int y = status_y; y < HEIGHT; ++y)
-        status_changed |= memcmp(packed + y * WIDTH, padded + y * STRIDE,
-                                 WIDTH * sizeof(*packed)) != 0;
+        status_changed |=
+            memcmp(packed + y * WIDTH, padded + y * STRIDE, WIDTH * sizeof(*packed)) != 0;
     assert(status_changed);
     app_input(&app, KEY_ESCAPE, "");
     assert(app_paint(&app, padded, WIDTH, HEIGHT, STRIDE));

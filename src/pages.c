@@ -8,10 +8,12 @@
 
 /* The editor fields that belong to a page's document. Mode, registers, search, dot repeat,
  * command history and settings stay with app.editor across switches. */
+/* clang-format off */
 #define ROOM_FIELDS                                                                                \
     X(text) X(filename) X(length) X(capacity) X(cursor) X(top) X(left) X(anchor)                   \
     X(desired_column) X(visual_first) X(visual_last) X(modified) X(crlf) X(revision)               \
     X(saved_hash) X(history) X(context) X(jump_count) X(jump_index)
+/* clang-format on */
 
 static void stash(struct editor *ed, struct page *page)
 {
@@ -78,7 +80,8 @@ bool app_page_switch(struct app *app, unsigned index)
 {
     struct editor *ed = &app->editor;
     if (!app->root) {
-        snprintf(ed->message, sizeof(ed->message), "Pages 1 to 9 need the notes folder, not a single file");
+        snprintf(ed->message, sizeof(ed->message),
+                 "Pages 1 to 9 need the notes folder, not a single file");
         return false;
     }
     if (index >= PAGE_COUNT)
@@ -160,8 +163,8 @@ void app_page_heading(struct app *app, unsigned index, char *heading, size_t siz
             size_t from = start + 2, to = end;
             while (from < to && (text[from] == ' ' || text[from] == '\t'))
                 ++from;
-            while (to > from && (text[to - 1] == ' ' || text[to - 1] == '\t' ||
-                                 text[to - 1] == '\r'))
+            while (to > from &&
+                   (text[to - 1] == ' ' || text[to - 1] == '\t' || text[to - 1] == '\r'))
                 --to;
             /* An optional closing sequence: "# Title #". */
             size_t closing = to;

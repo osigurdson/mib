@@ -4,7 +4,10 @@
 #include "render-internal.h"
 
 enum { HELP_TITLE, HELP_SECTION, HELP_ROW, HELP_FOOTER };
-static const struct { unsigned char kind; const char *keys, *action; } lines[] = {
+static const struct {
+    unsigned char kind;
+    const char *keys, *action;
+} lines[] = {
     {HELP_TITLE, "Jot: Vim keys for Markdown notes", ""},
     {HELP_SECTION, "Views", ""},
     {HELP_ROW, ":set view=normal", "styled Markdown (default)"},
@@ -39,9 +42,9 @@ bool help_draw(struct app *app, const struct palette *theme, uint32_t *pixels, i
         if (i && lines[i].kind != HELP_ROW)
             y += row;
         int baseline = y + metrics.ascender, indent = lines[i].kind == HELP_ROW ? 2 * cell : 0;
-        uint32_t color = lines[i].kind == HELP_TITLE     ? theme->heading
-                         : lines[i].kind == HELP_ROW     ? theme->menu_text
-                                                         : theme->dim;
+        uint32_t color = lines[i].kind == HELP_TITLE ? theme->heading
+                         : lines[i].kind == HELP_ROW ? theme->menu_text
+                                                     : theme->dim;
         if (!render_label(app, pixels, width, height, stride, lines[i].keys, x + indent, baseline,
                           cell, color) ||
             (lines[i].action[0] &&

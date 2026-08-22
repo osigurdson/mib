@@ -271,8 +271,8 @@ static void pages(const char *parent)
     type(&app, ":wa\n");
     assert(app.current == 2 && app.editor.cursor == cursor && !app.editor.modified);
     assert(!app_page_modified(&app) && strstr(app.editor.message, "Saved all pages"));
-    char *page_text = session_read(strcat(strcpy(positions, directory), "/1/jot.md"), 1 << 20,
-                                   &length);
+    char *page_text =
+        session_read(strcat(strcpy(positions, directory), "/1/jot.md"), 1 << 20, &length);
     assert(page_text && !strncmp(page_text, "first\n", 6));
     free(page_text);
     page_text = session_read(strcat(strcpy(positions, directory), "/6/jot.md"), 1 << 20, &length);
@@ -501,8 +501,7 @@ int main(void)
     uint32_t pixels[320 * 200];
     assert(app_paint(&app, pixels, 320, 200, 320));
     assert(app.gutter == 6 * app.cell);
-    assert(app.font_size == 23 && app.width == 900 &&
-           app.height == 600 && app.maximized);
+    assert(app.font_size == 23 && app.width == 900 && app.height == 600 && app.maximized);
     assert(!strcmp(app.editor.text, "another\n")); /* close did not save local edits */
     assert(!app.editor.light && app.editor.colorscheme == COLOR_JOT); /* legacy preferences */
     editor_command(&app.editor, "set background=light");
@@ -555,13 +554,16 @@ int main(void)
         for (unsigned light = 0; light < 2; ++light) {
             assert(app_open(&app, NULL));
             assert(session_open(&app, directory) == 1);
-            assert(editor_colorscheme(&app.editor, editor_colorscheme_name((enum color_scheme)scheme)));
+            assert(editor_colorscheme(&app.editor,
+                                      editor_colorscheme_name((enum color_scheme)scheme)));
             editor_command(&app.editor, light ? "set background=light" : "set background=dark");
             app_close(&app);
             assert(app_open(&app, NULL));
             assert(session_open(&app, directory) == 1);
-            assert(app.editor.colorscheme == (enum color_scheme)scheme && app.editor.light == (bool)light);
-            assert(editor_reload(&app.editor) && app.editor.colorscheme == (enum color_scheme)scheme);
+            assert(app.editor.colorscheme == (enum color_scheme)scheme &&
+                   app.editor.light == (bool)light);
+            assert(editor_reload(&app.editor) &&
+                   app.editor.colorscheme == (enum color_scheme)scheme);
             app_close(&app);
         }
     }
@@ -571,7 +573,8 @@ int main(void)
         char legacy_state[128];
         snprintf(legacy_state, sizeof(legacy_state), "800 600 18 1 1 0 1 %s\n", retired[i]);
         remove_file(settings);
-        assert(platform_file_write_atomic(state, legacy_state, strlen(legacy_state), error, sizeof(error)));
+        assert(platform_file_write_atomic(state, legacy_state, strlen(legacy_state), error,
+                                          sizeof(error)));
         assert(app_open(&app, NULL));
         assert(session_open(&app, directory) == 1);
         assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
@@ -648,5 +651,6 @@ int main(void)
     free(agents);
     /* Remove only the known files in this unique test directory. */
     remove_notes(directory);
-    puts("Private pages, shared folders, manual saves/close protection, external reload and preferences passed");
+    puts("Private pages, shared folders, manual saves/close protection, external reload and "
+         "preferences passed");
 }

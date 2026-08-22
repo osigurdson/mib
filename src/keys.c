@@ -75,8 +75,7 @@ static bool register_supported(char name)
     return register_slot(name) >= 0 || (name && strchr("\"_+*", name));
 }
 /* Store or append text; appending mixes characterwise and linewise text the way Vim does. */
-static bool store(struct editor_register *r, const char *text, size_t n, bool linewise,
-                  bool append)
+static bool store(struct editor_register *r, const char *text, size_t n, bool linewise, bool append)
 {
     size_t old = append && r->text ? r->length : 0;
     bool before = old && !r->linewise && linewise, after = old && r->linewise && !linewise;
@@ -198,8 +197,7 @@ static void jump_list(struct editor *ed, bool older)
 }
 static bool jump_motion(const char *m)
 {
-    return strchr("GHLM%{}nN'`", m[0]) || !strcmp(m, "gg") || !strcmp(m, "[[") ||
-           !strcmp(m, "]]");
+    return strchr("GHLM%{}nN'`", m[0]) || !strcmp(m, "gg") || !strcmp(m, "[[") || !strcmp(m, "]]");
 }
 
 /* p and P: named registers are put directly; the unnamed one goes through the clipboard. */
@@ -210,8 +208,7 @@ static void put(struct editor *ed, bool after, unsigned count)
         return;
     if (named) {
         if (!named->text)
-            snprintf(ed->message, sizeof(ed->message), "Nothing in register %c",
-                     ed->register_name);
+            snprintf(ed->message, sizeof(ed->message), "Nothing in register %c", ed->register_name);
         else
             editor_put(ed, named->text, named->length, named->linewise, after, count);
         return;
@@ -415,7 +412,7 @@ static size_t motion(struct editor *ed, const char *m, unsigned count, bool expl
     *linewise = *inclusive = false;
     *valid = true;
     if ((c == '\'' || c == '`') && m[1]) {
-        size_t mark = m[1] == '\'' || m[1] == '`'   ? ed->context
+        size_t mark = m[1] == '\'' || m[1] == '`'  ? ed->context
                       : m[1] >= 'a' && m[1] <= 'z' ? ed->marks[m[1] - 'a']
                                                    : 0;
         *valid = mark != 0;
@@ -1541,8 +1538,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
         /* Like Vim, an operator whose last word ends a line stops there instead of reaching
          * into the next line (dw on a line's last word keeps the line break). */
         if ((*p == 'w' || *p == 'W') && !linewise && b > a &&
-            editor_line_number(ed, b) > editor_line_number(ed, a) &&
-            b <= first_nonblank(ed, b))
+            editor_line_number(ed, b) > editor_line_number(ed, a) && b <= first_nonblank(ed, b))
             b = editor_line_start(ed, b) - 1;
         /* cw changes the current word, leaving its following whitespace. */
         if (op == 'c' && (*p == 'w' || *p == 'W'))

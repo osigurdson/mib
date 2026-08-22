@@ -8,9 +8,11 @@ static void press(struct wayland_client *client, xkb_keysym_t symbol)
          code <= xkb_keymap_max_keycode(client->xkb_keymap); ++code) {
         for (xkb_level_index_t level = 0; level < 2; ++level) {
             const xkb_keysym_t *symbols;
-            int count = xkb_keymap_key_get_syms_by_level(client->xkb_keymap, code, 0, level, &symbols);
+            int count =
+                xkb_keymap_key_get_syms_by_level(client->xkb_keymap, code, 0, level, &symbols);
             if (count == 1 && symbols[0] == symbol) {
-                xkb_mod_index_t shift = xkb_keymap_mod_get_index(client->xkb_keymap, XKB_MOD_NAME_SHIFT);
+                xkb_mod_index_t shift =
+                    xkb_keymap_mod_get_index(client->xkb_keymap, XKB_MOD_NAME_SHIFT);
                 xkb_state_update_mask(client->xkb_state, level ? 1u << shift : 0, 0, 0, 0, 0, 0);
                 handle_key(client, code - 8);
                 return;
@@ -43,26 +45,29 @@ static void page_keys(void)
     struct app app = {.running = true};
     assert(editor_open(&app.editor, NULL));
     struct wayland_client client = {.app = &app};
-    client.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(client.xkb_context);
+    client.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    assert(client.xkb_context);
     const char *layouts[] = {"us", "fr"};
     for (unsigned l = 0; l < 2; ++l) {
         struct xkb_rule_names names = {.layout = layouts[l]};
-        client.xkb_keymap = xkb_keymap_new_from_names(client.xkb_context, &names,
-                                                      XKB_KEYMAP_COMPILE_NO_FLAGS);
+        client.xkb_keymap =
+            xkb_keymap_new_from_names(client.xkb_context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
         assert(client.xkb_keymap);
-        client.xkb_state = xkb_state_new(client.xkb_keymap); assert(client.xkb_state);
+        client.xkb_state = xkb_state_new(client.xkb_keymap);
+        assert(client.xkb_state);
         /* The key left of 4 on the number row: "3" in US, a quote in AZERTY. */
         const xkb_keysym_t row = l ? XKB_KEY_quotedbl : XKB_KEY_3;
         /* And 0 on the number row: "0" in US, a with grave in AZERTY. */
         const xkb_keysym_t zero = l ? XKB_KEY_agrave : XKB_KEY_0;
-        const xkb_keysym_t keys[] = {row, XKB_KEY_KP_3, XKB_KEY_KP_Next, zero, XKB_KEY_KP_0,
-                                     XKB_KEY_KP_Insert};
+        const xkb_keysym_t keys[] = {row,  XKB_KEY_KP_3, XKB_KEY_KP_Next,
+                                     zero, XKB_KEY_KP_0, XKB_KEY_KP_Insert};
         for (unsigned i = 0; i < 6; ++i) {
             app.editor.message[0] = 0;
             press_alt(&client, keys[i], i == 1 || i == 4);
             assert(strstr(app.editor.message, "not a single file") && !app.editor.length);
         }
-        xkb_state_unref(client.xkb_state); xkb_keymap_unref(client.xkb_keymap);
+        xkb_state_unref(client.xkb_state);
+        xkb_keymap_unref(client.xkb_keymap);
     }
     xkb_context_unref(client.xkb_context);
     editor_destroy(&app.editor);
@@ -208,18 +213,25 @@ static void resize_protocol(void)
     struct resize_requests requests = {0};
     struct wl_proxy *seat = wl_proxy_create((struct wl_proxy *)display, &wl_seat_interface);
     struct wl_proxy *top = wl_proxy_create((struct wl_proxy *)display, &xdg_toplevel_interface);
-    struct wl_proxy *cursor = wl_proxy_create((struct wl_proxy *)display, &wp_cursor_shape_device_v1_interface);
+    struct wl_proxy *cursor =
+        wl_proxy_create((struct wl_proxy *)display, &wp_cursor_shape_device_v1_interface);
     assert(seat && top && cursor);
     client.seat = (struct wl_seat *)seat;
     client.toplevel = (struct xdg_toplevel *)top;
     client.cursor_device = (struct wp_cursor_shape_device_v1 *)cursor;
-    struct wl_resource *seat_resource = wl_resource_create(peer, &wl_seat_interface, 1, wl_proxy_get_id(seat));
-    struct wl_resource *top_resource = wl_resource_create(peer, &xdg_toplevel_interface, 1, wl_proxy_get_id(top));
-    struct wl_resource *cursor_resource = wl_resource_create(peer, &wp_cursor_shape_device_v1_interface, 1, wl_proxy_get_id(cursor));
+    struct wl_resource *seat_resource =
+        wl_resource_create(peer, &wl_seat_interface, 1, wl_proxy_get_id(seat));
+    struct wl_resource *top_resource =
+        wl_resource_create(peer, &xdg_toplevel_interface, 1, wl_proxy_get_id(top));
+    struct wl_resource *cursor_resource =
+        wl_resource_create(peer, &wp_cursor_shape_device_v1_interface, 1, wl_proxy_get_id(cursor));
     assert(seat_resource && top_resource && cursor_resource);
     wl_resource_set_dispatcher(top_resource, resize_dispatch, &requests, &requests, NULL);
     wl_resource_set_dispatcher(cursor_resource, resize_dispatch, &requests, &requests, NULL);
-    const struct { int x, y; uint32_t edge, shape; } positions[] = {
+    const struct {
+        int x, y;
+        uint32_t edge, shape;
+    } positions[] = {
         {400, 7, XDG_TOPLEVEL_RESIZE_EDGE_TOP, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_N_RESIZE},
         {400, 553, XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_S_RESIZE},
         {7, 280, XDG_TOPLEVEL_RESIZE_EDGE_LEFT, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_W_RESIZE},
@@ -227,13 +239,15 @@ static void resize_protocol(void)
         {7, 19, XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NW_RESIZE},
         {781, 7, XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NE_RESIZE},
         {19, 553, XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SW_RESIZE},
-        {793, 541, XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SE_RESIZE},
+        {793, 541, XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT,
+         WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SE_RESIZE},
     };
     for (unsigned i = 0; i < sizeof(positions) / sizeof(positions[0]); ++i) {
         requests.serial = 100 + i;
         requests.edge = positions[i].edge;
         requests.shape = positions[i].shape;
-        pointer_motion(&client, NULL, i, wl_fixed_from_int(positions[i].x), wl_fixed_from_int(positions[i].y));
+        pointer_motion(&client, NULL, i, wl_fixed_from_int(positions[i].x),
+                       wl_fixed_from_int(positions[i].y));
         pointer_button(&client, NULL, requests.serial, i, 0x110, WL_POINTER_BUTTON_STATE_PRESSED);
         assert(wl_display_flush(display) >= 0);
         assert(wl_event_loop_dispatch(wl_display_get_event_loop(server), 0) >= 0);
@@ -260,7 +274,9 @@ static void resize_protocol(void)
 }
 
 /* Capture real wl_region requests on an isolated in-process protocol peer. */
-struct shape_region { bool pixels[32 * 32]; };
+struct shape_region {
+    bool pixels[32 * 32];
+};
 struct shape_requests {
     struct shape_region opaque, input;
     unsigned creates, updates;
@@ -270,12 +286,9 @@ static void shape_destroy(struct wl_client *client, struct wl_resource *resource
     (void)client;
     wl_resource_destroy(resource);
 }
-static void shape_freed(struct wl_resource *resource)
-{
-    free(wl_resource_get_user_data(resource));
-}
-static void shape_add(struct wl_client *client, struct wl_resource *resource,
-                      int32_t x, int32_t y, int32_t width, int32_t height)
+static void shape_freed(struct wl_resource *resource) { free(wl_resource_get_user_data(resource)); }
+static void shape_add(struct wl_client *client, struct wl_resource *resource, int32_t x, int32_t y,
+                      int32_t width, int32_t height)
 {
     (void)client;
     assert(x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 32 && y + height <= 32);
@@ -285,7 +298,8 @@ static void shape_add(struct wl_client *client, struct wl_resource *resource,
             region->pixels[row * 32 + col] = true;
 }
 static const struct wl_region_interface shape_region_impl = {
-    .destroy = shape_destroy, .add = shape_add,
+    .destroy = shape_destroy,
+    .add = shape_add,
 };
 static void shape_create(struct wl_client *client, struct wl_resource *compositor, uint32_t id)
 {
@@ -296,7 +310,8 @@ static void shape_create(struct wl_client *client, struct wl_resource *composito
     assert(region && data);
     wl_resource_set_implementation(region, &shape_region_impl, data, shape_freed);
 }
-static void shape_opaque(struct wl_client *client, struct wl_resource *surface, struct wl_resource *region)
+static void shape_opaque(struct wl_client *client, struct wl_resource *surface,
+                         struct wl_resource *region)
 {
     (void)client;
     struct shape_requests *requests = wl_resource_get_user_data(surface);
@@ -304,7 +319,8 @@ static void shape_opaque(struct wl_client *client, struct wl_resource *surface, 
     requests->opaque = *(struct shape_region *)wl_resource_get_user_data(region);
     ++requests->updates;
 }
-static void shape_input(struct wl_client *client, struct wl_resource *surface, struct wl_resource *region)
+static void shape_input(struct wl_client *client, struct wl_resource *surface,
+                        struct wl_resource *region)
 {
     (void)client;
     struct shape_requests *requests = wl_resource_get_user_data(surface);
@@ -323,14 +339,18 @@ static void region_protocol(void)
     struct wl_client *peer = wl_client_create(server, sockets[0]);
     struct wl_display *display = wl_display_connect_to_fd(sockets[1]);
     assert(peer && display);
-    struct wl_proxy *compositor = wl_proxy_create((struct wl_proxy *)display, &wl_compositor_interface);
+    struct wl_proxy *compositor =
+        wl_proxy_create((struct wl_proxy *)display, &wl_compositor_interface);
     struct wl_proxy *surface = wl_proxy_create((struct wl_proxy *)display, &wl_surface_interface);
     assert(compositor && surface);
-    struct wl_resource *cr = wl_resource_create(peer, &wl_compositor_interface, 1, wl_proxy_get_id(compositor));
-    struct wl_resource *sr = wl_resource_create(peer, &wl_surface_interface, 1, wl_proxy_get_id(surface));
+    struct wl_resource *cr =
+        wl_resource_create(peer, &wl_compositor_interface, 1, wl_proxy_get_id(compositor));
+    struct wl_resource *sr =
+        wl_resource_create(peer, &wl_surface_interface, 1, wl_proxy_get_id(surface));
     struct shape_requests requests = {0};
     const struct wl_compositor_interface ci = {.create_region = shape_create};
-    const struct wl_surface_interface si = {.set_opaque_region = shape_opaque, .set_input_region = shape_input};
+    const struct wl_surface_interface si = {.set_opaque_region = shape_opaque,
+                                            .set_input_region = shape_input};
     assert(cr && sr);
     wl_resource_set_implementation(cr, &ci, &requests, NULL);
     wl_resource_set_implementation(sr, &si, &requests, NULL);
@@ -338,8 +358,9 @@ static void region_protocol(void)
     assert(app_open(&app, NULL));
     app.width = 32;
     app.height = 28;
-    struct wayland_client client = {.app = &app, .compositor = (struct wl_compositor *)compositor,
-                                     .surface = (struct wl_surface *)surface};
+    struct wayland_client client = {.app = &app,
+                                    .compositor = (struct wl_compositor *)compositor,
+                                    .surface = (struct wl_surface *)surface};
     for (unsigned state = 0; state < 5; ++state) {
         app.client_decorated = state != 3;
         app.maximized = state == 1;
@@ -404,7 +425,8 @@ static void pending_buffer_cleanup(void)
     for (unsigned i = 0; i < 2; ++i) {
         struct wl_proxy *proxy = wl_proxy_create((struct wl_proxy *)display, &wl_buffer_interface);
         assert(proxy);
-        struct wl_resource *resource = wl_resource_create(peer, &wl_buffer_interface, 1, wl_proxy_get_id(proxy));
+        struct wl_resource *resource =
+            wl_resource_create(peer, &wl_buffer_interface, 1, wl_proxy_get_id(proxy));
         assert(resource);
         wl_resource_set_implementation(resource, &implementation, &destroyed, count_buffer_destroy);
         client.buffers[i] = (struct wl_buffer *)proxy;
@@ -432,30 +454,44 @@ int main(int argc, char **argv)
     region_protocol();
     struct app app = {.width = 800, .height = 560, .scale120 = 180, .running = true};
     char path[] = "/tmp/jot-integration-XXXXXX";
-    int fd = mkstemp(path); assert(fd >= 0); close(fd);
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+    close(fd);
     assert(editor_open(&app.editor, path));
     struct wayland_client client = {.app = &app};
-    client.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS); assert(client.xkb_context);
+    client.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    assert(client.xkb_context);
     struct xkb_rule_names names = {.layout = "us"};
-    client.xkb_keymap = xkb_keymap_new_from_names(client.xkb_context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+    client.xkb_keymap =
+        xkb_keymap_new_from_names(client.xkb_context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
     assert(client.xkb_keymap);
-    client.xkb_state = xkb_state_new(client.xkb_keymap); assert(client.xkb_state);
+    client.xkb_state = xkb_state_new(client.xkb_keymap);
+    assert(client.xkb_state);
     press(&client, XKB_KEY_i);
     const char *text = "Jot, directly on Wayland.\nCPU rendering with tiny-font.\n\n";
-    for (const char *p = text; *p; ++p) press(&client, *p == '\n' ? XKB_KEY_Return : (xkb_keysym_t)*p);
+    for (const char *p = text; *p; ++p)
+        press(&client, *p == '\n' ? XKB_KEY_Return : (xkb_keysym_t)*p);
     assert(!strcmp(app.editor.text, text));
     press(&client, XKB_KEY_Escape);
-    press(&client, XKB_KEY_k); press(&client, XKB_KEY_k);
-    press(&client, XKB_KEY_colon); press(&client, XKB_KEY_w); press(&client, XKB_KEY_Return);
+    press(&client, XKB_KEY_k);
+    press(&client, XKB_KEY_k);
+    press(&client, XKB_KEY_colon);
+    press(&client, XKB_KEY_w);
+    press(&client, XKB_KEY_Return);
     assert(!app.editor.modified);
-    FILE *file = fopen(path, "rb"); assert(file);
-    char saved[256] = {0}; fread(saved, 1, sizeof(saved) - 1, file); fclose(file);
+    FILE *file = fopen(path, "rb");
+    assert(file);
+    char saved[256] = {0};
+    fread(saved, 1, sizeof(saved) - 1, file);
+    fclose(file);
     assert(!strcmp(saved, text));
     int width = 1200, height = 840;
-    uint32_t *pixels = calloc((size_t)width * height, sizeof(*pixels)); assert(pixels);
+    uint32_t *pixels = calloc((size_t)width * height, sizeof(*pixels));
+    assert(pixels);
     assert(app_paint(&app, pixels, width, height, width));
     if (argc == 2) {
-        FILE *preview = fopen(argv[1], "wb"); assert(preview);
+        FILE *preview = fopen(argv[1], "wb");
+        assert(preview);
         fprintf(preview, "P6\n%d %d\n255\n", width, height);
         for (int i = 0; i < width * height; ++i) {
             unsigned char rgb[] = {pixels[i] >> 16, pixels[i] >> 8, pixels[i]};
@@ -465,7 +501,8 @@ int main(int argc, char **argv)
     }
     /* A complete font unload/reload must preserve the rasterized frame. */
     size_t count = (size_t)width * height;
-    uint32_t *reference = malloc(count * sizeof(*reference)); assert(reference);
+    uint32_t *reference = malloc(count * sizeof(*reference));
+    assert(reference);
     memcpy(reference, pixels, count * sizeof(*reference));
     for (int reload = 0; reload < 4; ++reload) {
         tiny_font_close(app.font);
@@ -477,20 +514,32 @@ int main(int argc, char **argv)
     free(pixels);
     /* Exercise scrolling and clipping after repeated input. */
     press(&client, XKB_KEY_i);
-    for (int i = 0; i < 100; ++i) { press(&client, XKB_KEY_a); press(&client, XKB_KEY_Return); }
-    for (int i = 0; i < 150; ++i) press(&client, XKB_KEY_b);
-    const int dimensions[][2] = {{1200,840},{1,1},{30,20},{800,560}};
-    for (unsigned i = 0; i < sizeof(dimensions)/sizeof(dimensions[0]); ++i) {
-        width = dimensions[i][0]; height = dimensions[i][1];
-        pixels = calloc((size_t)width * height, sizeof(*pixels)); assert(pixels);
-        assert(app_paint(&app,pixels,width,height,width)); free(pixels);
+    for (int i = 0; i < 100; ++i) {
+        press(&client, XKB_KEY_a);
+        press(&client, XKB_KEY_Return);
+    }
+    for (int i = 0; i < 150; ++i)
+        press(&client, XKB_KEY_b);
+    const int dimensions[][2] = {{1200, 840}, {1, 1}, {30, 20}, {800, 560}};
+    for (unsigned i = 0; i < sizeof(dimensions) / sizeof(dimensions[0]); ++i) {
+        width = dimensions[i][0];
+        height = dimensions[i][1];
+        pixels = calloc((size_t)width * height, sizeof(*pixels));
+        assert(pixels);
+        assert(app_paint(&app, pixels, width, height, width));
+        free(pixels);
     }
     assert(app.editor.top > 0 && app.editor.left == 0 && app.editor.viewport_columns > 0);
     press(&client, XKB_KEY_Escape);
-    press(&client, XKB_KEY_colon); press(&client, XKB_KEY_w); press(&client, XKB_KEY_q); press(&client, XKB_KEY_Return);
+    press(&client, XKB_KEY_colon);
+    press(&client, XKB_KEY_w);
+    press(&client, XKB_KEY_q);
+    press(&client, XKB_KEY_Return);
     assert(app.editor.quit && !app.running);
     editor_destroy(&app.editor);
-    xkb_state_unref(client.xkb_state); xkb_keymap_unref(client.xkb_keymap); xkb_context_unref(client.xkb_context);
+    xkb_state_unref(client.xkb_state);
+    xkb_keymap_unref(client.xkb_keymap);
+    xkb_context_unref(client.xkb_context);
     tiny_font_close(app.font);
     unlink(path);
     puts("Keyboard, rendering, scrolling, and save/quit integration passed");

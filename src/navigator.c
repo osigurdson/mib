@@ -1,5 +1,6 @@
-/* The navigator: the page list (Alt+0, :ls). It draws the nine pages and maps clicks back to
- * them; everything else about it lives in this file, so it can be replaced on its own. */
+/* The navigator: the page list (Alt+0, :ls). It draws the nine pages and maps
+ * clicks back to them; everything else about it lives in this file, so it can
+ * be replaced on its own. */
 #include "app.h"
 #include "render-internal.h"
 #include <stdio.h>
@@ -25,11 +26,12 @@ static void fit_text(const char *text, int columns, char *out, size_t size)
         snprintf(out, size, "%.*s", (int)offset, text);
     }
 }
-/* The page list: a menu listing the nine pages top to bottom, each row its number and
- * the page's first H1 (or a dash). The selected row uses the selected menu colors and the
- * page that is showing has a dot at the end of its row. */
-bool navigator_draw(struct app *app, const struct palette *theme, uint32_t *pixels,
-                    int width, int height, int stride, int top, int bottom, int padding)
+/* The page list: a menu listing the nine pages top to bottom, each row its
+ * number and the page's first H1 (or a dash). The selected row uses the
+ * selected menu colors and the page that is showing has a dot at the end of its
+ * row. */
+bool navigator_draw(struct app *app, const struct palette *theme, uint32_t *pixels, int width,
+                    int height, int stride, int top, int bottom, int padding)
 {
     unsigned base = render_font_size(app);
     if (!tiny_font_set_size(app->font, base))
@@ -62,8 +64,8 @@ bool navigator_draw(struct app *app, const struct palette *theme, uint32_t *pixe
         fit_text(heading[0] ? heading : "\xe2\x80\x94", title_columns, title, sizeof(title));
         if (!render_label(app, pixels, width, height, stride, number, x0 + cell, baseline, cell,
                           dim) ||
-            !render_label(app, pixels, width, height, stride, title, x0 + 3 * cell, baseline,
-                          cell, heading[0] ? ink : dim))
+            !render_label(app, pixels, width, height, stride, title, x0 + 3 * cell, baseline, cell,
+                          heading[0] ? ink : dim))
             return false;
         if (page == app->current) /* the page that is showing */
             render_rounded_box(pixels, width, height, stride, x0 + list_w - cell - dot,
@@ -71,7 +73,8 @@ bool navigator_draw(struct app *app, const struct palette *theme, uint32_t *pixe
     }
     return true;
 }
-/* The page whose row is under physical pixel (x, y) in the last paint, or -1. */
+/* The page whose row is under physical pixel (x, y) in the last paint, or -1.
+ */
 int navigator_page_at(const struct app *app, int x, int y)
 {
     if (app->map_height <= 0 || x < app->map_x || x >= app->map_x + app->map_width ||

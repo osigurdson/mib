@@ -73,7 +73,8 @@ static void stop_job(struct media *m)
     m->job = NULL;
 #else
     kill(m->job, SIGTERM);
-    while (waitpid(m->job, NULL, 0) < 0 && errno == EINTR) {}
+    while (waitpid(m->job, NULL, 0) < 0 && errno == EINTR) {
+    }
     m->job = 0;
 #endif
 }
@@ -126,8 +127,8 @@ void media_saved(void *context)
             editor_change_begin(&app->editor);
     }
     if (cleaned || failed)
-        snprintf(app->editor.message, sizeof(app->editor.message),
-                 "Written; %s%s", cleaned ? "image cleanup reset undo/redo" : "",
+        snprintf(app->editor.message, sizeof(app->editor.message), "Written; %s%s",
+                 cleaned ? "image cleanup reset undo/redo" : "",
                  failed ? " (some assets could not be removed)" : "");
 }
 /* Obsidian's size suffix: "alt|300", "alt|300x200" or a bare "300". Returns the width and
@@ -270,8 +271,8 @@ const struct media_entry *media_at(struct app *app, size_t p)
     }
     return NULL;
 }
-void media_display_size(struct app *app, const struct media_entry *e, int available,
-                        int *width, int *height)
+void media_display_size(struct app *app, const struct media_entry *e, int available, int *width,
+                        int *height)
 {
     *width = *height = 0;
     if (e->width < 1 || e->height < 1)
@@ -363,8 +364,9 @@ int media_rows(struct app *app, size_t p, int width, int line_height, int max_ro
     media_display_size(app, e, width, &w, &h);
     /* The renderer keeps one row and 4 pixels of padding around the image. */
     int rows = (h + 4 + line_height - 1) / line_height + 1;
-    int maximum=max_rows>1?max_rows-1:1;
-    if(rows>maximum)rows=maximum;
+    int maximum = max_rows > 1 ? max_rows - 1 : 1;
+    if (rows > maximum)
+        rows = maximum;
     return rows > 1 ? rows : 1;
 }
 bool media_pixels(struct app *app, const struct media_entry *e, struct image *image)
@@ -634,8 +636,8 @@ bool media_paste_image(struct app *app, const unsigned char *data, size_t length
     }
     size_t at = p;
     editor_replace(ed, p, p, markup, strlen(markup));
-    ed->cursor = !visual && ed->mode == INSERT && ed->view == VIEW_NORMAL
-                     ? at + strlen(markup) : at;
+    ed->cursor =
+        !visual && ed->mode == INSERT && ed->view == VIEW_NORMAL ? at + strlen(markup) : at;
     if (visual)
         ed->mode = NORMAL;
     if (own)
@@ -678,8 +680,8 @@ void media_paste_text(struct app *app, const char *text, size_t length)
             continue;
         normal[n++] = text[i] == '\r' ? '\n' : text[i];
     }
-    bool image_line = app->editor.view == VIEW_NORMAL &&
-                      app->editor.mode == NORMAL && media_at(app, app->editor.cursor);
+    bool image_line = app->editor.view == VIEW_NORMAL && app->editor.mode == NORMAL &&
+                      media_at(app, app->editor.cursor);
     if (image_line && normal[n - 1] != '\n')
         normal[n++] = '\n';
     normal[n] = 0;
@@ -1151,9 +1153,8 @@ static void highlight_line(struct app *app, const struct media_entry *e, const c
 void media_highlight(struct app *app, const struct media_entry *e, uint32_t *pixels, int width,
                      int height, int stride, int x, int y, int draw_width, int draw_height)
 {
-    if (app->editor.search_hidden || app->editor.mode == INSERT ||
-        !app->image_hit || !app->editor.search[0] ||
-        app->editor.cursor != e->start || e->width < 1 || e->height < 1)
+    if (app->editor.search_hidden || app->editor.mode == INSERT || !app->image_hit ||
+        !app->editor.search[0] || app->editor.cursor != e->start || e->width < 1 || e->height < 1)
         return;
     size_t bytes;
     char *tsv = sidecar(app, e, ".tsv", &bytes);

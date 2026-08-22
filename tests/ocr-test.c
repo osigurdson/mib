@@ -149,7 +149,10 @@ int main(void)
     nanosleep(&settle, NULL);
     for (unsigned i = 0; i < 3; ++i) {
         char check[2400];
-        snprintf(check, sizeof(check), "%s%s", removed_asset, i == 0 ? "" : i == 1 ? ".txt" : ".tsv");
+        snprintf(check, sizeof(check), "%s%s", removed_asset,
+                 i == 0   ? ""
+                 : i == 1 ? ".txt"
+                          : ".tsv");
         assert(access(check, F_OK) != 0);
     }
     free(removed_asset);
