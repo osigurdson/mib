@@ -196,7 +196,8 @@ Press `:` to open it. Up and Down browse your history.
 
 | Command | Action |
 |---|---|
-| `:w` | Save the current page or file |
+| `:w` | Save the current page or file; refused if it changed on disk since it was read |
+| `:w!`, `:wq!`, `:x!` | Save over a page or file that changed on disk |
 | `:wa` | Save every page with changes |
 | `:q`, `:qa`, `:wq`, `:x` | Close the window (with every page saved) |
 | `:wqa`, `:xa` | Save every page, then close the window |

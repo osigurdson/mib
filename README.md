@@ -104,7 +104,8 @@ pages, and `Alt+0` or `:ls` lists all nine, labeled by their first `# Heading`
 when it is created. A folder from before numbered pages has its `default/` page moved to
 `1/` (and `default/room2/` to `default/room9/` to `2/` to `9/`) the first time it opens.
 Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external changes on focus when
-no local edits are pending. One process owns the notes folder; a second launch requests
+no local edits are pending, and a save is refused if the file changed on disk since it
+was read (`:e!` reloads, `:w!` overwrites). One process owns the notes folder; a second launch requests
 activation of that window. Pages and explicit files both
 protect unsaved changes on quit.
 

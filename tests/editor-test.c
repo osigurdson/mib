@@ -93,6 +93,21 @@ int main(void)
     dos = fopen(path, "rb"); assert(dos);
     char raw[16] = {0}; assert(fread(raw, 1, sizeof(raw), dos) == 7); fclose(dos);
     assert(!memcmp(raw, "Xa\r\nb\r\n", 7));
+    /* Two editors on one file, as two Jot windows: the second save would lose the first. */
+    struct editor a = {0}, b = {0};
+    assert(editor_open(&a, path) && editor_open(&b, path));
+    type(&a, "i"); type(&a, "A"); escape(&a); command(&a, "w"); assert(!a.modified);
+    type(&b, "i"); type(&b, "B"); escape(&b); command(&b, "w");
+    assert(b.modified && strstr(b.message, "Changed on disk"));
+    command(&b, "wq"); assert(!b.quit && b.modified);
+    command(&b, "w!"); assert(!b.modified); /* overwrites, as asked */
+    type(&a, "i"); type(&a, "C"); escape(&a); command(&a, "x");
+    assert(!a.quit && strstr(a.message, "Changed on disk"));
+    command(&a, "e!"); assert(!a.modified && a.text[0] == 'B');
+    type(&a, "i"); type(&a, "C"); escape(&a); command(&a, "x"); assert(a.quit);
+    /* Saving the text the file already holds loses nothing, so it is not a conflict. */
+    type(&b, "i"); type(&b, "C"); escape(&b); command(&b, "wq"); assert(b.quit);
+    editor_destroy(&a); editor_destroy(&b);
     FILE *binary = fopen(path, "wb"); assert(binary);
     assert(fwrite("a\0b", 1, 3, binary) == 3); fclose(binary);
     ed = (struct editor){0}; assert(!editor_open(&ed, path)); editor_destroy(&ed);

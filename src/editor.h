@@ -131,6 +131,9 @@ struct editor {
 bool editor_open(struct editor *ed, const char *filename);
 void editor_destroy(struct editor *ed);
 void editor_input(struct editor *ed, enum editor_key key, const char *text);
+/* Write the text to filename. Saving the open file refuses, with a message, when another
+ * program or Jot window changed it since it was read or saved, unless force is set (:w!). */
+bool editor_write(struct editor *ed, const char *filename, bool force);
 bool editor_save(struct editor *ed, const char *filename);
 bool editor_reload(struct editor *ed);
 void editor_command(struct editor *ed, const char *command);

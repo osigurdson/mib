@@ -121,13 +121,15 @@ void editor_command(struct editor *ed, const char *command)
         while (*argument == ' ')
             ++argument;
     }
-    if (!strcmp(p, "w") || !strcmp(p, "wq") || !strcmp(p, "x")) {
+    if (!strcmp(p, "w") || !strcmp(p, "wq") || !strcmp(p, "x") || !strcmp(p, "w!") ||
+        !strcmp(p, "wq!") || !strcmp(p, "x!")) {
         if (argument && *argument) {
             snprintf(ed->message, sizeof(ed->message), "Save uses the current page or file");
             return;
         }
-        bool leave = strcmp(p, "w") != 0;
-        if ((!strcmp(p, "x") && !ed->modified) || editor_save(ed, ed->filename)) {
+        /* The ! overwrites a file changed on disk since it was read. */
+        bool leave = p[0] != 'w' || p[1] == 'q', force = p[strlen(p) - 1] == '!';
+        if ((p[0] == 'x' && !ed->modified) || editor_write(ed, ed->filename, force)) {
             if (leave)
                 quit(ed);
         }

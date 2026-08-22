@@ -180,9 +180,26 @@ uint32_t editor_codepoint(const char *text, size_t length, size_t *offset)
 
 bool editor_save(struct editor *ed, const char *filename)
 {
+    return editor_write(ed, filename, false);
+}
+bool editor_write(struct editor *ed, const char *filename, bool force)
+{
     if (!filename || !*filename) {
         snprintf(ed->message, sizeof(ed->message), "No filename: open a page or file to save");
         return false;
+    }
+    if (!force && ed->filename && !strcmp(filename, ed->filename)) {
+        /* The file should still hold what was last read or saved (saved_hash). It may also
+         * already match this text, in which case nothing would be lost. */
+        struct editor disk = {0};
+        bool changed = editor_open(&disk, filename) && disk.saved_hash != ed->saved_hash &&
+                       disk.saved_hash != editor_hash(ed);
+        editor_destroy(&disk);
+        if (changed) {
+            snprintf(ed->message, sizeof(ed->message),
+                     "Changed on disk since it was read (:e! to reload, :w! to overwrite)");
+            return false;
+        }
     }
     char *new_name = copy_string(filename);
     if (!new_name) {
