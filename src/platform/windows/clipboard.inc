@@ -191,7 +191,9 @@ static void windows_service(struct app *app, unsigned requests, void *context)
             free(ocr);
         }
         if (!(requests & ED_COPY_OCR)) {
-            if (!text)
+            /* An image is offered only as an image, since apps offered text as well paste
+             * the text; Jot itself uses the fragment. */
+            if (!text && !png && !dib)
                 text = clipboard_text(ed->register_text);
             size_t fragment_length;
             char *bytes = media_fragment(app, &fragment_length);

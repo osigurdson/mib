@@ -194,7 +194,7 @@ static void set_selection(struct wl_client *c, struct wl_resource *device,
     struct test_source *s = wl_resource_get_user_data(source);
     server.reading_png = s->png;
     if (s->png)
-        assert(s->fragment && s->text);
+        assert(s->fragment && !s->text); /* only the image, so other apps paste it */
     server.reader = wl_event_loop_add_fd(wl_display_get_event_loop(server.display), pipes[0],
                                          WL_EVENT_READABLE, source_read, NULL);
     assert(server.reader);

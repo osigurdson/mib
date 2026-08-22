@@ -21,7 +21,8 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
   persisted dimensions/maximized/font/options and one owner per notes folder.
 - Native text/image clipboard, cut/yank/put and visual replacement, PNG/JPEG
   file import, URI/file drops, inline images, image/link opening and image
-  Open/Copy Text context actions. Image copy also offers plain Markdown text.
+  Open/Copy Text context actions. Image copy offers only the image, so other apps
+  paste the picture rather than its Markdown.
 - Mixed text/image copies between pages import new asset files using an
   internal clipboard fragment format. Copying leaves original assets untouched.
 - Conservative Markdown colors/weight with visible syntax, fenced code,

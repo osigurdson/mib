@@ -18,8 +18,8 @@ struct clipboard_source {
     struct clipboard_source *next;
     struct wayland_client *client;
     struct wl_data_source *proxy;
-    char *data, *text, *fragment;
-    size_t length, text_length, fragment_length;
+    char *data, *fragment; /* data is PNG bytes when png, otherwise UTF-8 text */
+    size_t length, fragment_length;
     bool png;
     struct clipboard_send sends[4];
 };
@@ -229,7 +229,6 @@ static void source_free(struct clipboard_source *source)
             close(source->sends[i].fd);
     wl_data_source_destroy(source->proxy);
     free(source->data);
-    free(source->text);
     free(source->fragment);
     free(source);
 }
@@ -256,9 +255,10 @@ static void source_send(void *data, struct wl_data_source *proxy, const char *mi
     } else if (!strcmp(mime, "application/x-tinyvi-fragment")) {
         bytes = source->fragment;
         length = source->fragment_length;
-    } else if (!strcmp(mime, "text/plain;charset=utf-8") || !strcmp(mime, "text/plain")) {
-        bytes = source->png ? source->text : source->data;
-        length = source->png ? source->text_length : source->length;
+    } else if ((!strcmp(mime, "text/plain;charset=utf-8") || !strcmp(mime, "text/plain")) &&
+               !source->png) {
+        bytes = source->data;
+        length = source->length;
     }
     if (!bytes) {
         close(fd);
@@ -353,12 +353,6 @@ static void linux_service(struct app *app, unsigned requests, void *context)
                 s->data = data;
                 s->length = n;
                 s->png = png;
-                if (png && ed->register_text) {
-                    s->text_length = ed->register_length;
-                    s->text = malloc(s->text_length + 1);
-                    if (s->text)
-                        memcpy(s->text, ed->register_text, s->text_length + 1);
-                }
                 if (!(requests & ED_COPY_OCR))
                     s->fragment = media_fragment(app, &s->fragment_length);
                 for (unsigned i = 0; i < 4; ++i)
@@ -367,11 +361,13 @@ static void linux_service(struct app *app, unsigned requests, void *context)
                 s->next = c->sources;
                 c->sources = s;
                 wl_data_source_add_listener(s->proxy, &source_listener, s);
-                wl_data_source_offer(s->proxy, png ? "image/png" : "text/plain;charset=utf-8");
-                if (!png || s->text) {
+                /* An image is offered only as an image: apps that are offered text as well,
+                 * such as browsers, paste the text. Jot itself uses the fragment. */
+                if (png) {
+                    wl_data_source_offer(s->proxy, "image/png");
+                } else {
+                    wl_data_source_offer(s->proxy, "text/plain;charset=utf-8");
                     wl_data_source_offer(s->proxy, "text/plain");
-                    if (png)
-                        wl_data_source_offer(s->proxy, "text/plain;charset=utf-8");
                 }
                 if (s->fragment)
                     wl_data_source_offer(s->proxy, "application/x-tinyvi-fragment");
