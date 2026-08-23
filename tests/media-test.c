@@ -543,14 +543,14 @@ int main(int argc, char **argv)
 {
     char directory[1024];
 #ifdef _WIN32
-    SetEnvironmentVariableA("TINYVI_OCR", "0");
-    _putenv("TINYVI_OCR=0");
+    SetEnvironmentVariableA("JOT_OCR", "0");
+    _putenv("JOT_OCR=0");
     char temp[MAX_PATH];
     assert(GetTempPathA(MAX_PATH, temp));
     snprintf(directory, sizeof(directory), "%sjot-media-%lu-%lu", temp,
              (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount());
 #else
-    setenv("TINYVI_OCR", "0", 1);
+    setenv("JOT_OCR", "0", 1);
     snprintf(directory, sizeof(directory), "/tmp/jot-media-XXXXXX");
     assert(mkdtemp(directory));
 #endif

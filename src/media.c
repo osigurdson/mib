@@ -987,7 +987,7 @@ void media_tick(struct app *app)
                 !app->editor.search_failed && hit && app->editor.match_start == hit->start;
         }
     }
-    const char *enabled = getenv("TINYVI_OCR");
+    const char *enabled = getenv("JOT_OCR");
     if (m->ocr_unavailable || (enabled && !strcmp(enabled, "0")))
         return;
     for (unsigned i = 0; i < m->count; ++i) {

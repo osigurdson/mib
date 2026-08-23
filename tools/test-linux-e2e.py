@@ -58,7 +58,7 @@ def main():
     env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(root/'config'),
                XDG_DATA_HOME=str(root/'data'), XDG_CACHE_HOME=str(root/'cache'),
                XDG_STATE_HOME=str(root/'state'), GSETTINGS_BACKEND='memory',
-               GIO_USE_VFS='local', TINYVI_OCR='0', WAYLAND_DISPLAY='wayland-0')
+               GIO_USE_VFS='local', JOT_OCR='0', WAYLAND_DISPLAY='wayland-0')
     env.pop('DISPLAY', None)
     env.pop('WAYLAND_DEBUG', None)
     context = GLib.MainContext.default()

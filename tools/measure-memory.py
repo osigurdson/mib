@@ -44,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix="jot-memory-") as directory:
             (fixture / "assets").mkdir()
             (fixture / "assets/screenshot.png").write_bytes(screenshot())
         command = [str(args.binary.resolve()), "--page", directory]
-    environment = dict(os.environ, TINYVI_OCR="0")
+    environment = dict(os.environ, JOT_OCR="0")
     for sample in range(args.samples):
         process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=environment)
         try:

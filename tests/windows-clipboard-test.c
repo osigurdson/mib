@@ -70,7 +70,7 @@ static void keys(struct app *app, const char *s)
 }
 int main(void)
 {
-    _putenv("TINYVI_OCR=0");
+    _putenv("JOT_OCR=0");
     char temp[MAX_PATH], directory[1024];
     assert(GetTempPathA(MAX_PATH, temp));
     snprintf(directory, sizeof(directory), "%sjot-private-clipboard-%lu-%lu", temp,

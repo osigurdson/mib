@@ -262,7 +262,7 @@ static void pump_sends(struct wayland_client *c)
 int main(void)
 {
     signal(SIGPIPE, SIG_IGN);
-    setenv("TINYVI_OCR", "0", 1);
+    setenv("JOT_OCR", "0", 1);
     char directory[] = "/tmp/jot-clipboard-XXXXXX";
     assert(mkdtemp(directory));
     char path[1024];

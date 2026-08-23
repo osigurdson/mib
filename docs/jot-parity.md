@@ -28,7 +28,7 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
 - Conservative Markdown colors/weight with visible syntax, fenced code,
   headings/links/lists/quotes/checked items, wrapping, mouse selection and scroll.
 - Optional, sequential Tesseract child jobs producing private `.png.txt` and
-  `.png.tsv` files. Existing sidecars work without Tesseract. `TINYVI_OCR=0`
+  `.png.tsv` files. Existing sidecars work without Tesseract. `JOT_OCR=0`
   disables automatic jobs. No OCR library remains loaded in the editor.
 
 See [the key reference](keys.md). The reference excludes dot repeat, macros,

@@ -180,7 +180,7 @@ pasting text on an image uses a separate text line. `i`/`I` insert above an imag
 image so typing can continue. The source view keeps literal source editing. `gx` or double-click opens an image;
 `Ctrl+click` or `gx` opens a link. `y` copies a selected image; right-click an image to copy it, copy its text or open it.
 Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`
-sidecars used by search/highlighting. `TINYVI_OCR=0` disables automatic OCR.
+sidecars used by search/highlighting. `JOT_OCR=0` disables automatic OCR.
 Deleting an image keeps its file until the note is successfully saved. Saving
 removes tracked images no longer mentioned in the note, along with their OCR
 sidecars. When files are cleaned up, undo/redo history is reset and any local
