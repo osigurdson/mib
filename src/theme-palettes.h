@@ -7,6 +7,7 @@
  * kanagawa: https://github.com/rebelot/kanagawa.nvim/tree/bb85e4bfc8d89b0e62c8fa53ccdd13d12e2f77b3
  * everforest: https://github.com/sainnhe/everforest/tree/85a86eb62409e3ec88713bff3d1b9d7374e112e4
  */
+#include "render-internal.h"
 static const struct palette theme_tokyonight_dark = {
     0xff1a1b26, 0xffc0caf5, 0xff3b4261, 0xff1abc9c, 0xff7aa2f7, 0xff565f89, 0xff565f89,
     0xff2ac3de, 0xff292e42, 0xff3d59a1, 0xff283457, 0xffc0caf5, 0xff16161e, 0xff16161e,

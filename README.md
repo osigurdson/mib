@@ -224,6 +224,8 @@ make test
 # Apply or check the C style in .clang-format (needs clang-format):
 make format
 make format-check
+# Write compile_commands.json so clangd checks Linux and Windows files (Windows needs Zig):
+make compile-commands
 # Optional real-app Linux workflows (Mutter, dbus-run-session, Python PyGObject):
 make test-linux-e2e
 # Optional Vim parity check (the same tools plus Vim):

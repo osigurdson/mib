@@ -1,3 +1,4 @@
 /.build/
 /build*/
 /core
+/compile_commands.json

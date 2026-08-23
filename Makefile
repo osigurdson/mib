@@ -43,7 +43,7 @@ CLANG_FORMAT ?= clang-format
 # Every C file Jot owns; third_party/ keeps its upstream formatting.
 FORMAT_FILES = $(shell git ls-files '*.c' '*.h' '*.inc' ':!third_party')
 
-.PHONY: all format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
+.PHONY: all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
 all: jot
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -192,6 +192,10 @@ $(TOOL_BIN)/font-preview: tools/font-preview.c src/editor.c src/keys.c src/ex.c 
 subset-font: | $(GEN)
 	$(PYTHON) tools/subset-font.py fonts/JetBrainsMonoNerdFontMono-Regular.ttf fonts/editor.tvf
 	$(PYTHON) tools/embed-font.py fonts/editor.tvf $(FONT_DATA)
+
+# compile_commands.json for clangd: Linux files use these flags, Windows files Zig's mingw headers.
+compile-commands: $(FONT_DATA) $(PROTOCOL_HEADERS)
+	$(PYTHON) tools/compile-commands.py -- $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS)
 
 format:
 	$(CLANG_FORMAT) -i $(FORMAT_FILES)
