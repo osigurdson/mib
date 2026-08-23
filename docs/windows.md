@@ -34,7 +34,7 @@ The Makefile wraps configuration, building and Wine launch:
 ```sh
 make windows                         # build .build/windows/jot.exe
 make run-windows                     # build and open the Windows editor
-make run-windows ARGS='--file notes.txt'
+make run-windows ARGS=notes.txt     # open one file
 make test-windows                    # build and run the Wine test suite
 ```
 

@@ -39,12 +39,15 @@ with tempfile.TemporaryDirectory(prefix="jot-memory-") as directory:
         empty.touch()
         command = [str(args.binary.resolve()), str(empty)]
     else:
-        (fixture / "jot.md").write_text("![](assets/screenshot.png)\n" if args.kind == "image" else "")
+        page = fixture / "notes/1"
+        (page / "assets").mkdir(parents=True)
+        (page / "jot.md").write_text("![](assets/screenshot.png)\n" if args.kind == "image" else "")
         if args.kind == "image":
-            (fixture / "assets").mkdir()
-            (fixture / "assets/screenshot.png").write_bytes(screenshot())
-        command = [str(args.binary.resolve()), "--page", directory]
-    environment = dict(os.environ, JOT_OCR="0")
+            (page / "assets/screenshot.png").write_bytes(screenshot())
+        command = [str(args.binary.resolve())]
+    # The notes folder, settings and remembered page all stay in the fixture.
+    environment = dict(os.environ, JOT_OCR="0", JOT_DIR=str(fixture / "notes"),
+                       XDG_CONFIG_HOME=str(fixture / "config"), XDG_STATE_HOME=str(fixture / "state"))
     for sample in range(args.samples):
         process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=environment)
         try:

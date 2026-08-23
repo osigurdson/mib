@@ -23,10 +23,7 @@ static BOOL CALLBACK find_window(HWND window, LPARAM param)
 static struct launched launch(const wchar_t *exe, const wchar_t *file)
 {
     wchar_t command[4096];
-    if (file)
-        swprintf(command, 4096, L"\"%ls\" \"%ls\"", exe, file);
-    else
-        swprintf(command, 4096, L"\"%ls\" --file -", exe);
+    swprintf(command, 4096, L"\"%ls\" \"%ls\"", exe, file);
     STARTUPINFOW startup = {0};
     startup.cb = sizeof(startup);
     struct launched app = {0};

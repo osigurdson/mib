@@ -218,11 +218,14 @@ static void pages(const char *parent)
     type(&app, "ggl");
     assert(app.editor.cursor == 1);
     app_close(&app);
+    /* Jot reopens on the page it closed on. */
     assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
-    assert(app.current == 0 && !strcmp(app.editor.text, "one\ntwo") && app.editor.cursor == 0);
+    assert(app.current == 2 && !strcmp(app.editor.text, "# Groceries #\nmilk") &&
+           app.editor.cursor == 1 && app.follow_cursor);
+    app_input(&app, KEY_PAGE, "1");
+    assert(!strcmp(app.editor.text, "one\ntwo") && app.editor.cursor == 0);
     app_input(&app, KEY_PAGE, "3");
-    assert(!strcmp(app.editor.text, "# Groceries #\nmilk") && app.editor.cursor == 1 &&
-           app.follow_cursor);
+    assert(app.editor.cursor == 1);
     /* A page saved with :w keeps the position it was saved at, even if Jot never closes
      * cleanly; the file holds one line per page. */
     type(&app, "G:w\n");
@@ -260,6 +263,7 @@ static void pages(const char *parent)
     /* :wa saves every page with changes and leaves the shown one as it was; :wqa saves and
      * quits, and :qa is :q. */
     assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    app_input(&app, KEY_PAGE, "1");
     type(&app, "ggOfirst\x1b");
     app_input(&app, KEY_PAGE, "6");
     type(&app, "ggOsixth\x1b");
@@ -330,17 +334,25 @@ static void set_env(const char *name, const char *value)
         unsetenv(name);
 #endif
 }
-/* A page number opens $JOT_DIR at that page; no number opens page 1. */
-static void numbered_start(const char *parent)
+/* Jot opens $JOT_DIR on the page shown when it last closed, page 1 at first. */
+static void last_page(const char *parent)
 {
     char directory[1100];
-    snprintf(directory, sizeof(directory), "%s/numbered", parent);
+    snprintf(directory, sizeof(directory), "%s/remembered", parent);
     set_env("JOT_DIR", directory);
+    char *folder = session_state_directory(), page[1200];
+    snprintf(page, sizeof(page), "%s/page", folder);
+    free(folder);
+    remove_file(page);
     struct app app;
-    assert(app_open(&app, NULL) && session_open(&app, "6") == 1);
+    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
+    assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
+    app_input(&app, KEY_PAGE, "6");
+    assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
+    app_close(&app);
+    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
     assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
     app_input(&app, KEY_PAGE, "1");
-    assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
     app_close(&app);
     assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
     assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
@@ -355,8 +367,9 @@ int main(void)
 #ifdef _WIN32
     char temp[MAX_PATH];
     assert(GetTempPathA(MAX_PATH, temp));
-    snprintf(directory, sizeof(directory), "%sjot-session-%lu", temp,
-             (unsigned long)GetCurrentProcessId());
+    /* Wine reuses process IDs, so the tick count keeps runs apart. */
+    snprintf(directory, sizeof(directory), "%sjot-session-%lu-%lu", temp,
+             (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount());
     snprintf(config, sizeof(config), "%s-config", directory);
     SetEnvironmentVariableA("APPDATA", config);
     char setting[1200];
@@ -573,11 +586,13 @@ int main(void)
     assert(text && strstr(text, "colorscheme = tokyonight\n"));
     free(text);
     pages(directory);
-    numbered_start(directory);
+    last_page(directory);
     remove_notes(other);
     remove_file(settings);
     char *folder = session_state_directory(), positions[1200];
     snprintf(positions, sizeof(positions), "%s/positions", folder);
+    remove_file(positions);
+    snprintf(positions, sizeof(positions), "%s/page", folder);
     remove_file(positions);
     remove_folder(folder);
     remove_folder(state_home);

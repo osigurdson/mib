@@ -158,7 +158,8 @@ Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 ## Pages
 
 The notes folder holds nine pages, `1/` to `9/`, each its own Markdown scratchpad with its
-own `jot.md` and `assets/`. Pages are Jot's buffers, so `:ls` and `:b` work as in Vim.
+own `jot.md` and `assets/`. Pages are Jot's buffers, so `:ls` and `:b` work as in Vim. Jot
+opens on the page shown when it last closed.
 
 | Keys | Action |
 |---|---|

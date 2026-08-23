@@ -37,12 +37,10 @@ compatibility. This port has since added dot repeat, marks with the jump list,
 named/yank/black-hole registers, case operators and `gq`; the rest remain outside
 it. `tests/vim-compare.toml` lists the known differences from Vim.
 
-Explicit files retain manual saves and unsaved-change protection. A filename
-extension selects file mode for compatibility; `--file path` forces file mode,
-`--file -` starts an unnamed buffer and `--page folder` forces a scratch page.
-No argument uses `$JOT_DIR` or `~/Documents/jot` (`~/jot` without Documents), holding
-pages `1/` to `9/`; a page number chooses the first page shown and a path another notes
-folder. Named pages are replaced by the nine numbered ones.
+Explicit files (`jot file`) retain manual saves and unsaved-change protection. No
+argument uses `$JOT_DIR` or `~/Documents/jot` (`~/jot` without Documents), holding
+pages `1/` to `9/`, and shows the page shown when Jot last closed. Named pages are
+replaced by the nine numbered ones.
 
 ## Image deletion and saving
 

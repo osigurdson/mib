@@ -506,8 +506,8 @@ static const char agents[] =
     "- Image names begin with the paste timestamp (YYYYMMDD-HHMMSS).\n\n"
     "Save edits explicitly with :w or Ctrl+S. After an external edit, switch to the window\n"
     "to reload if there are no local edits. Never edit concurrently with unsaved typing.\n";
-/* The notes folder: name is a path, or NULL, "" or a page number for $JOT_DIR, else
- * ~/Documents/jot (~/jot without Documents). */
+/* The notes folder: name is a path, or NULL or "" for $JOT_DIR, else ~/Documents/jot
+ * (~/jot without Documents). */
 static char *resolve(const char *name)
 {
     const char *home = getenv(
@@ -520,7 +520,7 @@ static char *resolve(const char *name)
     if (!home)
         home = ".";
     char *path;
-    if (!name || !*name || session_page_number(name)) {
+    if (!name || !*name) {
         const char *env = getenv("JOT_DIR");
         name = env && *env ? env : NULL;
     }
@@ -549,9 +549,34 @@ static char *resolve(const char *name)
 #endif
     return path;
 }
-unsigned session_page_number(const char *name)
+/* The state file holding the number of the page shown when Jot last closed. */
+static char *page_file(void)
 {
-    return name && name[0] >= '1' && name[0] <= '9' && !name[1] ? (unsigned)(name[0] - '0') : 0;
+    char *folder = session_state_directory();
+    char *path = folder ? join(folder, "page") : NULL;
+    free(folder);
+    return path;
+}
+static unsigned last_page(void)
+{
+    char *file = page_file();
+    size_t n;
+    char *text = file ? session_read(file, 16, &n) : NULL;
+    unsigned page = text && text[0] >= '1' && text[0] <= '9' ? (unsigned)(text[0] - '1') : 0;
+    free(text);
+    free(file);
+    return page < PAGE_COUNT ? page : 0;
+}
+static void save_page(const struct app *app)
+{
+    if (!app->root)
+        return;
+    char *file = page_file(), *folder = session_state_directory(), text[4], error[128];
+    snprintf(text, sizeof(text), "%u\n", app->current + 1);
+    if (file && folder && session_mkdir(folder))
+        platform_file_write_atomic(file, text, strlen(text), error, sizeof(error));
+    free(file);
+    free(folder);
 }
 static bool private_folder(const char *path)
 {
@@ -565,7 +590,6 @@ static bool private_folder(const char *path)
 }
 int session_open(struct app *app, const char *name)
 {
-    unsigned start = session_page_number(name);
     app->directory = resolve(name);
     if (!app->directory || !private_folder(app->directory))
         goto failed;
@@ -598,8 +622,8 @@ int session_open(struct app *app, const char *name)
         if (!ok)
             goto failed;
     }
-    /* Show the chosen page, page 1 by default. */
-    app->current = start ? start - 1 : 0;
+    /* Show the page shown when Jot last closed, page 1 at first. */
+    app->current = last_page();
     char number[4];
     snprintf(number, sizeof(number), "%u", app->current + 1);
     char *folder = session_path(app, number);
@@ -661,6 +685,7 @@ void session_close(struct app *app)
 {
     save_settings(app);
     session_save_positions(app);
+    save_page(app);
     free(app->directory);
     app->directory = NULL;
     free(app->root);

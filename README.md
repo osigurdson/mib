@@ -40,14 +40,10 @@ the Wayland server development package; Tesseract tests are optional. Normal bui
 
 ```sh
 make
-./.build/linux/jot notes.txt
-# Open the notes folder at page 1, or at page 3:
+# Open the notes folder, on the page shown when Jot last closed:
 ./.build/linux/jot
-./.build/linux/jot 3
-# Use another folder for the nine pages:
-./.build/linux/jot --page ./scratch
-# Or start an unnamed, manually saved buffer:
-./.build/linux/jot --file -
+# Or edit one file:
+./.build/linux/jot notes.txt
 ```
 
 Make outputs stay under `.build/`: the Linux editor is
@@ -93,12 +89,11 @@ as Hyprland keep control of rounding when server-side decorations are selected.
 Rounding uses the existing four-byte pixel buffer, with no extra retained cache
 or client-drawn shadow.
 
-Run inside a Wayland session. File-looking arguments (a name with an extension)
-open explicit files; missing files start empty. `--file path` forces that mode.
-Otherwise Jot opens its notes folder: `$JOT_DIR`, or `~/Documents/jot` (`~/jot`
+Run inside a Wayland session. `jot file` opens that one file; a missing file starts
+empty. Plain `jot` opens its notes folder: `$JOT_DIR`, or `~/Documents/jot` (`~/jot`
 without Documents). The folder holds nine pages, `1/` to `9/`, each with its own
-`jot.md` and private `assets/`. `jot` shows page 1 and `jot 3` shows page 3; a path
-(or `--page folder`) uses that folder instead. `Alt+1` to `Alt+9` in normal mode switch
+`jot.md` and private `assets/`. Jot opens on the page shown when it last closed (page 1
+at first), kept in `~/.local/state/jot/page`. `Alt+1` to `Alt+9` in normal mode switch
 pages, and `Alt+0` or `:ls` lists all nine, labeled by their first `# Heading`
 (see [Pages](docs/keys.md#pages)). Agent instructions are written to the notes folder
 when it is created.
@@ -130,7 +125,7 @@ limitations](docs/windows.md).
 
 From Linux, use `make windows` to cross-build, `make run-windows` to build and
 launch through Wine, or `make test-windows` to run the Windows tests. Pass editor
-arguments with, for example, `make run-windows ARGS='--file notes.txt'`.
+arguments with, for example, `make run-windows ARGS=notes.txt`.
 
 See [platform contracts, build commands, and platform implementation details](docs/platforms.md).
 CMake selects the target backend without introducing Linux dependencies into a

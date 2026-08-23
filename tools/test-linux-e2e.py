@@ -187,7 +187,7 @@ def main():
                 log.close()
             log = log_path.open('w')
             app_env = dict(env, WAYLAND_DEBUG='client')
-            app = subprocess.Popen([str(args.binary.resolve()), '--file', str(note)],
+            app = subprocess.Popen([str(args.binary.resolve()), str(note)],
                                    env=app_env, stdout=log, stderr=log)
             def focused():
                 assert app.poll() is None, 'Jot exited early: ' + str(log_path)

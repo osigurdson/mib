@@ -88,6 +88,7 @@ static void close_test(const char *root, const unsigned char *png, size_t bytes)
     snprintf(directory, sizeof(directory), "%s/close", root);
     struct app app;
     assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_page_switch(&app, 0));            /* the previous test closed on page 2 */
     assert(media_paste_image(&app, png, bytes)); /* page 1, never saved */
     char *unsaved = media_target(&app), sidecar[1400];
     assert(unsaved);
@@ -549,6 +550,15 @@ int main(int argc, char **argv)
     assert(GetTempPathA(MAX_PATH, temp));
     snprintf(directory, sizeof(directory), "%sjot-media-%lu-%lu", temp,
              (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount());
+    /* Keep settings, positions and the remembered page out of the Wine profile, as make
+     * test does with XDG_CONFIG_HOME and XDG_STATE_HOME on Linux. */
+    char setting[1200];
+    snprintf(setting, sizeof(setting), "APPDATA=%s-config", directory);
+    _putenv(setting);
+    SetEnvironmentVariableA("APPDATA", setting + strlen("APPDATA="));
+    snprintf(setting, sizeof(setting), "LOCALAPPDATA=%s-state", directory);
+    _putenv(setting);
+    SetEnvironmentVariableA("LOCALAPPDATA", setting + strlen("LOCALAPPDATA="));
 #else
     setenv("JOT_OCR", "0", 1);
     snprintf(directory, sizeof(directory), "/tmp/jot-media-XXXXXX");

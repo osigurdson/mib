@@ -219,7 +219,7 @@ def main():
             log_path = folder / 'client.log'
             error = None
             with log_path.open('w') as log:
-                app = subprocess.Popen([str(args.binary.resolve()), '--file', str(note)],
+                app = subprocess.Popen([str(args.binary.resolve()), str(note)],
                                        env=dict(env, WAYLAND_DEBUG='client'), stdout=log, stderr=log)
                 try:
                     def focused():
