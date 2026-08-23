@@ -1,4 +1,4 @@
-# Tiny Vi Font (TVF1)
+# Jot font format (TVF1)
 
 TVF1 is a deliberately restricted, little-endian outline subset. The 19,164-byte
 bundled file contains 134 glyphs from one static JetBrains Mono Nerd Font Mono
