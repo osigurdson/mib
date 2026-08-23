@@ -389,7 +389,7 @@ int main(void)
 #ifdef _WIN32
     char temp[MAX_PATH];
     assert(GetTempPathA(MAX_PATH, temp));
-    snprintf(directory, sizeof(directory), "%stinyvi-session-%lu", temp,
+    snprintf(directory, sizeof(directory), "%sjot-session-%lu", temp,
              (unsigned long)GetCurrentProcessId());
     snprintf(config, sizeof(config), "%s-config", directory);
     SetEnvironmentVariableA("APPDATA", config);
@@ -401,7 +401,7 @@ int main(void)
     snprintf(setting, sizeof(setting), "LOCALAPPDATA=%s", state_home);
     _putenv(setting);
 #else
-    snprintf(directory, sizeof(directory), "/tmp/tinyvi-session-XXXXXX");
+    snprintf(directory, sizeof(directory), "/tmp/jot-session-XXXXXX");
     assert(mkdtemp(directory));
     snprintf(config, sizeof(config), "%s-config", directory);
     setenv("XDG_CONFIG_HOME", config, 1);

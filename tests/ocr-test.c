@@ -12,7 +12,7 @@
 int main(void)
 {
     unsetenv("TINYVI_OCR");
-    char directory[] = "/tmp/tinyvi-ocr-XXXXXX";
+    char directory[] = "/tmp/jot-ocr-XXXXXX";
     assert(mkdtemp(directory));
     struct app app;
     assert(app_open(&app, NULL));

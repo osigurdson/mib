@@ -74,7 +74,7 @@ int main(void)
     assert(GetModuleFileNameW(NULL, exe, 2048));
     wcscpy(wcsrchr(exe, L'\\') + 1, L"jot.exe");
     assert(GetTempPathW(MAX_PATH, temp));
-    swprintf(root, 1024, L"%lstinyvi-e2e-%lu-%lu", temp, (unsigned long)GetCurrentProcessId(),
+    swprintf(root, 1024, L"%lsjot-e2e-%lu-%lu", temp, (unsigned long)GetCurrentProcessId(),
              (unsigned long)GetTickCount());
     assert(CreateDirectoryW(root, NULL));
     swprintf(path, 2048, L"%ls\\caf\u00e9 \u6587\u4ef6 \U0001f4dd.txt", root);

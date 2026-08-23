@@ -263,7 +263,7 @@ int main(void)
 {
     signal(SIGPIPE, SIG_IGN);
     setenv("TINYVI_OCR", "0", 1);
-    char directory[] = "/tmp/tinyvi-clipboard-XXXXXX";
+    char directory[] = "/tmp/jot-clipboard-XXXXXX";
     assert(mkdtemp(directory));
     char path[1024];
     snprintf(path, sizeof(path), "%s/input.png", directory);

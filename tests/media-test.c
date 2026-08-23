@@ -547,11 +547,11 @@ int main(int argc, char **argv)
     _putenv("TINYVI_OCR=0");
     char temp[MAX_PATH];
     assert(GetTempPathA(MAX_PATH, temp));
-    snprintf(directory, sizeof(directory), "%stinyvi-media-%lu-%lu", temp,
+    snprintf(directory, sizeof(directory), "%sjot-media-%lu-%lu", temp,
              (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount());
 #else
     setenv("TINYVI_OCR", "0", 1);
-    snprintf(directory, sizeof(directory), "/tmp/tinyvi-media-XXXXXX");
+    snprintf(directory, sizeof(directory), "/tmp/jot-media-XXXXXX");
     assert(mkdtemp(directory));
 #endif
     unsigned char rgba[320 * 180 * 4];

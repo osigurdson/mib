@@ -73,7 +73,7 @@ int main(void)
     _putenv("TINYVI_OCR=0");
     char temp[MAX_PATH], directory[1024];
     assert(GetTempPathA(MAX_PATH, temp));
-    snprintf(directory, sizeof(directory), "%stinyvi-private-clipboard-%lu-%lu", temp,
+    snprintf(directory, sizeof(directory), "%sjot-private-clipboard-%lu-%lu", temp,
              (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount());
     assert(session_mkdir(directory));
     struct app app;

@@ -1,5 +1,5 @@
-#ifndef TINYVI_WIN32_H
-#define TINYVI_WIN32_H
+#ifndef JOT_WIN32_H
+#define JOT_WIN32_H
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
 #endif

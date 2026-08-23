@@ -132,7 +132,7 @@ bool platform_file_write_atomic(const char *path, const char *data, size_t lengt
     wmemcpy(temporary, target, directory_length);
     static volatile LONG sequence;
     for (int attempt = 0; attempt < 32; ++attempt) {
-        swprintf(temporary + directory_length, 64, L".tiny-vi-%08lx-%08lx.tmp",
+        swprintf(temporary + directory_length, 64, L".jot-%08lx-%08lx.tmp",
                  (unsigned long)GetCurrentProcessId(),
                  (unsigned long)InterlockedIncrement(&sequence));
         output =

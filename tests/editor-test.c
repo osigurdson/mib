@@ -18,7 +18,7 @@ static void command(struct editor *ed, const char *text)
 
 int main(void)
 {
-    char directory[] = "/tmp/tiny-vi-test-XXXXXX";
+    char directory[] = "/tmp/jot-test-XXXXXX";
     assert(mkdtemp(directory));
     char path[512], alias[512];
     snprintf(path, sizeof(path), "%s/file.txt", directory);
@@ -70,7 +70,7 @@ int main(void)
     editor_input(&ed, KEY_DELETE, "");
     assert(!strcmp(ed.text, "helloorld"));
     escape(&ed);
-    command(&ed, "wq /does-not-exist/tiny-vi.txt");
+    command(&ed, "wq /does-not-exist/jot.txt");
     assert(!ed.quit && ed.modified && strstr(ed.message, "current page or file"));
     command(&ed, "wq");
     assert(ed.quit && !ed.modified);
