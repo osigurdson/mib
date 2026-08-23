@@ -204,8 +204,7 @@ static void windows_service(struct app *app, unsigned requests, void *context)
         }
         if ((text || png || dib || fragment) && OpenClipboard(window->handle)) {
             EmptyClipboard();
-            if (fragment &&
-                SetClipboardData(RegisterClipboardFormatW(L"TinyVi.Fragment"), fragment))
+            if (fragment && SetClipboardData(RegisterClipboardFormatW(L"Jot.Fragment"), fragment))
                 fragment = NULL;
             if (text && SetClipboardData(CF_UNICODETEXT, text))
                 text = NULL;
@@ -238,8 +237,7 @@ static void windows_service(struct app *app, unsigned requests, void *context)
             }
             if (!pasted && (handle = GetClipboardData(CF_DIB)))
                 pasted = paste_dib(app, handle);
-            if (!pasted &&
-                (handle = GetClipboardData(RegisterClipboardFormatW(L"TinyVi.Fragment")))) {
+            if (!pasted && (handle = GetClipboardData(RegisterClipboardFormatW(L"Jot.Fragment")))) {
                 SIZE_T length = GlobalSize(handle);
                 const unsigned char *bytes = GlobalLock(handle);
                 if (bytes && length <= 32 * 1024 * 1024)

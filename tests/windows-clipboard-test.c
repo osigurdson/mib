@@ -133,7 +133,7 @@ int main(void)
     app.editor.cursor = 0;
     keys(&app, "VGy");
     assert(private_open(NULL));
-    assert(private_get(RegisterClipboardFormatW(L"TinyVi.Fragment")) && !private_get(png_format));
+    assert(private_get(RegisterClipboardFormatW(L"Jot.Fragment")) && !private_get(png_format));
     private_close();
     blank(&app);
     keys(&app, "p");

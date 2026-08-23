@@ -34,7 +34,7 @@ static const char *offer_mime(struct clipboard_offer *offer)
 {
     return !offer            ? NULL
            : offer->png      ? "image/png"
-           : offer->fragment ? "application/x-tinyvi-fragment"
+           : offer->fragment ? "application/x-jot-fragment"
            : offer->uris     ? "text/uri-list"
            : offer->text     ? "text/plain;charset=utf-8"
            : offer->plain    ? "text/plain"
@@ -46,7 +46,7 @@ static void offer_type(void *data, struct wl_data_offer *proxy, const char *mime
     struct clipboard_offer *offer = data;
     if (!strcmp(mime, "image/png"))
         offer->png = true;
-    if (!strcmp(mime, "application/x-tinyvi-fragment"))
+    if (!strcmp(mime, "application/x-jot-fragment"))
         offer->fragment = true;
     if (!strcmp(mime, "text/uri-list"))
         offer->uris = true;
@@ -252,7 +252,7 @@ static void source_send(void *data, struct wl_data_source *proxy, const char *mi
     if (!strcmp(mime, "image/png") && source->png) {
         bytes = source->data;
         length = source->length;
-    } else if (!strcmp(mime, "application/x-tinyvi-fragment")) {
+    } else if (!strcmp(mime, "application/x-jot-fragment")) {
         bytes = source->fragment;
         length = source->fragment_length;
     } else if ((!strcmp(mime, "text/plain;charset=utf-8") || !strcmp(mime, "text/plain")) &&
@@ -370,7 +370,7 @@ static void linux_service(struct app *app, unsigned requests, void *context)
                     wl_data_source_offer(s->proxy, "text/plain");
                 }
                 if (s->fragment)
-                    wl_data_source_offer(s->proxy, "application/x-tinyvi-fragment");
+                    wl_data_source_offer(s->proxy, "application/x-jot-fragment");
                 wl_data_device_set_selection(c->data_device, s->proxy, c->serial);
                 data = NULL;
             }

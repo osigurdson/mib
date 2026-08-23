@@ -735,7 +735,7 @@ char *media_fragment(struct app *app, size_t *length)
     size_t total = 16 + n + ed->register_length;
     unsigned char *bytes = malloc(total);
     if (bytes) {
-        memcpy(bytes, "TVFRAG1", 8);
+        memcpy(bytes, "JOTFRG1", 8);
         fragment_write_u32(bytes + 8, (uint32_t)n);
         fragment_write_u32(bytes + 12, (uint32_t)ed->register_length);
         memcpy(bytes + 16, directory, n);
@@ -751,7 +751,7 @@ bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t le
         app->dirty = true;
         return false;
     }
-    if (length < 16 || memcmp(bytes, "TVFRAG1", 8))
+    if (length < 16 || memcmp(bytes, "JOTFRG1", 8))
         return false;
     size_t directory_length = fragment_u32(bytes + 8), text_length = fragment_u32(bytes + 12);
     if (!directory_length || directory_length > 65535 || text_length > 16 * 1024 * 1024 ||

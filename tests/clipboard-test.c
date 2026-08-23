@@ -34,7 +34,7 @@ static void offered(struct wl_client *c, struct wl_resource *r, const char *mime
     struct test_source *s = wl_resource_get_user_data(r);
     if (!strcmp(mime, "image/png"))
         s->png = true;
-    if (!strcmp(mime, "application/x-tinyvi-fragment"))
+    if (!strcmp(mime, "application/x-jot-fragment"))
         s->fragment = true;
     if (!strcmp(mime, "text/plain;charset=utf-8"))
         s->text = true;
