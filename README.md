@@ -101,8 +101,7 @@ without Documents). The folder holds nine pages, `1/` to `9/`, each with its own
 (or `--page folder`) uses that folder instead. `Alt+1` to `Alt+9` in normal mode switch
 pages, and `Alt+0` or `:ls` lists all nine, labeled by their first `# Heading`
 (see [Pages](docs/keys.md#pages)). Agent instructions are written to the notes folder
-when it is created. A folder from before numbered pages has its `default/` page moved to
-`1/` (and `default/room2/` to `default/room9/` to `2/` to `9/`) the first time it opens.
+when it is created.
 Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external changes on focus when
 no local edits are pending, and a save is refused if the file changed on disk since it
 was read (`:e!` reloads, `:w!` overwrites), so several Jot windows can share the notes

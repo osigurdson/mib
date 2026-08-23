@@ -765,7 +765,7 @@ int main(int argc, char **argv)
     free(other_assets);
     free(other_directory);
     app_close(&app);
-    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md", ".tinyvi.lock", name, NULL};
+    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md", name, NULL};
     for (unsigned i = 0; files[i]; ++i) {
         snprintf(relative, sizeof(relative), "%s%s", files[i] == name ? "1/" : "", files[i]);
         char full[1400];

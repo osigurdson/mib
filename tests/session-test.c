@@ -52,8 +52,8 @@ static void remove_notes(const char *root)
         remove_file(path);
     }
     for (unsigned page = 1; page <= 9; ++page) {
-        const char *inside[] = {"/jot.md", "/.tinyvi-state", "/assets", ""};
-        for (unsigned i = 0; i < 4; ++i) {
+        const char *inside[] = {"/jot.md", "/assets", ""};
+        for (unsigned i = 0; i < 3; ++i) {
             snprintf(path, sizeof(path), "%s/%u%s", root, page, inside[i]);
             remove_file(path);
             remove_folder(path);
@@ -349,40 +349,6 @@ static void numbered_start(const char *parent)
     assert(exists(directory, "6/jot.md") && exists(directory, "AGENTS.md"));
     remove_notes(directory);
 }
-/* The old default/ page becomes page 1 and its rooms pages 2 to 9, keeping every file. */
-static void old_layout(const char *parent)
-{
-    char directory[1100];
-    snprintf(directory, sizeof(directory), "%s/old", parent);
-    write_file(directory, "default/jot.md", "# Mine\nkeep this\n");
-    write_file(directory, "default/assets/shot.png", "png");
-    write_file(directory, "default/AGENTS.md", "old notes");
-    write_file(directory, "default/room2/jot.md", "# Other stuff\n");
-    struct app app;
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
-    assert(!strcmp(app.editor.text, "# Mine\nkeep this\n") && !app.editor.modified);
-    assert(exists(directory, "1/assets/shot.png") && exists(directory, "1/AGENTS.md"));
-    assert(!exists(directory, "default/jot.md"));
-    app_input(&app, KEY_PAGE, "2");
-    assert(!strcmp(app.editor.text, "# Other stuff\n"));
-    app_close(&app);
-    /* Once 1/ exists, a default/ folder is left alone. */
-    write_file(directory, "default/jot.md", "later");
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
-    assert(!strcmp(app.editor.text, "# Mine\nkeep this\n"));
-    app_close(&app);
-    char path[1300];
-    const char *extra[] = {"default/jot.md", "1/assets/shot.png", "1/AGENTS.md"};
-    for (unsigned i = 0; i < 3; ++i) {
-        snprintf(path, sizeof(path), "%s/%s", directory, extra[i]);
-        remove_file(path);
-    }
-    snprintf(path, sizeof(path), "%s/default", directory);
-    remove_folder(path);
-    remove_notes(directory);
-    snprintf(path, sizeof(path), "%s/1", directory);
-    assert(!exists(path, "jot.md"));
-}
 int main(void)
 {
     char directory[1024], config[1100], state_home[1100];
@@ -479,31 +445,15 @@ int main(void)
     assert(text && strstr(text, "font_size = 23\n") && strstr(text, "width = 900\n") &&
            strstr(text, "maximized = true\n"));
     free(text);
-    char first_page[1100];
-    snprintf(first_page, sizeof(first_page), "%s/1", directory);
-    char *state = session_path(&(struct app){.directory = first_page}, ".tinyvi-state");
-    assert(state && !session_read(state, 256, &n));
-    assert(app_open(&app, NULL));
-    assert(session_open(&app, directory) == 1);
-    assert(app.font_size == 23 && app.width == 900 && app.height == 600 && app.maximized);
-    app_close(&app);
-    /* Without a config file, a page's old settings seed it once. A legacy preference
-     * disabling line numbers must no longer hide the gutter. */
-    remove_file(settings);
-    const char *legacy = "900 600 23 0 1 1\n";
     char error[128];
-    assert(platform_file_write_atomic(state, legacy, strlen(legacy), error, sizeof(error)));
     assert(app_open(&app, NULL));
     assert(session_open(&app, directory) == 1);
-    text = session_read(settings, 4096, &n);
-    assert(text && strstr(text, "view = normal\n"));
-    free(text);
     uint32_t pixels[320 * 200];
     assert(app_paint(&app, pixels, 320, 200, 320));
     assert(app.gutter == 6 * app.cell);
     assert(app.font_size == 23 && app.width == 900 && app.height == 600 && app.maximized);
     assert(!strcmp(app.editor.text, "another\n")); /* close did not save local edits */
-    assert(!app.editor.light && app.editor.colorscheme == COLOR_JOT); /* legacy preferences */
+    assert(!app.editor.light && app.editor.colorscheme == COLOR_JOT);
     editor_command(&app.editor, "set background=light");
     assert(app.editor.light && !app.editor.modified);
     app_close(&app);
@@ -570,27 +520,19 @@ int main(void)
     /* Removed palettes do not get reinterpreted as a different enum value. */
     const char *retired[] = {"default", "desert", "evening", "peachpuff"};
     for (unsigned i = 0; i < sizeof(retired) / sizeof(retired[0]); ++i) {
-        char legacy_state[128];
-        snprintf(legacy_state, sizeof(legacy_state), "800 600 18 1 1 0 1 %s\n", retired[i]);
-        remove_file(settings);
-        assert(platform_file_write_atomic(state, legacy_state, strlen(legacy_state), error,
-                                          sizeof(error)));
-        assert(app_open(&app, NULL));
-        assert(session_open(&app, directory) == 1);
-        assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
-        app_close(&app);
-        snprintf(legacy_state, sizeof(legacy_state), "colorscheme = %s\nbackground = light\n",
-                 retired[i]);
-        assert(platform_file_write_atomic(settings, legacy_state, strlen(legacy_state), error,
-                                          sizeof(error)));
+        char retired_settings[128];
+        snprintf(retired_settings, sizeof(retired_settings),
+                 "colorscheme = %s\nbackground = light\n", retired[i]);
+        assert(platform_file_write_atomic(settings, retired_settings, strlen(retired_settings),
+                                          error, sizeof(error)));
         assert(app_open(&app, NULL));
         assert(session_open(&app, directory) == 1);
         assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
         app_close(&app);
     }
 
-    /* Every page shares one set of settings, and the old page file is no longer read.
-     * render = polish is the old spelling of view = reading. */
+    /* Every page shares one set of settings. render = polish is the old spelling of view = reading.
+     */
     const char *shared = "# mine\ncolorscheme = kanagawa\nbackground = dark\nrender = polish\n"
                          "font_size = 20\nwidth = 1000\nheight = 700\nmaximized = false\n"
                          "bogus = 1\nwidth = tiny\n";
@@ -632,7 +574,6 @@ int main(void)
     free(text);
     pages(directory);
     numbered_start(directory);
-    old_layout(directory);
     remove_notes(other);
     remove_file(settings);
     char *folder = session_state_directory(), positions[1200];
@@ -646,7 +587,6 @@ int main(void)
     remove_folder(config);
     free(folder);
     free(settings);
-    free(state);
     free(page);
     free(agents);
     /* Remove only the known files in this unique test directory. */

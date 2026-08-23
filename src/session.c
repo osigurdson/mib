@@ -15,7 +15,6 @@
 #include <direct.h>
 #else
 #include <fcntl.h>
-#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -264,29 +263,6 @@ static void parse_settings(const char *text, struct app_settings *s)
             s->maximized = yes;
     }
 }
-/* The old per-page format: "width height font numbers render maximized light scheme". */
-static bool parse_legacy(const char *text, struct app_settings *s)
-{
-    unsigned w, h, font, numbers, render, maximized = 0, light = 0;
-    char scheme[32] = "jot";
-    if (sscanf(text, "%u %u %u %u %u %u %u %31s", &w, &h, &font, &numbers, &render, &maximized,
-               &light, scheme) < 5)
-        return false;
-    if (w >= 200 && w <= 10000)
-        s->width = (int)w;
-    if (h >= 100 && h <= 10000)
-        s->height = (int)h;
-    if (font >= 8 && font <= 48)
-        s->font_size = font;
-    s->view = render < VIEW_COUNT ? (enum view_mode)render : VIEW_NORMAL;
-    s->colorscheme = COLOR_JOT;
-    for (unsigned i = 0; i < COLOR_COUNT; ++i)
-        if (!strcmp(scheme, editor_colorscheme_name((enum color_scheme)i)))
-            s->colorscheme = (enum color_scheme)i;
-    s->light = light != 0;
-    s->maximized = maximized != 0;
-    return true;
-}
 char *session_config_directory(void)
 {
 #ifdef _WIN32
@@ -351,15 +327,6 @@ void session_load_settings(struct app *app)
     char *text = read_settings();
     if (text)
         parse_settings(text, &s);
-    else if (app->directory) {
-        char *legacy = session_path(app, ".tinyvi-state");
-        size_t n;
-        char *old = legacy ? session_read(legacy, 256, &n) : NULL;
-        if (old && parse_legacy(old, &s))
-            write_settings(&s);
-        free(old);
-        free(legacy);
-    }
     free(text);
     apply_settings(app, &s);
     app->settings = s;
@@ -586,63 +553,6 @@ unsigned session_page_number(const char *name)
 {
     return name && name[0] >= '1' && name[0] <= '9' && !name[1] ? (unsigned)(name[0] - '0') : 0;
 }
-static bool rename_path(const char *from, const char *to)
-{
-#ifdef _WIN32
-    wchar_t *a = windows_path(from), *b = windows_path(to);
-    bool ok = a && b && MoveFileW(a, b);
-    free(a);
-    free(b);
-    return ok;
-#else
-    return rename(from, to) == 0;
-#endif
-}
-/* Before numbered pages, the notes folder held named pages, opened as default/ unless
- * another was chosen, and rooms 2 to 9 were default/room2/ to default/room9/. Move
- * default/ to 1/ and its rooms to 2/ to 9/, keeping every file. Returns false, with a
- * message, when something could not be moved. */
-static bool migrate(struct app *app)
-{
-    char *one = session_path(app, "1"), *old = session_path(app, "default");
-    bool ok = one && old;
-    if (ok && !directory(one) && directory(old)) {
-#ifndef _WIN32
-        /* An older Jot that still has default/ open would lose its saves. */
-        char *lock = join(old, ".tinyvi.lock");
-        int fd = lock ? open(lock, O_RDWR | O_CLOEXEC) : -1;
-        free(lock);
-        if (fd >= 0 && flock(fd, LOCK_EX | LOCK_NB) != 0) {
-            snprintf(app->editor.message, sizeof(app->editor.message),
-                     "Close the Jot window showing %.180s, then open Jot again", old);
-            ok = false;
-        }
-        if (fd >= 0)
-            close(fd);
-#endif
-        if (ok && !rename_path(old, one)) {
-            snprintf(app->editor.message, sizeof(app->editor.message),
-                     "Could not move %.100s to %.100s: %s", old, one, strerror(errno));
-            ok = false;
-        }
-        for (unsigned n = 2; ok && n <= 9; ++n) {
-            char from[32], to[4];
-            snprintf(from, sizeof(from), "1/room%u", n);
-            snprintf(to, sizeof(to), "%u", n);
-            char *a = session_path(app, from), *b = session_path(app, to);
-            if (a && b && directory(a) && !directory(b) && !rename_path(a, b)) {
-                snprintf(app->editor.message, sizeof(app->editor.message),
-                         "Could not move %.100s to %.100s", a, b);
-                ok = false;
-            }
-            free(a);
-            free(b);
-        }
-    }
-    free(one);
-    free(old);
-    return ok;
-}
 static bool private_folder(const char *path)
 {
     if (!session_mkdir(path))
@@ -670,16 +580,9 @@ int session_open(struct app *app, const char *name)
     if (!app->root)
         goto failed;
     strcpy(app->root, app->directory);
-    /* Jot once allowed one window per notes folder and held this lock to enforce it. */
-    char *lock = session_path(app, ".tinyvi.lock");
-    if (lock)
-        platform_file_remove(lock);
-    free(lock);
     char *first = session_path(app, "1");
     bool fresh = first && !directory(first);
     free(first);
-    if (!migrate(app))
-        return -1;
     if (fresh) {
         char *a = session_path(app, "AGENTS.md"), *c = session_path(app, "CLAUDE.md");
         bool ok = a && c && session_write_new(a, agents, sizeof(agents) - 1);
