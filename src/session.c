@@ -267,30 +267,36 @@ static void parse_settings(const char *text, struct app_settings *s)
             s->maximized = yes;
     }
 }
+/* folder/name for a variable naming an absolute folder, or NULL. */
+static char *from_variable(const char *variable, const char *name)
+{
+    char *base = platform_getenv(variable);
+#ifndef _WIN32
+    if (base && base[0] != '/') { /* XDG folders must be absolute */
+        free(base);
+        base = NULL;
+    }
+#endif
+    char *path = base ? join(base, name) : NULL;
+    free(base);
+    return path;
+}
 char *session_config_directory(void)
 {
 #ifdef _WIN32
-    const char *base = getenv("APPDATA");
-    return base && *base ? join(base, "jot") : NULL;
+    return from_variable("APPDATA", "jot");
 #else
-    const char *base = getenv("XDG_CONFIG_HOME");
-    if (base && base[0] == '/')
-        return join(base, "jot");
-    base = getenv("HOME");
-    return base && *base ? join(base, ".config/jot") : NULL;
+    char *path = from_variable("XDG_CONFIG_HOME", "jot");
+    return path ? path : from_variable("HOME", ".config/jot");
 #endif
 }
 char *session_state_directory(void)
 {
 #ifdef _WIN32
-    const char *base = getenv("LOCALAPPDATA");
-    return base && *base ? join(base, "jot") : NULL;
+    return from_variable("LOCALAPPDATA", "jot");
 #else
-    const char *base = getenv("XDG_STATE_HOME");
-    if (base && base[0] == '/')
-        return join(base, "jot");
-    base = getenv("HOME");
-    return base && *base ? join(base, ".local/state/jot") : NULL;
+    char *path = from_variable("XDG_STATE_HOME", "jot");
+    return path ? path : from_variable("HOME", ".local/state/jot");
 #endif
 }
 static bool write_settings(const struct app_settings *s)
@@ -514,31 +520,30 @@ static const char agents[] =
  * (~/jot without Documents). */
 static char *resolve(const char *name)
 {
-    const char *home = getenv(
+    char *home = platform_getenv(
 #ifdef _WIN32
         "USERPROFILE"
 #else
         "HOME"
 #endif
     );
-    if (!home)
-        home = ".";
-    char *path;
-    if (!name || !*name) {
-        const char *env = getenv("JOT_DIR");
-        name = env && *env ? env : NULL;
-    }
+    const char *base = home ? home : ".";
+    char *path, *env = NULL;
+    if (!name || !*name)
+        name = env = platform_getenv("JOT_DIR");
     if (!name) {
-        char *docs = join(home, "Documents");
-        path = join(docs && directory(docs) ? docs : home, "jot");
+        char *docs = join(base, "Documents");
+        path = join(docs && directory(docs) ? docs : base, "jot");
         free(docs);
     } else if (name[0] == '~' && (name[1] == '/' || name[1] == '\\' || !name[1]))
-        path = name[1] ? join(home, name + 2) : join(home, "");
+        path = name[1] ? join(base, name + 2) : join(base, "");
     else {
         path = malloc(strlen(name) + 1);
         if (path)
             strcpy(path, name);
     }
+    free(home);
+    free(env);
     if (!path)
         return NULL;
 #ifdef _WIN32

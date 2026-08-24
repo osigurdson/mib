@@ -18,4 +18,6 @@ bool platform_file_write_atomic(const char *path, const char *data, size_t lengt
                                 size_t error_size);
 /* Remove a file; an already missing file counts as success. */
 bool platform_file_remove(const char *path);
+/* An environment variable as UTF-8, or NULL when unset or empty. The caller frees it. */
+char *platform_getenv(const char *name);
 #endif

@@ -199,3 +199,17 @@ bool platform_file_remove(const char *path)
     free(wide);
     return ok || code == ERROR_FILE_NOT_FOUND || code == ERROR_PATH_NOT_FOUND;
 }
+
+/* getenv returns the ANSI code page, which loses characters such as those in a user name. */
+char *platform_getenv(const char *name)
+{
+    wchar_t *wide = windows_utf16(name);
+    DWORD count = wide ? GetEnvironmentVariableW(wide, NULL, 0) : 0;
+    wchar_t *value = count > 1 ? malloc((size_t)count * sizeof(*value)) : NULL;
+    char *text = NULL;
+    if (value && GetEnvironmentVariableW(wide, value, count) == count - 1)
+        text = windows_utf8(value);
+    free(value);
+    free(wide);
+    return text;
+}

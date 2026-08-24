@@ -90,3 +90,9 @@ bool platform_file_write_atomic(const char *path, const char *data, size_t lengt
 }
 
 bool platform_file_remove(const char *path) { return unlink(path) == 0 || errno == ENOENT; }
+
+char *platform_getenv(const char *name)
+{
+    const char *value = getenv(name);
+    return value && *value ? strdup(value) : NULL;
+}
