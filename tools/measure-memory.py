@@ -11,7 +11,7 @@ import zlib
 root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--binary", type=Path, default=root / ".build/linux/jot")
-parser.add_argument("--kind", choices=("file", "page", "image"), default="file")
+parser.add_argument("--kind", choices=("page", "image"), default="page")
 parser.add_argument("--samples", type=int, default=3)
 parser.add_argument("--delay", type=float, default=0.8)
 parser.add_argument("--max-pss", type=int, default=1024, help="exclusive PSS limit in KiB")
@@ -34,17 +34,12 @@ def screenshot():
 failed = False
 with tempfile.TemporaryDirectory(prefix="jot-memory-") as directory:
     fixture = Path(directory)
-    if args.kind == "file":
-        empty = fixture / "empty.txt"
-        empty.touch()
-        command = [str(args.binary.resolve()), str(empty)]
-    else:
-        page = fixture / "notes/1"
-        (page / "assets").mkdir(parents=True)
-        (page / "jot.md").write_text("![](assets/screenshot.png)\n" if args.kind == "image" else "")
-        if args.kind == "image":
-            (page / "assets/screenshot.png").write_bytes(screenshot())
-        command = [str(args.binary.resolve())]
+    page = fixture / "notes/1"
+    (page / "assets").mkdir(parents=True)
+    (page / "jot.md").write_text("![](assets/screenshot.png)\n" if args.kind == "image" else "")
+    if args.kind == "image":
+        (page / "assets/screenshot.png").write_bytes(screenshot())
+    command = [str(args.binary.resolve())]
     # The notes folder, settings and remembered page all stay in the fixture.
     environment = dict(os.environ, JOT_OCR="0", JOT_DIR=str(fixture / "notes"),
                        XDG_CONFIG_HOME=str(fixture / "config"), XDG_STATE_HOME=str(fixture / "state"))

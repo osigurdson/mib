@@ -87,7 +87,7 @@ $(LINUX_BUILD_DIR)/jot: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ src/main.c src/platform/linux/entry.c $(CORE) $(MEMORY) $(FILES) $(WINDOW) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
 
 run: jot
-	"$(LINUX_BUILD_DIR)/jot" $(ARGS)
+	"$(LINUX_BUILD_DIR)/jot"
 
 install: jot
 	$(INSTALL) -d "$(DESTDIR)$(BINDIR)" "$(DESTDIR)$(APPLICATIONSDIR)" "$(DESTDIR)$(ICONDIR)/hicolor/scalable/apps"
@@ -103,7 +103,7 @@ windows:
 
 run-windows: windows
 	WINEPREFIX="$(WINEPREFIX)" WINEARCH="$(WINEARCH)" WINEDEBUG="$(WINEDEBUG)" \
-		$(WINE) "$(WINDOWS_BUILD_DIR)/jot.exe" $(ARGS)
+		$(WINE) "$(WINDOWS_BUILD_DIR)/jot.exe"
 
 test-windows: windows
 	WINEPREFIX="$(WINEPREFIX)" WINEARCH="$(WINEARCH)" WINEDEBUG="$(WINEDEBUG)" \

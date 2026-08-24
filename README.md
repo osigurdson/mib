@@ -42,8 +42,6 @@ the Wayland server development package; Tesseract tests are optional. Normal bui
 make
 # Open the notes folder, on the page shown when Jot last closed:
 ./.build/linux/jot
-# Or edit one file:
-./.build/linux/jot notes.txt
 ```
 
 Make outputs stay under `.build/`: the Linux editor is
@@ -89,8 +87,8 @@ as Hyprland keep control of rounding when server-side decorations are selected.
 Rounding uses the existing four-byte pixel buffer, with no extra retained cache
 or client-drawn shadow.
 
-Run inside a Wayland session. `jot file` opens that one file; a missing file starts
-empty. Plain `jot` opens its notes folder: `$JOT_DIR`, or `~/Documents/jot` (`~/jot`
+Run inside a Wayland session. Jot is a scratchpad, not a general Markdown editor: `jot`
+takes no file, and opens its notes folder: `$JOT_DIR`, or `~/Documents/jot` (`~/jot`
 without Documents). The folder holds nine pages, `1/` to `9/`, each with its own
 `jot.md` and private `assets/`. Jot opens on the page shown when it last closed (page 1
 at first), kept in `~/.local/state/jot/page`. `Alt+1` to `Alt+9` in normal mode switch
@@ -100,8 +98,7 @@ when it is created.
 Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external changes on focus when
 no local edits are pending, and a save is refused if the file changed on disk since it
 was read (`:e!` reloads, `:w!` overwrites), so several Jot windows can share the notes
-folder; each launch opens a new window. Pages and explicit files both
-protect unsaved changes on quit.
+folder; each launch opens a new window. Unsaved changes on any page block quitting.
 
 Markdown presentation supports headings, nested bullet/numbered/task lists,
 quotes, horizontal rules, fenced and inline code, links, bare URLs, images,
@@ -124,8 +121,7 @@ and GDI and is tested under Wine. See [Windows build/run instructions and tested
 limitations](docs/windows.md).
 
 From Linux, use `make windows` to cross-build, `make run-windows` to build and
-launch through Wine, or `make test-windows` to run the Windows tests. Pass editor
-arguments with, for example, `make run-windows ARGS=notes.txt`.
+launch through Wine, or `make test-windows` to run the Windows tests.
 
 See [platform contracts, build commands, and platform implementation details](docs/platforms.md).
 CMake selects the target backend without introducing Linux dependencies into a

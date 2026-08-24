@@ -2,7 +2,7 @@
 Type=Application
 Name=Jot
 Comment=Notes and screenshots in a small modal editor
-Exec=jot %f
+Exec=jot
 Icon=dev.jot.Jot
 Terminal=false
 Categories=Utility;TextEditor;

@@ -14,7 +14,7 @@ Visual Studio developer terminal:
 cmake -S . -B build-windows
 cmake --build build-windows --config MinSizeRel
 ctest --test-dir build-windows -C MinSizeRel --output-on-failure
-.\build-windows\MinSizeRel\jot.exe "notes.txt"
+.\build-windows\MinSizeRel\jot.exe
 ```
 
 With a single-configuration generator, the executable is directly in the build
@@ -34,13 +34,11 @@ The Makefile wraps configuration, building and Wine launch:
 ```sh
 make windows                         # build .build/windows/jot.exe
 make run-windows                     # build and open the Windows editor
-make run-windows ARGS=notes.txt     # open one file
 make test-windows                    # build and run the Wine test suite
 ```
 
 These targets default to the isolated `.build/wine-prefix`. Override
-`WINEPREFIX`, `WINE`, or `WINDOWS_BUILD_DIR` when needed. `ARGS` supplies editor
-arguments. Each target configures the build automatically, so no separate setup
+`WINEPREFIX`, `WINE`, or `WINDOWS_BUILD_DIR` when needed. Each target configures the build automatically, so no separate setup
 command is required.
 
 The equivalent CMake commands are:
@@ -51,7 +49,7 @@ cmake -S . -B .build/windows -G Ninja \
   -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_TESTING=ON
 cmake --build .build/windows --parallel 4
 ./tools/test-wine.sh
-WINEPREFIX="$PWD/.build/wine-prefix" wine .build/windows/jot.exe notes.txt
+WINEPREFIX="$PWD/.build/wine-prefix" wine .build/windows/jot.exe
 ```
 
 The test script creates/uses `.build/wine-prefix`, independently of an existing

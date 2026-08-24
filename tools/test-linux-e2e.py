@@ -173,21 +173,27 @@ def main():
 
         def launch(name, seed=None, assets=None):
             nonlocal app, log
-            folder = root/name
-            folder.mkdir()
-            note = folder/'note.txt'
-            if seed is not None:
-                note.write_text(seed)
+            # Each launch is page 1 of its own notes folder; the page folder holds assets/.
+            notes = root/name
+            folder = notes/'1'
+            folder.mkdir(parents=True)
+            note = folder/'jot.md'
+            note.write_text(seed or '')
             if assets:
                 (folder/'assets').mkdir()
                 for name, data in assets.items():
                     (folder/'assets'/name).write_bytes(data)
+            # Start at the top, as a newly opened file did, rather than at the page's end.
+            state = root/'state'/'jot'
+            state.mkdir(parents=True, exist_ok=True)
+            (state/'positions').write_text(f'0 0 0 {note.resolve()}\n')
+            (state/'page').write_text('1\n')
             log_path = folder/'client.log'
             if log:
                 log.close()
             log = log_path.open('w')
-            app_env = dict(env, WAYLAND_DEBUG='client')
-            app = subprocess.Popen([str(args.binary.resolve()), str(note)],
+            app_env = dict(env, WAYLAND_DEBUG='client', JOT_DIR=str(notes))
+            app = subprocess.Popen([str(args.binary.resolve())],
                                    env=app_env, stdout=log, stderr=log)
             def focused():
                 assert app.poll() is None, 'Jot exited early: ' + str(log_path)

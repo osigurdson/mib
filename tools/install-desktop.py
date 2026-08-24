@@ -8,10 +8,10 @@ binary, destination = sys.argv[1:]
 quoted = binary.replace('%', '%%')
 for character in ('\\', '"', '`', '$'):
     quoted = quoted.replace(character, '\\' + character)
-command = ('"' + quoted + '" %f').replace('\\', '\\\\')
+command = ('"' + quoted + '"').replace('\\', '\\\\')
 command = command.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
 source = Path(__file__).resolve().parent.parent / 'packaging/dev.jot.Jot.desktop'
-entry = source.read_text().replace('Exec=jot %f', 'Exec=' + command)
+entry = source.read_text().replace('Exec=jot', 'Exec=' + command)
 target = Path(destination)
 target.write_text(entry)
 target.chmod(0o644)

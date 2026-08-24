@@ -179,7 +179,7 @@ Each page keeps its own cursor, scroll position, undo history, marks and jumps; 
 search and settings are shared. `:w` and `Ctrl+S` save the page that is showing, `:wa`
 saves every page, and quitting is blocked while any page has unsaved changes. Pasted images go into the page's
 own `assets/`, and yanking an image line in one page and pasting it in another copies the
-image across. Explicit files have no other pages.
+image across.
 
 ## Insert mode
 
@@ -268,6 +268,6 @@ This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
 [parity report](jot-parity.md). Native presentation differs. Search selects an
 image containing OCR matches and highlights matching OCR words. The font subset,
 ASCII case handling and bounded regex subset are intentional limitations.
-Pages and explicit files both protect unsaved changes on quit, on every page. Use `:w` or
+Unsaved changes on any page block quitting. Use `:w` or
 `Ctrl+S` to save, `:wa` to save every page, `:wq` or `:wqa` to save and quit, or `:q!` to
 discard edits.

@@ -20,10 +20,12 @@ static BOOL CALLBACK find_window(HWND window, LPARAM param)
         app->window = window;
     return TRUE;
 }
-static struct launched launch(const wchar_t *exe, const wchar_t *file)
+/* Start jot.exe on the notes folder; it reads JOT_DIR from the inherited environment. */
+static struct launched launch(const wchar_t *exe, const wchar_t *notes)
 {
+    assert(SetEnvironmentVariableW(L"JOT_DIR", notes));
     wchar_t command[4096];
-    swprintf(command, 4096, L"\"%ls\" \"%ls\"", exe, file);
+    swprintf(command, 4096, L"\"%ls\"", exe);
     STARTUPINFOW startup = {0};
     startup.cb = sizeof(startup);
     struct launched app = {0};
@@ -64,10 +66,33 @@ static void expect(const wchar_t *path, const char *bytes)
     assert(!memcmp(content, bytes, length));
     fclose(file);
 }
+/* Remove a folder and everything in it. */
+static void remove_tree(const wchar_t *folder)
+{
+    wchar_t pattern[1200];
+    swprintf(pattern, 1200, L"%ls\\*", folder);
+    WIN32_FIND_DATAW found;
+    HANDLE search = FindFirstFileW(pattern, &found);
+    if (search != INVALID_HANDLE_VALUE) {
+        do {
+            if (!wcscmp(found.cFileName, L".") || !wcscmp(found.cFileName, L".."))
+                continue;
+            wchar_t path[1200];
+            swprintf(path, 1200, L"%ls\\%ls", folder, found.cFileName);
+            if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                remove_tree(path);
+            else
+                assert(DeleteFileW(path));
+        } while (FindNextFileW(search, &found));
+        FindClose(search);
+    }
+    assert(RemoveDirectoryW(folder));
+}
 
 int main(void)
 {
-    wchar_t exe[2048], temp[MAX_PATH], root[1024], path[2048], second[2048];
+    wchar_t exe[2048], temp[MAX_PATH], root[1024], notes[2048], page[2048], other[2048],
+        other_page[2048];
     assert(GetModuleFileNameW(NULL, exe, 2048));
     wcscpy(wcsrchr(exe, L'\\') + 1, L"jot.exe");
     assert(GetTempPathW(MAX_PATH, temp));
@@ -80,53 +105,41 @@ int main(void)
     swprintf(state, 1100, L"%ls\\state", root);
     assert(SetEnvironmentVariableW(L"APPDATA", config));
     assert(SetEnvironmentVariableW(L"LOCALAPPDATA", state));
-    swprintf(path, 2048, L"%ls\\caf\u00e9 \u6587\u4ef6 \U0001f4dd.txt", root);
-    struct launched app = launch(exe, path);
+    swprintf(notes, 2048, L"%ls\\caf\u00e9 \u6587\u4ef6 \U0001f4dd", root);
+    swprintf(page, 2048, L"%ls\\1\\jot.md", notes);
+    struct launched app = launch(exe, notes);
     type(&app, L"ihello\rworld\x1b:w\r");
-    expect(path, "hello\nworld");
+    expect(page, "hello\nworld");
     type(&app, L":q\r");
     exited(&app);
 
     /* Reopening restores the cursor, so gg goes back to the start. */
-    app = launch(exe, path);
+    app = launch(exe, notes);
     type(&app, L"ggiX\x1b:q\r");
     assert(WaitForSingleObject(app.process.hProcess, 150) == WAIT_TIMEOUT);
     SendMessageW(app.window, WM_CLOSE, 0, 0);
     assert(WaitForSingleObject(app.process.hProcess, 150) == WAIT_TIMEOUT);
     type(&app, L":wq\r");
     exited(&app);
-    expect(path, "Xhello\nworld");
+    expect(page, "Xhello\nworld");
 
-    swprintf(second, 2048, L"%ls\\unicode \U0001f4dd.txt", root);
-    app = launch(exe, second);
+    swprintf(other, 2048, L"%ls\\unicode \U0001f4dd", root);
+    swprintf(other_page, 2048, L"%ls\\1\\jot.md", other);
+    app = launch(exe, other);
     type(&app, L"iUTF-8: \u00e9 \U0001f4dd\x1b:wq\r");
     exited(&app);
-    expect(second, "UTF-8: \xc3\xa9 \xf0\x9f\x93\x9d");
-    assert(DeleteFileW(second));
+    expect(other_page, "UTF-8: \xc3\xa9 \xf0\x9f\x93\x9d");
 
-    /* The real CLI and editor preserve a Windows CRLF file on save. */
-    FILE *dos = _wfopen(path, L"wb");
+    /* A page edited outside Jot with Windows CRLF line ends keeps them on save. */
+    FILE *dos = _wfopen(page, L"wb");
     assert(dos);
     assert(fwrite("a\r\nb\r\n", 1, 6, dos) == 6);
     fclose(dos);
-    app = launch(exe, path);
-    type(&app, L"iX\x1b:wq\r");
+    app = launch(exe, notes);
+    type(&app, L"ggiX\x1b:wq\r");
     exited(&app);
-    expect(path, "Xa\r\nb\r\n");
-    assert(DeleteFileW(path));
-    const wchar_t *made[] = {L"state\\jot\\positions", L"config\\jot\\config"};
-    for (unsigned i = 0; i < 2; ++i) {
-        wchar_t file[1200];
-        swprintf(file, 1200, L"%ls\\%ls", root, made[i]);
-        DeleteFileW(file);
-    }
-    const wchar_t *folders[] = {L"state\\jot", L"state", L"config\\jot", L"config"};
-    for (unsigned i = 0; i < 4; ++i) {
-        wchar_t folder[1200];
-        swprintf(folder, 1200, L"%ls\\%ls", root, folders[i]);
-        RemoveDirectoryW(folder);
-    }
-    assert(RemoveDirectoryW(root));
-    puts("Real Windows executable: Unicode CLI paths, load/edit/:w/:q/:wq, close protection, "
+    expect(page, "Xa\r\nb\r\n");
+    remove_tree(root);
+    puts("Real Windows executable: Unicode notes folders, load/edit/:w/:q/:wq, close protection, "
          "UTF-16 text and CRLF passed");
 }

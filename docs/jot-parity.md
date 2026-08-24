@@ -37,10 +37,10 @@ compatibility. This port has since added dot repeat, marks with the jump list,
 named/yank/black-hole registers, case operators and `gq`; the rest remain outside
 it. `tests/vim-compare.toml` lists the known differences from Vim.
 
-Explicit files (`jot file`) retain manual saves and unsaved-change protection. No
-argument uses `$JOT_DIR` or `~/Documents/jot` (`~/jot` without Documents), holding
-pages `1/` to `9/`, and shows the page shown when Jot last closed. Named pages are
-replaced by the nine numbered ones.
+Jot opens only its notes folder, `$JOT_DIR` or `~/Documents/jot` (`~/jot` without
+Documents), holding pages `1/` to `9/`, and shows the page shown when it last closed.
+Opening an arbitrary file was removed: Jot is a scratchpad, not a general Markdown
+editor. Named pages are replaced by the nine numbered ones.
 
 ## Image deletion and saving
 
@@ -54,8 +54,7 @@ the same session.
 A save that removes images resets the entire undo/redo history, and clears the
 local registers that reference a removed image. Other saves preserve history.
 References in other notes or external clipboards do not keep a deleted image
-alive. This assumes each page owns its assets; explicit files sharing an assets
-folder need care. Before saving, undo and discarding changes still work normally.
+alive. This relies on each page owning its assets. Before saving, undo and discarding changes still work normally.
 
 Tracking is bounded to 256 distinct asset names observed or imported during a
 session. Extra names or allocation failures conservatively leave files behind.

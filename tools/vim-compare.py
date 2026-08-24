@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Type Vim key sequences into the real Jot binary and into Vim, then compare the saved files.
 
-Each case in tests/vim-compare.toml starts Jot on a fresh copy of a seed file inside a private,
-headless Mutter session, types the keys, then saves with <Esc><Esc>:wq<CR>. The same keys run in
+Each case in tests/vim-compare.toml starts Jot on page 1 of a fresh notes folder, holding the
+case's seed, inside a private headless Mutter session, types the keys, then saves with
+<Esc><Esc>:wq<CR>. The same keys run in
 Vim (`vim -u NONE -es` with options matching Jot's conventions). Cases marked `status = "gap"`
 are known differences; the run fails when a passing case regresses or a gap starts matching.
 
@@ -214,13 +215,21 @@ def main():
         for case in cases:
             seed = seeds[case.get('seed', 'default')]
             folder = Path(tempfile.mkdtemp(prefix='case-', dir=run_dir))
-            note = folder / 'jot.txt'
+            # Each case is page 1 of its own notes folder. A remembered position at the top
+            # starts the cursor where Vim's starts, instead of at the end of a new page.
+            note = folder / '1' / 'jot.md'
+            note.parent.mkdir()
             note.write_text(seed)
+            state = run_dir / 'state' / 'jot'
+            state.mkdir(parents=True, exist_ok=True)
+            (state / 'positions').write_text(f'0 0 0 {note.resolve()}\n')
+            (state / 'page').write_text('1\n')
             log_path = folder / 'client.log'
             error = None
             with log_path.open('w') as log:
-                app = subprocess.Popen([str(args.binary.resolve()), str(note)],
-                                       env=dict(env, WAYLAND_DEBUG='client'), stdout=log, stderr=log)
+                app = subprocess.Popen([str(args.binary.resolve())],
+                                       env=dict(env, WAYLAND_DEBUG='client', JOT_DIR=str(folder)),
+                                       stdout=log, stderr=log)
                 try:
                     def focused():
                         if app.poll() is not None:
