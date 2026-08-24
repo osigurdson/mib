@@ -43,7 +43,7 @@ CLANG_FORMAT ?= clang-format
 # Every C file Jot owns; third_party/ keeps its upstream formatting.
 FORMAT_FILES = $(shell git ls-files '*.c' '*.h' '*.inc' ':!third_party')
 
-.PHONY: all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview
+.PHONY: all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview demo-frames demo
 all: jot
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -183,6 +183,15 @@ page-preview: $(TOOL_BIN)/page-preview
 
 $(TOOL_BIN)/page-preview: tools/page-preview.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TOOL_BIN)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/page-preview.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+
+demo-frames: $(TOOL_BIN)/demo-frames
+
+$(TOOL_BIN)/demo-frames: tools/demo-frames.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TOOL_BIN)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/demo-frames.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+
+# Record docs/demo.svg, the README demo, from the real editor.
+demo: $(TOOL_BIN)/demo-frames
+	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" docs/demo.svg --frames "$(LINUX_BUILD_DIR)/demo-frames" $(ARGS)
 
 font-preview: $(TOOL_BIN)/font-preview
 

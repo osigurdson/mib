@@ -29,6 +29,9 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `make format-check`: C files follow `.clang-format`; run `make format` before committing.
   `make compile-commands` writes the clangd database (gitignored); `.inc` files are excluded.
 - `make windows`: cross-compiles the Windows build; run it after touching shared or Windows code.
+- `make demo`: re-records `docs/demo.svg`, the README demo, by driving the real editor
+  (`tools/demo-frames.c`) through the pages and keys at the top of `tools/demo.py`. Run it
+  after visible UI changes and check the frames it keeps in `.build/linux/demo-frames/`.
 - `make vim-compare`: types each case in `tests/vim-compare.toml` into the real Jot binary (in a
   private headless Mutter session) and into Vim, then compares the saved files.
 

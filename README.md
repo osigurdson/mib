@@ -4,12 +4,14 @@
 
 A 300KiB, vim-inspired Markdown scratchpad with inline images. It's single binary, local desktop app with no Electron or WebView dependencies. It's CPU efficient, loads instantly (<50ms) and uses less than 1MiB of memory on startup.
 
+<img src="docs/demo.svg" width="800" alt="Jot in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
+
 ## Nine pages, no file management
-Jot gives you 9 scratch pages that you switch between as needed.
+With Jot, there are no files to manage, just 9 scratch pages that you switch between as needed.
 
 <img src="docs/map.png" width="550" alt="The page list: pages 1 to 9, labelled by their first headings, over a page of notes">
 
-Why only nine? Because Jot is for working notes, not an archive. Generally nine is more than enough to keep a few threads going at once (e.g. a bug, meeting notes, a few ideas, etc.). Anything more permanent usually lands in a git repo or a wiki anyway.
+Why nine? Jot is for working notes, not an archive. Generally nine is more than enough to keep a few threads going at once (e.g. a bug, meeting notes, a few ideas, etc.). Anything more permanent usually lands in a git repo or a wiki anyway.
 
 ## Build and run (Linux, Wayland)
 
@@ -120,6 +122,7 @@ make test          # unit and integration tests
 make format        # apply .clang-format (make format-check to check)
 make windows       # check the Windows build still compiles
 make test-windows  # run the Windows tests under Wine
+make demo          # re-record docs/demo.svg from the real editor (script in tools/demo.py)
 ```
 
 Optional checks drive the real app in a private headless Mutter session and leave your
