@@ -352,6 +352,16 @@ static void last_page(const char *parent)
     app_close(&app);
     assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
     assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
+    /* :wqa saves other pages by swapping them in, and still remembers the shown one. */
+    type(&app, "isix\x1b");
+    app_input(&app, KEY_PAGE, "3");
+    type(&app, "ithree\x1b");
+    app_input(&app, KEY_PAGE, "2");
+    type(&app, "itwo\x1b:wqa\n");
+    assert(!app.running);
+    app_close(&app);
+    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
+    assert(app.current == 1 && strstr(app.editor.filename, "/2/jot.md"));
     app_input(&app, KEY_PAGE, "1");
     app_close(&app);
     assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
