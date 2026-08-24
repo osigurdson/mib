@@ -13,18 +13,18 @@ from pathlib import Path
 
 SCALE120 = 240  # 2x pixels, so the demo stays sharp on high-DPI screens
 PAGES = {
-    1: '# Checkout latency\n\n- p99 jumped after the 14:00 deploy\n'
-       '- Suspect the new `pricing` call\n',
-    2: '# Standup\n\n- API: rate limits ship Thursday\n- Web: dark mode is in review\n'
-       '- Me: chasing checkout latency\n',
-    3: '# Ideas\n\n- Cache the tax tables\n',
-    4: '# Commands\n\n- `kubectl rollout undo deploy/checkout`\n',
+    1: '# Jot: memory vs Electron\n\n- Jot idles at 618.5 kB in System Monitor\n'
+       '- A typical Electron-based app: `356 MB`\n',
+    2: '# Ideas\n\n- macOS port: Cocoa window, `curl | bash` install\n'
+       '- Relative line numbers (done!)\n- Signed Windows builds?\n',
+    3: '# Reading list\n\n- A Philosophy of Software Design\n',
+    4: '# Shopping\n\n- Coffee beans\n',
 }
 SCRIPT = '''
 hold 1400
 type ko
 speed 60
-type - [ ] Compare with **yesterday's** graph
+type - [ ] Measure startup on **Hyprland** too
 key esc
 hold 900
 paste {chart}
@@ -53,31 +53,31 @@ def png(width, height, rgb):
 
 
 def chart():
-    """A latency graph with a spike, standing in for a dashboard screenshot."""
+    """Memory to scale, as circle areas: an Electron-based app (356 MB) and Jot (618.5 kB),
+    the numbers in the demo note, measured in System Monitor."""
     import math
-    w, h, left, right, top, bottom = 900, 340, 40, 870, 40, 300
-    background, grid = (27, 31, 39), (48, 54, 66)
-    line, fill = (97, 175, 239), (38, 62, 86)
-    spike, spike_fill = (236, 120, 90), (86, 50, 46)
+    w, h = 900, 380
+    background = (16, 24, 38)
     px = bytearray(bytes(background) * (w * h))
+    big = 160
+    small = big * math.sqrt(0.6185 / 356)
 
-    def put(x, y, color):
-        if 0 <= x < w and 0 <= y < h:
-            px[(y * w + x) * 3:(y * w + x) * 3 + 3] = bytes(color)
+    def disc(cx, cy, r, inner, outer):
+        """An antialiased disc, lighter toward its upper left."""
+        for y in range(int(cy - r - 2), int(cy + r + 3)):
+            for x in range(int(cx - r - 2), int(cx + r + 3)):
+                d = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
+                cover = min(1.0, max(0.0, r + 0.5 - d))
+                if cover <= 0:
+                    continue
+                t = min(1.0, math.hypot(x - (cx - r / 3), y - (cy - r / 3)) / (1.6 * r))
+                color = [inner[i] + (outer[i] - inner[i]) * t for i in range(3)]
+                o = (y * w + x) * 3
+                for i in range(3):
+                    px[o + i] = round(px[o + i] + (color[i] - px[o + i]) * cover)
 
-    for y in range(top, bottom + 1, 52):
-        for x in range(left, right):
-            put(x, y, grid)
-    for x in range(left, right):
-        t = (x - left) / (right - left)
-        y = 250 - 10 * math.sin(t * 23) - 6 * math.sin(t * 61 + 1)
-        hot = math.exp(-((t - 0.68) / 0.045) ** 2)
-        y -= 170 * hot
-        stroke, under = (spike, spike_fill) if hot > 0.08 else (line, fill)
-        for yy in range(int(y) + 3, bottom):
-            put(x, yy, under)
-        for yy in range(int(y) - 1, int(y) + 3):
-            put(x, yy, stroke)
+    disc(300, 190, big, (170, 225, 250), (70, 160, 215))
+    disc(700, 190, max(small, 1.5), (255, 214, 140), (240, 170, 70))
     return png(w, h, bytes(px))
 
 
@@ -179,7 +179,7 @@ def main():
     radius = 10
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {logical_w} {logical_h}" '
            f'width="{logical_w}" height="{logical_h}">'
-           f'<title>Jot: editing Markdown, pasting a screenshot and switching pages</title>'
+           f'<title>Jot: editing Markdown, pasting an image and switching pages</title>'
            f'<style>{"".join(styles)}</style>'
            f'<clipPath id="window"><rect width="{logical_w}" height="{logical_h}" '
            f'rx="{radius}"/></clipPath><g clip-path="url(#window)">'

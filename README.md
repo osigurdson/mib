@@ -4,14 +4,12 @@
 
 A 300KiB, vim-inspired Markdown scratchpad with inline images. It's single binary, local desktop app with no Electron or WebView dependencies. It's CPU efficient, loads instantly (<50ms) and uses less than 1MiB of memory on startup.
 
-<img src="docs/demo.svg" width="800" alt="Jot in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
-
 ## Nine pages, no file management
 With Jot, there are no files to manage, just 9 scratch pages that you switch between as needed.
 
-<img src="docs/map.png" width="550" alt="The page list: pages 1 to 9, labelled by their first headings, over a page of notes">
+Why nine? Jot is for working notes, not an archive. Generally nine is plenty to keep a few threads going at once (e.g. a few ideas, screen captures and info on a bug, etc.). Anything more permanent usually lands in a git repo or wiki anyway.
 
-Why nine? Jot is for working notes, not an archive. Generally nine is more than enough to keep a few threads going at once (e.g. a bug, meeting notes, a few ideas, etc.). Anything more permanent usually lands in a git repo or a wiki anyway.
+<img src="docs/demo.svg" width="800" alt="Jot in use: typing a Markdown task on a page comparing Jot's memory with an Electron app, pasting an image of the two to scale, then opening the page list and switching to the Ideas page">
 
 ## Build and run (Linux, Wayland)
 
