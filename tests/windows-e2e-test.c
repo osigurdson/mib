@@ -74,6 +74,12 @@ int main(void)
     swprintf(root, 1024, L"%lsjot-e2e-%lu-%lu", temp, (unsigned long)GetCurrentProcessId(),
              (unsigned long)GetTickCount());
     assert(CreateDirectoryW(root, NULL));
+    /* Jot inherits these, keeping its settings and positions out of the Wine profile. */
+    wchar_t config[1100], state[1100];
+    swprintf(config, 1100, L"%ls\\config", root);
+    swprintf(state, 1100, L"%ls\\state", root);
+    assert(SetEnvironmentVariableW(L"APPDATA", config));
+    assert(SetEnvironmentVariableW(L"LOCALAPPDATA", state));
     swprintf(path, 2048, L"%ls\\caf\u00e9 \u6587\u4ef6 \U0001f4dd.txt", root);
     struct launched app = launch(exe, path);
     type(&app, L"ihello\rworld\x1b:w\r");
@@ -81,8 +87,9 @@ int main(void)
     type(&app, L":q\r");
     exited(&app);
 
+    /* Reopening restores the cursor, so gg goes back to the start. */
     app = launch(exe, path);
-    type(&app, L"iX\x1b:q\r");
+    type(&app, L"ggiX\x1b:q\r");
     assert(WaitForSingleObject(app.process.hProcess, 150) == WAIT_TIMEOUT);
     SendMessageW(app.window, WM_CLOSE, 0, 0);
     assert(WaitForSingleObject(app.process.hProcess, 150) == WAIT_TIMEOUT);
@@ -107,6 +114,18 @@ int main(void)
     exited(&app);
     expect(path, "Xa\r\nb\r\n");
     assert(DeleteFileW(path));
+    const wchar_t *made[] = {L"state\\jot\\positions", L"config\\jot\\config"};
+    for (unsigned i = 0; i < 2; ++i) {
+        wchar_t file[1200];
+        swprintf(file, 1200, L"%ls\\%ls", root, made[i]);
+        DeleteFileW(file);
+    }
+    const wchar_t *folders[] = {L"state\\jot", L"state", L"config\\jot", L"config"};
+    for (unsigned i = 0; i < 4; ++i) {
+        wchar_t folder[1200];
+        swprintf(folder, 1200, L"%ls\\%ls", root, folders[i]);
+        RemoveDirectoryW(folder);
+    }
     assert(RemoveDirectoryW(root));
     puts("Real Windows executable: Unicode CLI paths, load/edit/:w/:q/:wq, close protection, "
          "UTF-16 text and CRLF passed");
