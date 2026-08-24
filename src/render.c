@@ -647,7 +647,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
         ++digits;
     if (digits < 4)
         digits = 4;
-    int gutter = reading ? 0 : (digits + 2) * cell;
+    bool numbers = !reading && (ed->number || ed->relativenumber);
+    int gutter = numbers ? (digits + 2) * cell : 0;
     int text_x = padding + gutter, text_width = width - 2 * padding - gutter;
     if (reading) {
         int margin = (int)((24 * (int64_t)app->scale120 + 60) / 120);
@@ -711,7 +712,7 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
     size_t selection_a = 0, selection_b = 0;
     bool linewise;
     bool selected = editor_selection(ed, &selection_a, &selection_b, &linewise);
-    size_t start = ed->top;
+    size_t start = ed->top, cursor_line = editor_line_number(ed, ed->cursor);
     int cursor_x = -1, cursor_y = -1, cursor_height = line_height, cursor_cell = cell;
     for (int y = top; y < status_y;) {
         size_t next = app_view_next(app, start), end = next;
@@ -725,11 +726,22 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             start = next;
             continue;
         }
-        if (!reading && start == logical_start) {
+        if (numbers && start == logical_start) {
+            /* Like Vim: relativenumber counts lines from the cursor, whose own line shows 0,
+             * or its number left-aligned when number is also set. */
             char number[32];
-            snprintf(number, sizeof(number), "%*zu", digits, editor_line_number(ed, start) + 1);
-            uint32_t color =
-                logical_start == editor_line_start(ed, ed->cursor) ? theme->text : theme->dim;
+            size_t line = editor_line_number(ed, start);
+            bool current = line == cursor_line;
+            if (!ed->relativenumber)
+                snprintf(number, sizeof(number), "%*zu", digits, line + 1);
+            else if (current && ed->number)
+                snprintf(number, sizeof(number), "%-*zu", digits, line + 1);
+            else
+                snprintf(number, sizeof(number), "%*zu", digits,
+                         current              ? 0
+                         : line > cursor_line ? line - cursor_line
+                                              : cursor_line - line);
+            uint32_t color = current ? theme->text : theme->dim;
             for (int i = 0; number[i]; ++i)
                 if (!glyph(app, pixels, width, height, stride, (unsigned char)number[i],
                            padding + i * cell, y + ascender, status_y, color))

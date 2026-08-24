@@ -49,6 +49,7 @@ bool editor_reserve(struct editor *ed, size_t needed)
 bool editor_open(struct editor *ed, const char *filename)
 {
     ed->view = VIEW_NORMAL;
+    ed->number = true;
     ed->viewport_rows = 24;
     ed->viewport_columns = 80;
     if (!editor_reserve(ed, 1))

@@ -91,6 +91,8 @@ struct editor {
     /* Another page (1 to 9) with unsaved changes, or 0. The app sets it so quitting
      * protects every page. */
     unsigned other_modified;
+    /* Vim's number and relativenumber options: which line numbers the gutter shows. */
+    bool number, relativenumber;
     bool light, search_forward, search_word, search_failed, search_pending, search_hidden;
     char command[1024], message[256], search[256], pending[40];
     size_t command_length, anchor, visual_first, visual_last, search_origin;

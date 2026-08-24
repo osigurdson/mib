@@ -210,6 +210,8 @@ static struct app_settings current_settings(const struct app *app)
         .colorscheme = app->editor.colorscheme,
         .maximized = app->maximized,
         .light = app->editor.light,
+        .number = app->editor.number,
+        .relativenumber = app->editor.relativenumber,
     };
 }
 static void apply_settings(struct app *app, const struct app_settings *s)
@@ -221,6 +223,8 @@ static void apply_settings(struct app *app, const struct app_settings *s)
     app->editor.colorscheme = s->colorscheme;
     app->maximized = s->maximized;
     app->editor.light = s->light;
+    app->editor.number = s->number;
+    app->editor.relativenumber = s->relativenumber;
 }
 /* Lines of "key = value"; blank lines, # comments and bad values are ignored. */
 static void parse_settings(const char *text, struct app_settings *s)
@@ -265,6 +269,10 @@ static void parse_settings(const char *text, struct app_settings *s)
             s->height = (int)number;
         else if (!strcmp(key, "maximized") && (yes || no))
             s->maximized = yes;
+        else if (!strcmp(key, "number") && (yes || no))
+            s->number = yes;
+        else if (!strcmp(key, "relativenumber") && (yes || no))
+            s->relativenumber = yes;
     }
 }
 /* folder/name for a variable naming an absolute folder, or NULL. */
@@ -310,10 +318,12 @@ static bool write_settings(const struct app_settings *s)
                          "# Jot settings, shared by every page. Jot updates this file when a\n"
                          "# window closes, keeping changes made here to other settings.\n"
                          "colorscheme = %s\nbackground = %s\nview = %s\nfont_size = %u\n"
-                         "width = %d\nheight = %d\nmaximized = %s\n",
+                         "width = %d\nheight = %d\nmaximized = %s\nnumber = %s\n"
+                         "relativenumber = %s\n",
                          editor_colorscheme_name(s->colorscheme), s->light ? "light" : "dark",
                          editor_view_name(s->view), s->font_size, s->width, s->height,
-                         s->maximized ? "true" : "false");
+                         s->maximized ? "true" : "false", s->number ? "true" : "false",
+                         s->relativenumber ? "true" : "false");
         ok = n > 0 && (size_t)n < sizeof(text) &&
              platform_file_write_atomic(path, text, (size_t)n, error, sizeof(error));
     }
@@ -499,6 +509,8 @@ static void save_settings(struct app *app)
     KEEP(colorscheme)
     KEEP(maximized)
     KEEP(light)
+    KEEP(number)
+    KEEP(relativenumber)
 #undef KEEP
     if (changed)
         write_settings(&s);

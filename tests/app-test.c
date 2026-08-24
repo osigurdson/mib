@@ -40,7 +40,8 @@ static void gutter_layout(void)
     assert(editor_replace(&app.editor, 0, app.editor.length, "\n", 1));
     app.editor.cursor = 0;
     editor_command(&app.editor, "set nonu");
-    assert(strstr(app.editor.message, "Unknown command"));
+    assert(app_paint(&app, pixels, 320, 200, 320) && app.gutter == 0);
+    editor_command(&app.editor, "set nu");
     assert(app_paint(&app, pixels, 320, 200, 320));
     assert(app.gutter == 6 * app.cell);
     assert(editor_replace(&app.editor, 0, app.editor.length, "one two one", 11));
@@ -704,9 +705,61 @@ static void colorschemes(void)
     app_close(&app);
 }
 
+/* Whether a gutter cell of a text row has any ink. */
+static bool gutter_ink(const struct app *app, const uint32_t *pixels, int row, int column)
+{
+    for (int y = app->padding + row * app->line_height;
+         y < app->padding + (row + 1) * app->line_height; ++y)
+        for (int x = app->padding + column * app->cell; x < app->padding + (column + 1) * app->cell;
+             ++x)
+            if (pixels[y * 320 + x] != 0xff18202b)
+                return true;
+    return false;
+}
+/* Whether two text rows draw the same gutter. */
+static bool same_gutter(const struct app *app, const uint32_t *pixels, int a, int b)
+{
+    for (int y = 0; y < app->line_height; ++y)
+        for (int x = app->padding; x < app->padding + app->gutter; ++x)
+            if (pixels[(app->padding + a * app->line_height + y) * 320 + x] !=
+                pixels[(app->padding + b * app->line_height + y) * 320 + x])
+                return false;
+    return true;
+}
+static void number_options(void)
+{
+    struct app app;
+    assert(app_open(&app));
+    uint32_t pixels[320 * 200];
+    assert(editor_replace(&app.editor, 0, 0, "a\nb\nc\n", 6));
+    app.editor.cursor = 2; /* the second line */
+    /* number: 1 2 3, right-aligned. */
+    assert(app_paint(&app, pixels, 320, 200, 320));
+    int gutter = app.gutter, text_x = app.text_x;
+    assert(gutter == 6 * app.cell && !gutter_ink(&app, pixels, 0, 0) &&
+           gutter_ink(&app, pixels, 0, 3) && !same_gutter(&app, pixels, 0, 2));
+    /* relativenumber: 1 0 1. */
+    editor_command(&app.editor, "set nonu rnu");
+    assert(app_paint(&app, pixels, 320, 200, 320));
+    assert(app.gutter == gutter && same_gutter(&app, pixels, 0, 2) &&
+           !same_gutter(&app, pixels, 0, 1) && gutter_ink(&app, pixels, 1, 3));
+    /* Both: 1 2 1, with the cursor line's number left-aligned. */
+    editor_command(&app.editor, "set nu");
+    assert(app_paint(&app, pixels, 320, 200, 320));
+    assert(same_gutter(&app, pixels, 0, 2) && gutter_ink(&app, pixels, 1, 0) &&
+           !gutter_ink(&app, pixels, 1, 3) && gutter_ink(&app, pixels, 0, 3));
+    /* Neither: no gutter, and the text moves left. */
+    editor_command(&app.editor, "set nonu nornu");
+    assert(app_paint(&app, pixels, 320, 200, 320));
+    assert(app.gutter == 0 && app.text_x == text_x - gutter);
+    assert(app_hit_test(&app, app.padding, app.padding) == 0);
+    app_close(&app);
+}
+
 int main(void)
 {
     gutter_layout();
+    number_options();
     theme_layout();
     search_visibility();
     toast();

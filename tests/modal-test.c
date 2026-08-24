@@ -166,6 +166,38 @@ static void unknown_commands(void)
     assert(!ed.message[0]);
 }
 
+static void number_options(void)
+{
+    /* :set number and relativenumber take Vim's short names, no/inv prefixes and ! ? &. */
+    reset("abc\n");
+    assert(ed.number && !ed.relativenumber);
+    editor_command(&ed, "set nonu");
+    assert(!ed.number);
+    editor_command(&ed, "set nu?");
+    assert(!strcmp(ed.message, "nonumber"));
+    editor_command(&ed, "set number");
+    assert(ed.number);
+    editor_command(&ed, "set nu!");
+    assert(!ed.number);
+    editor_command(&ed, "set invnumber");
+    assert(ed.number);
+    editor_command(&ed, "set rnu");
+    assert(ed.relativenumber);
+    editor_command(&ed, "set relativenumber?");
+    assert(!strcmp(ed.message, "  relativenumber"));
+    editor_command(&ed, "set nornu nonumber");
+    assert(!ed.relativenumber && !ed.number);
+    editor_command(&ed, "set  rnu!  nu&");
+    assert(ed.relativenumber && ed.number);
+    editor_command(&ed, "set norelativenumber");
+    assert(!ed.relativenumber);
+    editor_command(&ed, "set nonu?");
+    assert(strstr(ed.message, "Unknown option") && ed.number);
+    editor_command(&ed, "set nu numbers");
+    assert(!strcmp(ed.message, "Unknown option: numbers"));
+    expect("abc\n");
+}
+
 static void word_at_line_end(void)
 {
     reset("one two\n  three\n");
@@ -470,6 +502,7 @@ int main(void)
     insert_end();
     case_operators();
     unknown_commands();
+    number_options();
     registers();
     word_at_line_end();
     dot_repeat();
@@ -477,11 +510,10 @@ int main(void)
     format();
     replace_mode();
     reset("notes");
-    const char *removed[] = {"set nu",     "set nonu", "set number", "set nonumber", "noh",
-                             "nohlsearch", "set md",   "set nomd",   "set light",    "set dark"};
+    const char *removed[] = {"noh", "nohlsearch", "set md", "set nomd", "set light", "set dark"};
     for (unsigned i = 0; i < sizeof(removed) / sizeof(removed[0]); ++i) {
         editor_command(&ed, removed[i]);
-        assert(strstr(ed.message, "Unknown command"));
+        assert(strstr(ed.message, "Unknown"));
         expect("notes");
     }
     editor_command(&ed, "set view=source");
@@ -527,7 +559,7 @@ int main(void)
     editor_command(&ed, "colorscheme missing");
     assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_JOT);
     editor_command(&ed, "set background=invalid");
-    assert(strstr(ed.message, "Unknown command") && !ed.light);
+    assert(strstr(ed.message, "Unknown option") && !ed.light);
     editor_command(&ed, "set view=reading");
     editor_command(&ed, "set bg=light");
     editor_command(&ed, "colorscheme catppuccin");

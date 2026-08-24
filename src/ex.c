@@ -71,6 +71,69 @@ static void quit(struct editor *ed)
     else
         ed->quit = true;
 }
+/* A boolean option by its full or short name: name sets it, noname clears it, invname or
+ * name! toggles it, name& restores the default and name? shows it. */
+static bool boolean_option(struct editor *ed, const char *option, const char *name,
+                           const char *short_name, bool *value, bool fallback)
+{
+    char word[32];
+    size_t n = strlen(option);
+    char last = n ? option[n - 1] : 0;
+    bool query = last == '?', toggle = last == '!', reset = last == '&';
+    if (query || toggle || reset)
+        --n;
+    bool clear = n > 2 && !strncmp(option, "no", 2), invert = n > 3 && !strncmp(option, "inv", 3);
+    const char *base = clear ? option + 2 : invert ? option + 3 : option;
+    n -= (size_t)(base - option);
+    if (n >= sizeof(word))
+        return false;
+    memcpy(word, base, n);
+    word[n] = 0;
+    if (strcmp(word, name) && strcmp(word, short_name))
+        return false;
+    if ((clear || invert) && (query || toggle || reset))
+        return false;
+    if (query)
+        snprintf(ed->message, sizeof(ed->message), "%s%s", *value ? "  " : "no", name);
+    else if (reset)
+        *value = fallback;
+    else
+        *value = toggle || invert ? !*value : !clear;
+    return true;
+}
+/* One :set argument, such as view=source, bg=light, nu, nornu or rnu!. */
+static bool set_option(struct editor *ed, const char *option)
+{
+    if (boolean_option(ed, option, "number", "nu", &ed->number, true) ||
+        boolean_option(ed, option, "relativenumber", "rnu", &ed->relativenumber, false))
+        return true;
+    if (!strncmp(option, "view=", 5)) {
+        unsigned view = 0;
+        while (view < VIEW_COUNT && strcmp(option + 5, editor_view_name((enum view_mode)view)))
+            ++view;
+        if (view == VIEW_COUNT) {
+            snprintf(ed->message, sizeof(ed->message), "Views are source, normal and reading");
+            return true;
+        }
+        editor_change_end(ed);
+        ed->view = (enum view_mode)view;
+        ed->mode = NORMAL;
+        ed->pending[0] = 0;
+        ed->top = editor_line_start(ed, ed->top);
+        editor_clamp(ed);
+    } else if (!strcmp(option, "view?") || !strcmp(option, "view"))
+        snprintf(ed->message, sizeof(ed->message), "view=%s", editor_view_name(ed->view));
+    else if (!strcmp(option, "background=light") || !strcmp(option, "bg=light"))
+        ed->light = true;
+    else if (!strcmp(option, "background=dark") || !strcmp(option, "bg=dark"))
+        ed->light = false;
+    else if (!strcmp(option, "background?") || !strcmp(option, "bg?") ||
+             !strcmp(option, "background") || !strcmp(option, "bg"))
+        snprintf(ed->message, sizeof(ed->message), "background=%s", ed->light ? "light" : "dark");
+    else
+        return false;
+    return true;
+}
 void editor_command(struct editor *ed, const char *command)
 {
     char buffer[1024];
@@ -180,34 +243,20 @@ void editor_command(struct editor *ed, const char *command)
         else if (!editor_colorscheme(ed, argument))
             snprintf(ed->message, sizeof(ed->message), "Cannot find color scheme: %.200s",
                      argument);
-    } else if (!strcmp(p, "set") && argument) {
-        if (!strncmp(argument, "view=", 5)) {
-            unsigned view = 0;
-            while (view < VIEW_COUNT &&
-                   strcmp(argument + 5, editor_view_name((enum view_mode)view)))
-                ++view;
-            if (view == VIEW_COUNT) {
-                snprintf(ed->message, sizeof(ed->message), "Views are source, normal and reading");
+    } else if (!strcmp(p, "set") && argument && *argument) {
+        /* Several options may follow :set, separated by spaces. */
+        for (char *option = argument; *option;) {
+            char *end = option + strcspn(option, " ");
+            bool more = *end;
+            *end = 0;
+            if (!set_option(ed, option)) {
+                snprintf(ed->message, sizeof(ed->message), "Unknown option: %.230s", option);
                 return;
             }
-            editor_change_end(ed);
-            ed->view = (enum view_mode)view;
-            ed->mode = NORMAL;
-            ed->pending[0] = 0;
-            ed->top = editor_line_start(ed, ed->top);
-            editor_clamp(ed);
-        } else if (!strcmp(argument, "view?") || !strcmp(argument, "view"))
-            snprintf(ed->message, sizeof(ed->message), "view=%s", editor_view_name(ed->view));
-        else if (!strcmp(argument, "background=light") || !strcmp(argument, "bg=light"))
-            ed->light = true;
-        else if (!strcmp(argument, "background=dark") || !strcmp(argument, "bg=dark"))
-            ed->light = false;
-        else if (!strcmp(argument, "background?") || !strcmp(argument, "bg?") ||
-                 !strcmp(argument, "background") || !strcmp(argument, "bg"))
-            snprintf(ed->message, sizeof(ed->message), "background=%s",
-                     ed->light ? "light" : "dark");
-        else
-            goto unknown;
+            option = more ? end + 1 : end;
+            while (*option == ' ')
+                ++option;
+        }
     } else if (strlen(p) >= 3 && strlen(p) <= strlen("resize") &&
                !strncmp(p, "resize", strlen(p))) {
         if (!ed->image_resize ||

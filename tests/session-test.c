@@ -484,6 +484,21 @@ int main(void)
     app_close(&app);
     assert(app_open(&app));
     assert(session_open(&app, directory) == 1 && !app.editor.light);
+    assert(app.editor.number && !app.editor.relativenumber);
+    editor_command(&app.editor, "set nonu rnu");
+    app_close(&app);
+    text = session_read(settings, 4096, &n);
+    assert(text && strstr(text, "number = false\n") && strstr(text, "relativenumber = true\n"));
+    free(text);
+    assert(app_open(&app));
+    assert(session_open(&app, directory) == 1);
+    assert(!app.editor.number && app.editor.relativenumber);
+    assert(editor_reload(&app.editor) && !app.editor.number);
+    editor_command(&app.editor, "set nu nornu");
+    app_close(&app);
+    assert(app_open(&app));
+    assert(session_open(&app, directory) == 1);
+    assert(app.editor.number && !app.editor.relativenumber);
     app_close(&app);
     const char *mode_commands[] = {"set view=source", "set view=normal", "set view=reading"};
     for (unsigned mode = VIEW_SOURCE; mode <= VIEW_READING; ++mode) {

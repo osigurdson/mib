@@ -149,7 +149,8 @@ Choose a view with `:set view=source`, `:set view=normal`, or `:set view=reading
 - **Reading** is a read-only reading view. It conceals supported Markdown markers,
   removes the gutter, centers the reading column, and adds breathing room.
 
-Source and normal remain editable and show line numbers. Reading keeps navigation,
+Source and normal remain editable and show line numbers; `:set nonu` hides them and
+`:set rnu` shows relative numbers, as in Vim. Reading keeps navigation,
 search, selection, copying, saving, and link/image opening; switch to source or
 normal to edit. Selections and copies still refer to the underlying Markdown
 source.

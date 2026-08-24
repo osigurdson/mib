@@ -18,7 +18,7 @@ struct app_settings {
     unsigned font_size;
     enum view_mode view;
     enum color_scheme colorscheme;
-    bool maximized, light;
+    bool maximized, light, number, relativenumber;
 };
 
 /* The notes folder holds nine pages, 1/ to 9/, each with its own jot.md and assets/, shown in

@@ -1,7 +1,8 @@
 # Jot key reference
 
-The source and normal views show line numbers. The gutter reserves four digits and grows
-for longer notes, with two character cells between the numbers and text. Scratch
+The source and normal views show line numbers by default (`:set nonu` hides them, `:set rnu`
+counts lines from the cursor). The gutter reserves four digits and grows for longer notes,
+with two character cells between the numbers and text. Scratch
 pages and files open in normal mode with the cursor where you left it, saved on `:w` and
 when Jot closes. Closing with unsaved changes keeps the position from the last save. A page
 with no remembered position opens at the end, and a file at the beginning. Positions live in
@@ -215,6 +216,9 @@ Press `:` to open it. Up and Down browse your history.
 | `:set view?` | Show the current view |
 | `:set background=light`, `:set background=dark` | Set the background option (`bg` is an alias) |
 | `:set background?` | Show the background setting |
+| `:set nu`, `:set nonu`, `:set nu!` | Show, hide or toggle line numbers (`number`; on by default) |
+| `:set rnu`, `:set nornu`, `:set rnu!` | Show, hide or toggle relative line numbers (`relativenumber`) |
+| `:set nu?`, `:set rnu?` | Show the option; `inv` toggles, `&` restores the default, and several options can follow one `:set` |
 | `:colorscheme {name}`, `:colo {name}` | Choose jot, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
 | `:res[ize] {n}`, `:resize {n}%` | Set the image under the cursor to n pixels wide, or n% of its original width |
