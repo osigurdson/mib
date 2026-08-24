@@ -7,7 +7,7 @@
 static void gutter_layout(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     uint32_t pixels[320 * 200];
     char *lines = malloc(100000);
     assert(lines);
@@ -61,7 +61,7 @@ static void search_visibility(void)
 {
     for (unsigned raw = 0; raw < 2; ++raw) {
         struct app app;
-        assert(app_open(&app, NULL));
+        assert(app_open(&app));
         if (raw)
             editor_command(&app.editor, "set view=source");
         assert(editor_replace(&app.editor, 0, 0, "sd sd\n", 6));
@@ -90,7 +90,7 @@ static void search_visibility(void)
 static void toast(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     static uint32_t before[320 * 200], during[320 * 200], after[320 * 200];
     assert(app_paint(&app, before, 320, 200, 320));
     assert(!app_deadline(&app));
@@ -111,7 +111,7 @@ static void toast(void)
 static void theme_layout(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(!app.editor.light);
     const char *note = "`code` match\n# Heading\n> Quote\n";
     assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
@@ -166,7 +166,7 @@ static void theme_layout(void)
 static void decoration_layout(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(editor_replace(&app.editor, 0, 0, "first\nsecond\n", 13));
     app.editor.cursor = 0;
     enum { WIDTH = 640, HEIGHT = 400 };
@@ -232,7 +232,7 @@ static void decoration_layout(void)
 static void rounded_window(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app.client_decorated = true;
     enum { WIDTH = 321, HEIGHT = 201, STRIDE = 328 };
     uint32_t pixels[STRIDE * HEIGHT];
@@ -301,7 +301,7 @@ static void type(struct app *app, const char *keys)
 static void help_card(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(editor_replace(&app.editor, 0, 0, "notes\n", 6));
     app.editor.cursor = 0;
     enum { WIDTH = 800, HEIGHT = 560 };
@@ -331,7 +331,7 @@ static void help_card(void)
 static void render_modes(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     const char *note =
         "# Head\n**bold** [label](https://example.com/a/very/long/destination) tail\n"
         "> quote\n- [x] task\n```\n# raw\n```\n";
@@ -414,7 +414,7 @@ static void markdown_notes(void)
     assert(!markdown_block("- text", 0, 6).rule);
     assert(!markdown_block("1234567890. text", 0, 16).indent);
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     const char *note =
         "## Heading\n  12. a long nested list item with several words for wrapping\n---\n";
     assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
@@ -464,7 +464,7 @@ static void markdown_tables(void)
     const char *wide = "a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q";
     assert(!markdown_cells(wide, 0, strlen(wide), cells));
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
     editor_command(&app.editor, "set view=reading");
     uint32_t pixels[400 * 400];
@@ -511,7 +511,7 @@ static void normal_markdown_styles(void)
     for (unsigned light = 0; light < 2; ++light) {
         for (unsigned scale = 0; scale < 3; ++scale) {
             struct app app;
-            assert(app_open(&app, NULL));
+            assert(app_open(&app));
             assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
             app.editor.cursor = app.editor.length - 1;
             app.editor.light = light;
@@ -560,7 +560,7 @@ static void heading_layout(void)
     for (unsigned light = 0; light < 2; ++light) {
         for (unsigned scale = 0; scale < 3; ++scale) {
             struct app app;
-            assert(app_open(&app, NULL));
+            assert(app_open(&app));
             assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
             app.scale120 = scales[scale];
             app.editor.light = light;
@@ -674,7 +674,7 @@ static void colorschemes(void)
                                                          {0xff16161d, 0xffd5cea3},
                                                          {0xff3d484d, 0xffefebd4}};
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(editor_replace(&app.editor, 0, 0, "MMMM\n", 5));
     strcpy(app.editor.search, "MMMM");
     app.editor.cursor = 4;
@@ -720,7 +720,7 @@ int main(void)
     heading_layout();
     colorschemes();
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app_input(&app, KEY_TEXT, "i");
     app_input(&app, KEY_TEXT, "Shared editor\n");
     app_input(&app, KEY_ESCAPE, "");

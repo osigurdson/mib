@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-bool app_open(struct app *app, const char *filename)
+bool app_open(struct app *app)
 {
     *app = (struct app){.width = 800,
                         .height = 560,
@@ -16,23 +16,7 @@ bool app_open(struct app *app, const char *filename)
                         .follow_cursor = true,
                         .dirty = true,
                         .running = true};
-    bool ok = editor_open(&app->editor, filename);
-    if (ok && filename) {
-        const char *slash = strrchr(filename, '/'), *back = strrchr(filename, '\\');
-        if (back && (!slash || back > slash))
-            slash = back;
-        size_t n = slash ? (size_t)(slash - filename) : 1;
-        if (slash == filename || (slash && slash > filename && slash[-1] == ':'))
-            ++n;
-        app->directory = malloc(n + 1);
-        if (!app->directory)
-            return false;
-        if (slash)
-            memcpy(app->directory, filename, n);
-        else
-            app->directory[0] = '.';
-        app->directory[n] = 0;
-    }
+    bool ok = editor_open(&app->editor, NULL);
     if (ok) {
         app->editor.on_save = app_saved;
         app->editor.on_save_data = app;
@@ -63,9 +47,7 @@ static void open_page_list(struct app *app)
     if (app->root) {
         app->page_map = true;
         app->map_choice = app->current;
-    } else
-        snprintf(app->editor.message, sizeof(app->editor.message),
-                 "Pages 1 to 9 need the notes folder, not a single file");
+    }
 }
 void app_input(struct app *app, enum editor_key key, const char *text)
 {

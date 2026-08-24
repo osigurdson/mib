@@ -50,7 +50,7 @@ static void snapshot(struct windows_window *window)
 int main(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     struct windows_window window;
     assert(open_window(&window, &app, SW_SHOWNORMAL));
     HWND handle = window.handle;

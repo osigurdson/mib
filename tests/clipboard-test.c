@@ -300,7 +300,7 @@ int main(void)
     close(results[1]);
     free(png);
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app.directory = strdup(directory);
     assert(app.directory);
     struct wayland_client c = {.app = &app, .receive_fd = -1, .serial = 1};

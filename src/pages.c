@@ -79,11 +79,8 @@ static bool load(struct app *app, unsigned index)
 bool app_page_switch(struct app *app, unsigned index)
 {
     struct editor *ed = &app->editor;
-    if (!app->root) {
-        snprintf(ed->message, sizeof(ed->message),
-                 "Pages 1 to 9 need the notes folder, not a single file");
+    if (!app->root)
         return false;
-    }
     if (index >= PAGE_COUNT)
         return false;
     if (index == app->current)

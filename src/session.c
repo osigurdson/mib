@@ -331,7 +331,9 @@ static char *read_settings(void)
     free(path);
     return text;
 }
-void session_load_settings(struct app *app)
+/* Apply the shared settings file and restore the shown page's position. Closing writes back
+ * the settings this window changed. */
+static void load_settings(struct app *app)
 {
     struct app_settings s = current_settings(app);
     char *text = read_settings();
@@ -663,9 +665,8 @@ int session_open(struct app *app, const char *name)
     app->editor.on_save_data = app;
     app->media_scanned = false;
     media_sync(app);
-    app->scratch = true;
     app->editor.cursor = app->editor.length;
-    session_load_settings(app);
+    load_settings(app);
     if (!existing && missing && !editor_save(&app->editor, app->editor.filename))
         return -1;
     return 1;
@@ -676,7 +677,7 @@ failed:
 }
 void session_focus(struct app *app, bool focused)
 {
-    if (!app->scratch)
+    if (!app->root)
         return;
     if (!focused || app->editor.modified)
         return;

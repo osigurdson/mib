@@ -92,7 +92,7 @@ static void pages(const char *parent)
     char directory[1100], heading[64];
     snprintf(directory, sizeof(directory), "%s/pages", parent);
     struct app app;
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_open(&app) && session_open(&app, directory) == 1);
     editor_command(&app.editor, "set view=source");
     type(&app, "ione\ntwo\x1b");
     assert(app.current == 0 && strstr(app.editor.filename, "jot.md"));
@@ -219,7 +219,7 @@ static void pages(const char *parent)
     assert(app.editor.cursor == 1);
     app_close(&app);
     /* Jot reopens on the page it closed on. */
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_open(&app) && session_open(&app, directory) == 1);
     assert(app.current == 2 && !strcmp(app.editor.text, "# Groceries #\nmilk") &&
            app.editor.cursor == 1 && app.follow_cursor);
     app_input(&app, KEY_PAGE, "1");
@@ -248,7 +248,7 @@ static void pages(const char *parent)
     /* Saved pages come back after a restart; unsaved, untouched pages leave no file. A page
      * with no remembered position opens at its end. */
     write_file(directory, "6/jot.md", "six\nlines\n");
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_open(&app) && session_open(&app, directory) == 1);
     app_input(&app, KEY_PAGE, "6");
     assert(app.editor.cursor == app.editor.length);
     app_input(&app, KEY_PAGE, "3");
@@ -259,7 +259,7 @@ static void pages(const char *parent)
     app_input(&app, KEY_PAGE, "6");
     type(&app, "gg");
     app_close(&app);
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_open(&app) && session_open(&app, directory) == 1);
     app_input(&app, KEY_PAGE, "3");
     assert(!strstr(app.editor.text, "new") && app.editor.cursor == strlen("# Groceries #\n"));
     app_input(&app, KEY_PAGE, "6");
@@ -268,7 +268,7 @@ static void pages(const char *parent)
     app_close(&app);
     /* :wa saves every page with changes and leaves the shown one as it was; :wqa saves and
      * quits, and :qa is :q. */
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_open(&app) && session_open(&app, directory) == 1);
     app_input(&app, KEY_PAGE, "1");
     type(&app, "ggOfirst\x1b");
     app_input(&app, KEY_PAGE, "6");
@@ -298,32 +298,6 @@ static void pages(const char *parent)
     assert(page_text && !strcmp(page_text, "six\nlines\n"));
     free(page_text);
     app_close(&app);
-    /* Explicit files have no pages. */
-    char file[1200];
-    snprintf(file, sizeof(file), "%s/note.txt", directory);
-    assert(app_open(&app, file));
-    app_input(&app, KEY_PAGE, "2");
-    assert(app.current == 0 && strstr(app.editor.message, "not a single file"));
-    type(&app, ":ls\n");
-    assert(!app.page_map && strstr(app.editor.message, "not a single file"));
-    app.editor.message[0] = 0;
-    app_input(&app, KEY_PAGE, "0");
-    assert(!app.page_map && strstr(app.editor.message, "not a single file"));
-    app.editor.message[0] = 0;
-    type(&app, ":b 2\n");
-    assert(app.current == 0 && strstr(app.editor.message, "not a single file"));
-    app_close(&app);
-    /* An explicit file opened with settings, as main does, remembers its position too. */
-    write_file(directory, "note.txt", "alpha\nbeta\ngamma\n");
-    assert(app_open(&app, file));
-    session_load_settings(&app);
-    type(&app, "jl");
-    app_close(&app);
-    assert(app_open(&app, file));
-    session_load_settings(&app);
-    assert(app.editor.cursor == strlen("alpha\nb"));
-    app_close(&app);
-    remove_file(file);
     remove_notes(directory);
 }
 static void set_env(const char *name, const char *value)
@@ -351,12 +325,12 @@ static void last_page(const char *parent)
     free(folder);
     remove_file(page);
     struct app app;
-    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
+    assert(app_open(&app) && session_open(&app, NULL) == 1);
     assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
     app_input(&app, KEY_PAGE, "6");
     assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
     app_close(&app);
-    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
+    assert(app_open(&app) && session_open(&app, NULL) == 1);
     assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
     /* :wqa saves other pages by swapping them in, and still remembers the shown one. */
     type(&app, "isix\x1b");
@@ -366,11 +340,11 @@ static void last_page(const char *parent)
     type(&app, "itwo\x1b:wqa\n");
     assert(!app.running);
     app_close(&app);
-    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
+    assert(app_open(&app) && session_open(&app, NULL) == 1);
     assert(app.current == 1 && strstr(app.editor.filename, "/2/jot.md"));
     app_input(&app, KEY_PAGE, "1");
     app_close(&app);
-    assert(app_open(&app, NULL) && session_open(&app, NULL) == 1);
+    assert(app_open(&app) && session_open(&app, NULL) == 1);
     assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
     app_close(&app);
     set_env("JOT_DIR", NULL);
@@ -405,11 +379,11 @@ int main(void)
 #endif
     char *settings = config_file();
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1);
     /* A second window may open the same folder. */
     struct app second;
-    assert(app_open(&second, NULL));
+    assert(app_open(&second));
     assert(session_open(&second, directory) == 1);
     app_close(&second);
     /* Pages live in 1/ to 9/; the agent notes belong to the whole folder. */
@@ -475,7 +449,7 @@ int main(void)
            strstr(text, "maximized = true\n"));
     free(text);
     char error[128];
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1);
     uint32_t pixels[320 * 200];
     assert(app_paint(&app, pixels, 320, 200, 320));
@@ -486,7 +460,7 @@ int main(void)
     editor_command(&app.editor, "set background=light");
     assert(app.editor.light && !app.editor.modified);
     app_close(&app);
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1);
     assert(app.editor.light);
     assert(editor_reload(&app.editor) && app.editor.light);
@@ -511,33 +485,33 @@ int main(void)
     text = session_read(page, 8192, &n);
     assert(text && strstr(text, "saved") && !strstr(text, "discarded"));
     free(text);
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1 && app.editor.light);
     editor_command(&app.editor, "set background=dark");
     app_close(&app);
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1 && !app.editor.light);
     app_close(&app);
     const char *mode_commands[] = {"set view=source", "set view=normal", "set view=reading"};
     for (unsigned mode = VIEW_SOURCE; mode <= VIEW_READING; ++mode) {
-        assert(app_open(&app, NULL));
+        assert(app_open(&app));
         assert(session_open(&app, directory) == 1);
         editor_command(&app.editor, mode_commands[mode]);
         app_close(&app);
-        assert(app_open(&app, NULL));
+        assert(app_open(&app));
         assert(session_open(&app, directory) == 1 && app.editor.view == (enum view_mode)mode);
         assert(editor_reload(&app.editor) && app.editor.view == (enum view_mode)mode);
         app_close(&app);
     }
     for (unsigned scheme = 0; scheme < COLOR_COUNT; ++scheme) {
         for (unsigned light = 0; light < 2; ++light) {
-            assert(app_open(&app, NULL));
+            assert(app_open(&app));
             assert(session_open(&app, directory) == 1);
             assert(editor_colorscheme(&app.editor,
                                       editor_colorscheme_name((enum color_scheme)scheme)));
             editor_command(&app.editor, light ? "set background=light" : "set background=dark");
             app_close(&app);
-            assert(app_open(&app, NULL));
+            assert(app_open(&app));
             assert(session_open(&app, directory) == 1);
             assert(app.editor.colorscheme == (enum color_scheme)scheme &&
                    app.editor.light == (bool)light);
@@ -554,7 +528,7 @@ int main(void)
                  "colorscheme = %s\nbackground = light\n", retired[i]);
         assert(platform_file_write_atomic(settings, retired_settings, strlen(retired_settings),
                                           error, sizeof(error)));
-        assert(app_open(&app, NULL));
+        assert(app_open(&app));
         assert(session_open(&app, directory) == 1);
         assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
         app_close(&app);
@@ -569,8 +543,8 @@ int main(void)
     char other[1100];
     snprintf(other, sizeof(other), "%s/other", directory);
     struct app a, b;
-    assert(app_open(&a, NULL) && session_open(&a, directory) == 1);
-    assert(app_open(&b, NULL) && session_open(&b, other) == 1);
+    assert(app_open(&a) && session_open(&a, directory) == 1);
+    assert(app_open(&b) && session_open(&b, other) == 1);
     for (struct app *p = &a; p; p = p == &a ? &b : NULL)
         assert(p->editor.colorscheme == COLOR_KANAGAWA && !p->editor.light &&
                p->editor.view == VIEW_READING && p->font_size == 20 && p->width == 1000 &&
@@ -581,20 +555,17 @@ int main(void)
     assert(text && !strcmp(text, shared));
     free(text);
     /* Windows open at the same time keep each other's changes. */
-    assert(app_open(&b, NULL) && session_open(&b, other) == 1);
+    assert(app_open(&b) && session_open(&b, other) == 1);
     editor_command(&a.editor, "colorscheme everforest");
     editor_command(&b.editor, "set background=light");
     app_close(&a);
     app_close(&b);
-    assert(app_open(&a, NULL) && session_open(&a, other) == 1);
+    assert(app_open(&a) && session_open(&a, other) == 1);
     assert(a.editor.colorscheme == COLOR_EVERFOREST && a.editor.light &&
            a.editor.view == VIEW_READING);
     app_close(&a);
-    /* Explicit files use the same settings. */
-    char file[1200];
-    snprintf(file, sizeof(file), "%s/note.txt", other);
-    assert(app_open(&a, file));
-    session_load_settings(&a);
+    /* A changed setting is written back on close. */
+    assert(app_open(&a) && session_open(&a, other) == 1);
     assert(a.editor.colorscheme == COLOR_EVERFOREST && a.editor.light && a.font_size == 20);
     editor_command(&a.editor, "colorscheme tokyonight");
     app_close(&a);

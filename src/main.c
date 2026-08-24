@@ -18,7 +18,7 @@ int app_main(int argc, char **argv)
         return EXIT_FAILURE;
     }
     struct app app;
-    if (!app_open(&app, NULL) || session_open(&app, NULL) < 0) {
+    if (!app_open(&app) || session_open(&app, NULL) < 0) {
         fprintf(stderr, "%s\n", app.editor.message[0] ? app.editor.message : "Could not open page");
         app_close(&app);
         return EXIT_FAILURE;

@@ -49,7 +49,7 @@ struct app {
     char *directory, *clipboard_image;
     uint64_t media_revision;
     bool media_scanned, image_hit, ocr_retry;
-    bool scratch, maximized, context_menu, client_decorated, tiled;
+    bool maximized, context_menu, client_decorated, tiled;
     int context_x, context_y, context_choice;
     enum app_title_action title_hover, title_pressed;
     uint64_t work_at, redraw_at;
@@ -113,7 +113,9 @@ unsigned app_page_modified(const struct app *app);
 bool app_pages_save(struct app *app);
 void app_pages_close(struct app *app);
 int app_main(int argc, char **argv);
-bool app_open(struct app *app, const char *filename);
+/* An empty, unnamed document with default settings; session_open then opens the notes
+ * folder in it. */
+bool app_open(struct app *app);
 void app_close(struct app *app);
 /* The editor's on_save hook: clean up unused assets and remember cursor positions. */
 void app_saved(void *context);

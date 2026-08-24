@@ -15,9 +15,6 @@ int session_open(struct app *app, const char *name);
 void session_close(struct app *app);
 /* The config folder: $XDG_CONFIG_HOME/jot or ~/.config/jot, or %APPDATA%\jot on Windows. */
 char *session_config_directory(void);
-/* Apply the shared settings file and restore the shown document's position; session_open does
-   this for pages. Closing writes back the settings this window changed. */
-void session_load_settings(struct app *app);
 /* The state folder, for files Jot updates as it runs: $XDG_STATE_HOME/jot or
    ~/.local/state/jot, or %LOCALAPPDATA%\jot on Windows. */
 char *session_state_directory(void);

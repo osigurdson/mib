@@ -485,7 +485,7 @@ static bool open_window(struct windows_window *window, struct app *app, int show
                                   size.bottom - size.top, NULL, NULL, instance, window);
     if (!handle)
         return false;
-    if (app->scratch) {
+    if (app->root) {
         wchar_t *title = windows_utf16(app->directory);
         if (title) {
             SetWindowTextW(handle, title);

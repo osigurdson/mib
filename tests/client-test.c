@@ -38,12 +38,14 @@ static void press_alt(struct wayland_client *client, xkb_keysym_t symbol, bool n
     assert(!"Could not map keysym");
 }
 
-/* Alt+0 to Alt+9 reach the app as KEY_PAGE from the number row and the keypad. An explicit
- * file has no pages, so each press reports that instead of typing. */
+/* Alt+0 to Alt+9 reach the app as KEY_PAGE from the number row and the keypad: Alt+3
+ * shows page 3 and Alt+0 the page list, without typing anything. */
 static void page_keys(void)
 {
-    struct app app = {.running = true};
-    assert(editor_open(&app.editor, NULL));
+    char folder[] = "/tmp/jot-page-keys-XXXXXX";
+    assert(mkdtemp(folder));
+    struct app app;
+    assert(app_open(&app) && session_open(&app, folder) == 1);
     struct wayland_client client = {.app = &app};
     client.xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     assert(client.xkb_context);
@@ -62,15 +64,20 @@ static void page_keys(void)
         const xkb_keysym_t keys[] = {row,  XKB_KEY_KP_3, XKB_KEY_KP_Next,
                                      zero, XKB_KEY_KP_0, XKB_KEY_KP_Insert};
         for (unsigned i = 0; i < 6; ++i) {
-            app.editor.message[0] = 0;
+            assert(app_page_switch(&app, 0) && !app.editor.length);
+            app.page_map = false;
             press_alt(&client, keys[i], i == 1 || i == 4);
-            assert(strstr(app.editor.message, "not a single file") && !app.editor.length);
+            assert(i < 3 ? app.current == 2 && !app.page_map : app.current == 0 && app.page_map);
+            assert(!app.editor.length);
         }
         xkb_state_unref(client.xkb_state);
         xkb_keymap_unref(client.xkb_keymap);
     }
     xkb_context_unref(client.xkb_context);
-    editor_destroy(&app.editor);
+    app_close(&app);
+    char command[64];
+    snprintf(command, sizeof(command), "rm -rf '%s'", folder);
+    assert(!system(command));
 }
 
 static void frame_limit(void)
@@ -98,7 +105,7 @@ static void frame_limit(void)
 static void decorations(void)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     struct wayland_client client = {.app = &app, .pending_csd = true};
     apply_decorations(&client); /* no decoration protocol: client supplies a title bar */
     assert(app.client_decorated && app.dirty);
@@ -203,7 +210,7 @@ static void resize_protocol(void)
     struct wl_display *display = wl_display_connect_to_fd(sockets[1]);
     assert(peer && display);
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app.client_decorated = true;
     app.title_height = 40;
     app.view_width = 800;
@@ -355,7 +362,7 @@ static void region_protocol(void)
     wl_resource_set_implementation(cr, &ci, &requests, NULL);
     wl_resource_set_implementation(sr, &si, &requests, NULL);
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app.width = 32;
     app.height = 28;
     struct wayland_client client = {.app = &app,

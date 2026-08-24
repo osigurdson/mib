@@ -6,9 +6,20 @@ int main(int argc, char **argv)
 {
     if (argc < 3)
         return 2;
+    /* Render argv[1] as a page, with its images relative to its folder. */
     struct app app;
-    if (!app_open(&app, argv[1]))
+    if (!app_open(&app))
         return 1;
+    editor_destroy(&app.editor);
+    app.editor = (struct editor){0};
+    const char *slash = strrchr(argv[1], '/');
+    size_t n = slash ? (size_t)(slash - argv[1]) : 1;
+    app.directory = malloc(n + 1);
+    if (!app.directory || !editor_open(&app.editor, argv[1]))
+        return 1;
+    memcpy(app.directory, slash ? argv[1] : ".", n);
+    app.directory[n] = 0;
+    app.media_scanned = false; /* the new document has the same revision */
     if (argc > 3)
         app.font_size = (unsigned)atoi(argv[3]);
     if (argc > 4)

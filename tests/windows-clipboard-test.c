@@ -77,7 +77,7 @@ int main(void)
              (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount());
     assert(session_mkdir(directory));
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app.directory = malloc(strlen(directory) + 1);
     assert(app.directory);
     strcpy(app.directory, directory);

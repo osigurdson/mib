@@ -38,7 +38,7 @@ static void pages_test(const char *root, const unsigned char *png, size_t bytes)
     char directory[1200];
     snprintf(directory, sizeof(directory), "%s/pages", root);
     struct app app;
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_open(&app) && session_open(&app, directory) == 1);
     assert(media_paste_image(&app, png, bytes));
     char *first = media_target(&app);
     assert(first && strstr(first, "/1/assets/"));
@@ -87,7 +87,7 @@ static void close_test(const char *root, const unsigned char *png, size_t bytes)
     char directory[1200];
     snprintf(directory, sizeof(directory), "%s/close", root);
     struct app app;
-    assert(app_open(&app, NULL) && session_open(&app, directory) == 1);
+    assert(app_open(&app) && session_open(&app, directory) == 1);
     assert(app_page_switch(&app, 0));            /* the previous test closed on page 2 */
     assert(media_paste_image(&app, png, bytes)); /* page 1, never saved */
     char *unsaved = media_target(&app), sidecar[1400];
@@ -107,7 +107,7 @@ static void close_test(const char *root, const unsigned char *png, size_t bytes)
     assert(!app.editor.modified);
     /* A second window that never pasted anything removes nothing. */
     struct app other;
-    assert(app_open(&other, NULL) && session_open(&other, directory) == 1);
+    assert(app_open(&other) && session_open(&other, directory) == 1);
     app_close(&other);
     assert(exists(unsaved) && exists(sidecar) && exists(undone));
     app_close(&app);
@@ -133,7 +133,7 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     char directory[1200];
     snprintf(directory, sizeof(directory), "%s/cleanup", root);
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1);
     assert(media_paste_image(&app, png, bytes));
     media_sync(&app);
@@ -162,7 +162,7 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     app_input(&app, KEY_DELETE, "");
     app_close(&app);
     assert(exists(path));
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1);
     assert(strstr(app.editor.text, name));
     /* A remaining inline reference retains the asset, even in raw mode. */
@@ -247,7 +247,7 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
 static void image_typing_test(const char *directory, const unsigned char *png, size_t bytes)
 {
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app.directory = strdup(directory);
     assert(app.directory);
     app_input(&app, KEY_TEXT, "i");
@@ -366,7 +366,13 @@ static void image_typing_test(const char *directory, const unsigned char *png, s
     char *note_path = session_path(&app, "typing.md");
     assert(note_path && editor_save(&app.editor, note_path));
     app_close(&app);
-    assert(app_open(&app, note_path));
+    assert(app_open(&app));
+    app.directory = strdup(directory);
+    editor_destroy(&app.editor);
+    app.editor = (struct editor){0};
+    assert(app.directory && editor_open(&app.editor, note_path));
+    app.media_scanned = false; /* the new document has the same revision */
+    media_sync(&app);
     assert(media_at(&app, 0));
     assert(!strcmp(app.editor.text, markup));
     app_close(&app);
@@ -406,7 +412,7 @@ static void resize_test(const char *root, const unsigned char *png, size_t bytes
     char directory[1200];
     snprintf(directory, sizeof(directory), "%s/resize", root);
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1);
     assert(media_paste_image(&app, png, bytes));
     app_input(&app, KEY_ESCAPE, "");
@@ -589,7 +595,7 @@ int main(int argc, char **argv)
     image_free(&image);
     assert(!image_decode(&image, png, 12));
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     assert(session_open(&app, directory) == 1);
     assert(!app.media);
     assert(media_paste_image(&app, png, bytes));
@@ -736,7 +742,7 @@ int main(int argc, char **argv)
     char *fragment = media_fragment(&app, &fragment_length);
     assert(fragment);
     struct app other;
-    assert(app_open(&other, NULL));
+    assert(app_open(&other));
     other.directory = session_path(&app, "other");
     assert(other.directory && session_mkdir(other.directory));
     editor_command(&other.editor, "set view=reading");

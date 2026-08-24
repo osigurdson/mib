@@ -15,7 +15,7 @@ int main(void)
     char directory[] = "/tmp/jot-ocr-XXXXXX";
     assert(mkdtemp(directory));
     struct app app;
-    assert(app_open(&app, NULL));
+    assert(app_open(&app));
     app.directory = strdup(directory);
     assert(app.directory);
     struct tiny_font *font = tiny_font_open();
