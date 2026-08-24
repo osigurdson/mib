@@ -66,8 +66,8 @@ static void pages_test(const char *root, const unsigned char *png, size_t bytes)
     assert(!exists(second) && exists(first));
     app_close(&app);
     char path[1300];
-    const char *files[] = {"2/jot.md", "1/jot.md", "AGENTS.md", "CLAUDE.md"};
-    for (unsigned i = 0; i < 4; ++i) {
+    const char *files[] = {"2/jot.md", "1/jot.md"};
+    for (unsigned i = 0; i < 2; ++i) {
         snprintf(path, sizeof(path), "%s/%s", directory, files[i]);
         assert(platform_file_remove(path));
     }
@@ -113,8 +113,8 @@ static void close_test(const char *root, const unsigned char *png, size_t bytes)
     app_close(&app);
     assert(!exists(unsaved) && !exists(sidecar) && !exists(undone) && exists(saved));
     char path[1300];
-    const char *files[] = {"1/jot.md", "2/jot.md", "AGENTS.md", "CLAUDE.md"};
-    for (unsigned i = 0; i < 4; ++i) {
+    const char *files[] = {"1/jot.md", "2/jot.md"};
+    for (unsigned i = 0; i < 2; ++i) {
         snprintf(path, sizeof(path), "%s/%s", directory, files[i]);
         assert(platform_file_remove(path));
     }
@@ -231,7 +231,7 @@ static void cleanup_test(const char *root, const unsigned char *png, size_t byte
     free(txt);
     free(tsv);
     /* Leave no temporary page files behind. */
-    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md"};
+    const char *files[] = {"1/jot.md"};
     for (unsigned i = 0; i < sizeof(files) / sizeof(files[0]); ++i) {
         char full[1400];
         snprintf(full, sizeof(full), "%s/%s", directory, files[i]);
@@ -781,7 +781,7 @@ int main(int argc, char **argv)
     free(other_assets);
     free(other_directory);
     app_close(&app);
-    const char *files[] = {"1/jot.md", "AGENTS.md", "CLAUDE.md", name, NULL};
+    const char *files[] = {"1/jot.md", name, NULL};
     for (unsigned i = 0; files[i]; ++i) {
         snprintf(relative, sizeof(relative), "%s%s", files[i] == name ? "1/" : "", files[i]);
         char full[1400];

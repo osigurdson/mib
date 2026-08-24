@@ -46,11 +46,6 @@ static void remove_folder(const char *path)
 static void remove_notes(const char *root)
 {
     char path[1300];
-    const char *top[] = {"AGENTS.md", "CLAUDE.md"};
-    for (unsigned i = 0; i < 2; ++i) {
-        snprintf(path, sizeof(path), "%s/%s", root, top[i]);
-        remove_file(path);
-    }
     for (unsigned page = 1; page <= 9; ++page) {
         const char *inside[] = {"/jot.md", "/assets", ""};
         for (unsigned i = 0; i < 3; ++i) {
@@ -348,7 +343,7 @@ static void last_page(const char *parent)
     assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
     app_close(&app);
     set_env("JOT_DIR", NULL);
-    assert(exists(directory, "6/jot.md") && exists(directory, "AGENTS.md"));
+    assert(exists(directory, "6/jot.md"));
     remove_notes(directory);
 }
 int main(void)
@@ -386,14 +381,12 @@ int main(void)
     assert(app_open(&second));
     assert(session_open(&second, directory) == 1);
     app_close(&second);
-    /* Pages live in 1/ to 9/; the agent notes belong to the whole folder. */
-    char *page = session_path(&app, "jot.md"), *agents = malloc(strlen(directory) + 16);
-    assert(page && agents && strstr(page, "/1/jot.md"));
-    sprintf(agents, "%s/AGENTS.md", directory);
+    /* Pages live in 1/ to 9/, and Jot writes nothing else into the folder. */
+    char *page = session_path(&app, "jot.md");
+    assert(page && strstr(page, "/1/jot.md"));
+    assert(!exists(directory, "AGENTS.md") && !exists(directory, "CLAUDE.md"));
     size_t n;
-    char *text = session_read(agents, 8192, &n);
-    assert(text && strstr(text, "OCR"));
-    free(text);
+    char *text;
 #ifndef _WIN32
     struct stat st;
     assert(!stat(directory, &st) && (st.st_mode & 0777) == 0700);
@@ -590,7 +583,6 @@ int main(void)
     free(folder);
     free(settings);
     free(page);
-    free(agents);
     /* Remove only the known files in this unique test directory. */
     remove_notes(directory);
     puts("Private pages, shared folders, manual saves/close protection, external reload and "

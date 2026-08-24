@@ -93,8 +93,7 @@ without Documents). The folder holds nine pages, `1/` to `9/`, each with its own
 `jot.md` and private `assets/`. Jot opens on the page shown when it last closed (page 1
 at first), kept in `~/.local/state/jot/page`. `Alt+1` to `Alt+9` in normal mode switch
 pages, and `Alt+0` or `:ls` lists all nine, labeled by their first `# Heading`
-(see [Pages](docs/keys.md#pages)). Agent instructions are written to the notes folder
-when it is created.
+(see [Pages](docs/keys.md#pages)).
 Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external changes on focus when
 no local edits are pending, and a save is refused if the file changed on disk since it
 was read (`:e!` reloads, `:w!` overwrites), so several Jot windows can share the notes

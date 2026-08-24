@@ -17,7 +17,7 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
 - Ex ranges, capture substitutions, command history, save/reload/quit,
   line numbers, Markdown toggles, folder opening and zoom.
 - Nine numbered scratch pages in a default or path notes folder, private Linux folders,
-  agent instructions created only for fresh folders, explicit saves, focus reload,
+  explicit saves, focus reload,
   persisted dimensions/maximized/font/options, and several windows sharing a folder.
 - Native text/image clipboard, cut/yank/put and visual replacement, PNG/JPEG
   file import, URI/file drops, inline images, image/link opening and image

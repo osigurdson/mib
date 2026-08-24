@@ -504,20 +504,6 @@ static void save_settings(struct app *app)
         write_settings(&s);
     app->settings_loaded = false;
 }
-static const char agents[] =
-    "# jot scratch pages\n\n"
-    "This folder contains quick working notes and screenshots. Read and answer by default.\n"
-    "Do not tidy, reorganize or rewrite the notes unless explicitly asked. Put summaries in\n"
-    "chat or a separate file. When asked to edit, append and keep the existing style.\n\n"
-    "- 1/ to 9/ are nine scratch pages; each N/jot.md is a running page, usually newest notes\n"
-    "  at the bottom. A page folder appears the first time that page is shown.\n"
-    "- ![](assets/name.png) lines are screenshots in that page's own assets/ folder; retain\n"
-    "  them on their own lines.\n"
-    "- assets/name.png.txt is OCR text; read it before opening the image. OCR can be wrong.\n"
-    "- assets/name.png.tsv contains OCR word positions used for highlighting.\n"
-    "- Image names begin with the paste timestamp (YYYYMMDD-HHMMSS).\n\n"
-    "Save edits explicitly with :w or Ctrl+S. After an external edit, switch to the window\n"
-    "to reload if there are no local edits. Never edit concurrently with unsaved typing.\n";
 /* The notes folder: name is a path, or NULL or "" for $JOT_DIR, else ~/Documents/jot
  * (~/jot without Documents). */
 static char *resolve(const char *name)
@@ -615,24 +601,6 @@ int session_open(struct app *app, const char *name)
     if (!app->root)
         goto failed;
     strcpy(app->root, app->directory);
-    char *first = session_path(app, "1");
-    bool fresh = first && !directory(first);
-    free(first);
-    if (fresh) {
-        char *a = session_path(app, "AGENTS.md"), *c = session_path(app, "CLAUDE.md");
-        bool ok = a && c && session_write_new(a, agents, sizeof(agents) - 1);
-#ifndef _WIN32
-        if (ok && symlink("AGENTS.md", c) != 0 && errno != EEXIST)
-            ok = session_write_new(c, agents, sizeof(agents) - 1);
-#else
-        if (ok)
-            ok = session_write_new(c, agents, sizeof(agents) - 1);
-#endif
-        free(a);
-        free(c);
-        if (!ok)
-            goto failed;
-    }
     /* Show the page shown when Jot last closed, page 1 at first. */
     app->current = last_page();
     char number[4];
