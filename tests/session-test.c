@@ -234,9 +234,15 @@ static void pages(const char *parent)
     free(folder);
     size_t length;
     char *saved = session_read(positions, 1 << 20, &length);
-    assert(saved && !strncmp(saved, "1 0 0 ", 6) && strstr(saved, "/3/jot.md\n"));
+    /* Positions are keyed by the platform's absolute path. */
+#ifdef _WIN32
+    const char *third = "\\3\\jot.md\n", *first = "\\1\\jot.md\n";
+#else
+    const char *third = "/3/jot.md\n", *first = "/1/jot.md\n";
+#endif
+    assert(saved && !strncmp(saved, "1 0 0 ", 6) && strstr(saved, third));
     char *second_line = strchr(saved, '\n') + 1;
-    assert(!strncmp(second_line, "0 0 0 ", 6) && strstr(second_line, "/1/jot.md\n"));
+    assert(!strncmp(second_line, "0 0 0 ", 6) && strstr(second_line, first));
     free(saved);
     app_close(&app);
     /* Saved pages come back after a restart; unsaved, untouched pages leave no file. A page

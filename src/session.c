@@ -186,9 +186,13 @@ bool session_write_exclusive(const char *path, const char *data, size_t length)
 char *session_absolute(const char *path)
 {
 #ifdef _WIN32
+    /* Like realpath, fail for a path that does not exist, so a page never saved gets no
+     * remembered position. */
     wchar_t *wide = windows_path(path);
-    if (!wide)
+    if (!wide || GetFileAttributesW(wide) == INVALID_FILE_ATTRIBUTES) {
+        free(wide);
         return NULL;
+    }
     char *text = windows_utf8(wide);
     free(wide);
     return text;

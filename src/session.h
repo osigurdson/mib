@@ -29,6 +29,7 @@ void session_restore_position(struct editor *ed);
    app->remember_positions is set. */
 void session_save_positions(struct app *app);
 void session_focus(struct app *app, bool focused);
+/* The absolute path of an existing file or folder, or NULL when it does not exist. */
 char *session_absolute(const char *path);
 bool session_write_exclusive(const char *path, const char *data, size_t length);
 char *session_path(const struct app *app, const char *relative);
