@@ -743,11 +743,11 @@ static void number_options(void)
     assert(app_paint(&app, pixels, 320, 200, 320));
     assert(app.gutter == gutter && same_gutter(&app, pixels, 0, 2) &&
            !same_gutter(&app, pixels, 0, 1) && gutter_ink(&app, pixels, 1, 3));
-    /* Both: 1 2 1, with the cursor line's number left-aligned. */
+    /* Both: 1 2 1, with the cursor line's number right-aligned where its 0 was. */
     editor_command(&app.editor, "set nu");
     assert(app_paint(&app, pixels, 320, 200, 320));
-    assert(same_gutter(&app, pixels, 0, 2) && gutter_ink(&app, pixels, 1, 0) &&
-           !gutter_ink(&app, pixels, 1, 3) && gutter_ink(&app, pixels, 0, 3));
+    assert(same_gutter(&app, pixels, 0, 2) && !gutter_ink(&app, pixels, 1, 0) &&
+           gutter_ink(&app, pixels, 1, 3) && !same_gutter(&app, pixels, 0, 1));
     /* Neither: no gutter, and the text moves left. */
     editor_command(&app.editor, "set nonu nornu");
     assert(app_paint(&app, pixels, 320, 200, 320));

@@ -727,15 +727,13 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height, int 
             continue;
         }
         if (numbers && start == logical_start) {
-            /* Like Vim: relativenumber counts lines from the cursor, whose own line shows 0,
-             * or its number left-aligned when number is also set. */
+            /* relativenumber counts lines from the cursor, whose own line shows 0, or its
+             * number when number is also set. Unlike Vim, that number stays right-aligned. */
             char number[32];
             size_t line = editor_line_number(ed, start);
             bool current = line == cursor_line;
-            if (!ed->relativenumber)
+            if (!ed->relativenumber || (current && ed->number))
                 snprintf(number, sizeof(number), "%*zu", digits, line + 1);
-            else if (current && ed->number)
-                snprintf(number, sizeof(number), "%-*zu", digits, line + 1);
             else
                 snprintf(number, sizeof(number), "%*zu", digits,
                          current              ? 0
