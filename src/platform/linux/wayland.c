@@ -1001,6 +1001,10 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = registry_remove,
 };
 
+void platform_report(const char *text, bool error)
+{
+    fprintf(error ? stderr : stdout, "%s\n", text);
+}
 int platform_run(struct app *app)
 {
     struct wayland_client state = {.app = app, .pending_csd = true, .receive_fd = -1};

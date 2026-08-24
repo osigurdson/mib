@@ -18,10 +18,10 @@ ctest --test-dir build-windows -C MinSizeRel --output-on-failure
 ```
 
 With a single-configuration generator, the executable is directly in the build
-directory. The entry point is a Unicode console entry (`wmain`) so command-line
-paths and error diagnostics work without an application framework. The editor
-itself opens a native resizable window. Desktop packaging/no-console launch is
-not provided by this build.
+directory. `jot.exe` is a GUI program, so starting it opens no console window. It keeps
+the Unicode `wmain` entry point (`/ENTRY:wmainCRTStartup` with MSVC, `-municode` with
+MinGW and Zig), and shows usage and startup errors in a message box. Desktop packaging
+(Start menu entry, icon) is not provided by this build.
 
 ## Cross-build on Linux and run under Wine
 

@@ -71,10 +71,15 @@ endif()
 
 add_library(jot-memory STATIC ${PLATFORM_MEMORY})
 target_include_directories(jot-memory PUBLIC src)
-add_executable(jot src/main.c ${PLATFORM_ENTRY} ${PLATFORM_WINDOW} ${PLATFORM_FILES})
+# jot.exe is a GUI program, so starting it opens no console window, but it keeps the Unicode
+# wmain entry point. WIN32 sets the GUI subsystem for MSVC and GCC; Zig's Clang needs it as a
+# linker flag.
+add_executable(jot WIN32 src/main.c ${PLATFORM_ENTRY} ${PLATFORM_WINDOW} ${PLATFORM_FILES})
 target_link_libraries(jot PRIVATE jot-core jot-memory ${PLATFORM_LIBRARIES})
-if(WIN32 AND NOT MSVC)
-    target_link_options(jot PRIVATE -municode)
+if(MSVC)
+    target_link_options(jot PRIVATE /ENTRY:wmainCRTStartup)
+elseif(WIN32)
+    target_link_options(jot PRIVATE -municode -Wl,--subsystem,windows)
 endif()
 if(TARGET jot-protocols)
     target_link_libraries(jot PRIVATE jot-protocols)

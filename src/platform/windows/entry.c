@@ -1,5 +1,6 @@
 #include "win32.h"
 #include "app.h"
+#include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -12,7 +13,7 @@ int wmain(int argc, wchar_t **wide_argv)
     for (int i = 0; i < argc; ++i) {
         argv[i] = windows_utf8(wide_argv[i]);
         if (!argv[i]) {
-            fprintf(stderr, "Could not decode Unicode command line\n");
+            platform_report("Could not decode Unicode command line", true);
             goto cleanup;
         }
     }

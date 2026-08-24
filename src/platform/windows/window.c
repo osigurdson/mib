@@ -225,7 +225,7 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam, LP
             window->app->dirty = true;
         EndPaint(handle, &paint);
         if (!ok) {
-            fprintf(stderr, "Could not render Windows client area\n");
+            platform_report("Could not render Windows client area", true);
             window->app->failed = true;
             window->app->running = false;
             DestroyWindow(handle);
@@ -497,13 +497,20 @@ static bool open_window(struct windows_window *window, struct app *app, int show
     return window->handle != NULL;
 }
 
+void platform_report(const char *text, bool error)
+{
+    wchar_t *wide = windows_utf16(text);
+    MessageBoxW(NULL, wide ? wide : L"Jot could not start", L"Jot",
+                MB_OK | (error ? MB_ICONERROR : MB_ICONINFORMATION));
+    free(wide);
+}
 int platform_run(struct app *app)
 {
     struct windows_window window;
     if (!open_window(&window, app, SW_SHOWNORMAL)) {
         char error[512];
         windows_error(error, sizeof(error), "Create window", GetLastError());
-        fprintf(stderr, "%s\n", error);
+        platform_report(error, true);
         return EXIT_FAILURE;
     }
     app_tick(app);

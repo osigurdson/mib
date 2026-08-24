@@ -7,6 +7,9 @@
 struct app;
 /* Each build links exactly one window/event backend. Zero means clean exit. */
 int platform_run(struct app *app);
+/* Tell the user something outside the window, such as usage or a startup error: stdout or
+ * stderr on Linux, a message box on Windows, where Jot has no console. */
+void platform_report(const char *text, bool error);
 /* Dedicated zero-filled pages. Release with the original allocation size. */
 void *platform_allocate_zeroed(size_t bytes);
 void platform_release(void *memory, size_t bytes);

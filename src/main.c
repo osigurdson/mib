@@ -1,25 +1,24 @@
 #include "app.h"
 #include "platform.h"
 #include "session.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 int app_main(int argc, char **argv)
 {
     if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
-        printf("Usage: %s\nJot opens its nine pages, 1/ to 9/, in $JOT_DIR or ~/Documents/jot "
-               "(~/jot without\nDocuments), on the page shown when it last closed. Alt+1 to "
-               "Alt+9 switch pages.\nSave with :w or Ctrl+S.\n",
-               argv[0]);
+        platform_report("Usage: jot\nJot opens its nine pages, 1/ to 9/, in $JOT_DIR or "
+                        "~/Documents/jot (~/jot without\nDocuments), on the page shown when it "
+                        "last closed. Alt+1 to Alt+9 switch pages.\nSave with :w or Ctrl+S.",
+                        false);
         return EXIT_SUCCESS;
     }
     if (argc > 1) {
-        fprintf(stderr, "Usage: %s\n", argv[0]);
+        platform_report("Usage: jot", true);
         return EXIT_FAILURE;
     }
     struct app app;
     if (!app_open(&app) || session_open(&app, NULL) < 0) {
-        fprintf(stderr, "%s\n", app.editor.message[0] ? app.editor.message : "Could not open page");
+        platform_report(app.editor.message[0] ? app.editor.message : "Could not open page", true);
         app_close(&app);
         return EXIT_FAILURE;
     }
