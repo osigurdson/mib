@@ -2,290 +2,168 @@
 
 <img src="packaging/dev.jot.Jot.svg" width="96" height="96" alt="Jot logo">
 
-A small C editor for notes and screenshots with native Linux/Wayland and Windows
-backends, rendering on the CPU. Redraws are capped at 30 FPS and stop when idle;
-input continues to be processed immediately.
-Its bundled monospace Nerd Font uses a small custom outline format, an 8×8
-supersampling rasterizer, and a bounded glyph cache. There are no runtime
-FreeType, HarfBuzz, Fontconfig, or system-font dependencies. Fractional scaling
-rasterizes fresh glyphs at the actual physical pixel size.
+A 300KiB, vim-inspired Markdown scratchpad with inline images. It's single binary, local desktop app with no Electron or WebView dependencies. It's CPU efficient, loads instantly (<50ms) and uses less than 1MiB of memory on startup.
 
-## Nine pages, no filing
-
-Jot gives you nine scratch pages and nothing else to manage. There are no folders to
-create, files to name or tabs to tidy. Every page is always there, numbered 1 to 9.
-
-Press `Esc`, then `Alt+1` to `Alt+9` to jump straight to a page. Each page keeps its own
-cursor, scroll position and undo history, so you come back exactly where you left off.
-Press `Alt+0` (or type `:ls`) to see all nine in a list, each labelled with its first
-`# Heading`. Press a number, or use the arrow keys and `Enter`, to go there. `:b 3` shows
-page 3, as in Vim.
+## Nine pages, no file management
+Jot gives you 9 scratch pages that you switch between as needed.
 
 <img src="docs/map.png" width="550" alt="The page list: pages 1 to 9, labelled by their first headings, over a page of notes">
 
-Why only nine? Because Jot is for working notes, not an archive. Nine is enough to keep a
-few threads going at once: today's task, a meeting, a bug you're chasing, a list of
-commands. It's also few enough that you remember where things are without searching. Each
-page is a plain folder with a `jot.md` and its own `assets/`. When something deserves to
-last, move it into your wiki or knowledge base, then clear the page and reuse it.
+Why only nine? Because Jot is for working notes, not an archive. Generally nine is more than enough to keep a few threads going at once (e.g. a bug, meeting notes, a few ideas, etc.). Anything more permanent usually lands in a git repo or a wiki anyway.
 
-## Build and run (Linux)
+## Build and run (Linux, Wayland)
 
-Requires a C compiler, Make, pkg-config, Python 3 (standard library), Wayland and
-libxkbcommon development files, `wayland-scanner`, and `wayland-protocols` with
-xdg-shell, viewporter, fractional-scale-v1, xdg-decoration,
-cursor-shape, and tablet-v2. Tests also use
-the Wayland server development package; Tesseract tests are optional. Normal builds use the checked-in
-19,164-byte subset; there are no downloads or font-library build steps.
+Jot runs in a Wayland session (GNOME, KDE Plasma, Hyprland, Sway and so on). There is no
+X11 support.
+
+You need a C compiler, Make, pkg-config, Python 3, and the Wayland, libxkbcommon and
+wayland-protocols development packages:
+
+| Distro | Packages |
+|---|---|
+| Arch | `base-devel python wayland libxkbcommon wayland-protocols` |
+| Fedora | `gcc make pkgconf-pkg-config python3 wayland-devel libxkbcommon-devel wayland-protocols-devel` |
+| Debian, Ubuntu | `build-essential pkg-config python3 libwayland-dev libxkbcommon-dev wayland-protocols` |
+
+To read text in screenshots so search can find it, also install Tesseract and its English
+data. It's optional, and everything else works without it.
+
+| Distro | Packages |
+|---|---|
+| Arch | `tesseract tesseract-data-eng` |
+| Fedora | `tesseract tesseract-langpack-eng` |
+| Debian, Ubuntu | `tesseract-ocr` |
+
+Build and run:
 
 ```sh
 make
-# Open the notes folder, on the page shown when Jot last closed:
 ./.build/linux/jot
 ```
 
-Make outputs stay under `.build/`: the Linux editor is
-`.build/linux/jot`, test executables are in `.build/linux/tests/`, preview
-tools are in `.build/linux/tools/`, and generated headers/protocols are in
-`.build/linux/generated/`. Windows builds remain in `.build/windows/`.
-`make run` and `make run-windows` build and launch the appropriate executable.
-`make clean` removes the Linux Make build, leaving Windows builds and Wine
-profiles intact.
-
-Install the Linux editor to `~/.local/bin/jot` without sudo:
+Install to `~/.local/bin/jot`, with a **Jot** launcher entry and icon:
 
 ```sh
 make install
 ```
 
-`make install` builds the editor first. Override `PREFIX` (default `$(HOME)/.local`)
-or `BINDIR` (default `$(PREFIX)/bin`) to choose the destination. `DESTDIR` adds a
-staging root for packaging, for example `make install DESTDIR=/tmp/jot-package`.
-The installed binary is stripped of debug info (about 190 KB instead of 770 KB);
-pass `INSTALL_STRIP=` to keep it.
-Installation also adds a **Jot** launcher entry at
-`~/.local/share/applications/dev.jot.Jot.desktop`. Its executable path follows
-`BINDIR`; override `DATADIR` or `APPLICATIONSDIR` to choose where the desktop entry
-is installed. The logo is installed under `$(DATADIR)/icons/hicolor` (override
-`ICONDIR` to change the icon root). The font remains embedded.
-This replaces the previous Jot executable and launcher entry when installed to
-the same prefix. Existing pages and preferences remain compatible.
+Make sure `~/.local/bin` is on your `PATH`. Run `make install` again to update; your pages
+and settings are kept. The installed binary has its debug info stripped (about 190 KB).
+`PREFIX` (default `~/.local`) changes where it goes, and `DESTDIR` adds a staging root for
+packaging. `make clean` removes the build.
 
-The logo is the unchanged [upstream Jot SVG](https://github.com/osigurdson/jot/blob/4cdc1ccb336dab9237f97394b70bd8704c1758b3/data/dev.jot.Jot.svg),
-covered by the bundled [MIT license](third_party/jot-LICENSE).
+There is also an experimental Windows build; see
+[Appendix: Windows (experimental)](#appendix-windows-experimental).
 
-Wayland window decorations are negotiated with the compositor. Jot requests
-server-side decorations, keeping tiling desktops such as Hyprland minimal.
-When the compositor requires client decorations or does not support negotiation
-(as on GNOME), Jot draws a compact title bar with drag, minimize, maximize, and
-close controls. Double-click the title to maximize/restore; drag an edge to
-resize. The edges have eight-pixel grab areas and larger corner targets; resize
-cursors follow the desktop theme when cursor-shape is available. The title bar
-follows the light/dark palette and hides in fullscreen. Floating client-decorated windows have smooth rounded
-corners; maximized, tiled, and fullscreen windows stay square. Compositors such
-as Hyprland keep control of rounding when server-side decorations are selected.
-Rounding uses the existing four-byte pixel buffer, with no extra retained cache
-or client-drawn shadow.
+## Using Jot
 
-Run inside a Wayland session. Jot is a scratchpad, not a general Markdown editor: `jot`
-takes no file, and opens its notes folder: `$JOT_DIR`, or `~/Documents/jot` (`~/jot`
-without Documents). The folder holds nine pages, `1/` to `9/`, each with its own
-`jot.md` and private `assets/`. Jot opens on the page shown when it last closed (page 1
-at first), kept in `~/.local/state/jot/page`. `Alt+1` to `Alt+9` in normal mode switch
-pages, and `Alt+0` or `:ls` lists all nine, labeled by their first `# Heading`
-(see [Pages](docs/keys.md#pages)).
-Save pages explicitly with `:w` or `Ctrl+S`. Pages reload external changes on focus when
-no local edits are pending, and a save is refused if the file changed on disk since it
-was read (`:e!` reloads, `:w!` overwrites), so several Jot windows can share the notes
-folder; each launch opens a new window. Unsaved changes on any page block quitting.
+Run `jot`. It opens on the page you were last using, in normal mode.
 
-Markdown presentation supports headings, nested bullet/numbered/task lists,
-quotes, horizontal rules, fenced and inline code, links, bare URLs, images,
-bold/italic combinations, strikethrough, and simple pipe tables. Tables have
-bold headers, left/center/right alignment, escaped pipes (`\|`), and wrapping
-cell text. They support up to 16 columns with matching cell counts. Very wide
-tables or rows taller than the viewport show as source so all text stays
-accessible. The reading view hides syntax, adds hanging list indents and a pronounced
-heading size hierarchy with H1/H2 separators, and stays read-only. The normal view
-uses a subtler heading size hierarchy while keeping source markers visible.
-The source view always shows the exact source. Parsing uses fixed-size line storage; unusually
-complex inline formatting falls back to literal text when that storage fills.
+- `Alt+1` to `Alt+9` switch pages, and `Alt+0` or `:ls` lists them.
+- Editing is Vim-style: normal, insert and visual modes, motions, operators, text
+  objects, counts, registers, search and `:s`.
+- Paste a screenshot or drop an image file to add it to the page.
+- `:w` or `Ctrl+S` saves, and `:q` closes; Jot won't close with unsaved changes.
+- `:help` shows a short card. `:set view=source`, `normal` or `reading` changes how
+  Markdown is shown, and `:colorscheme` picks from five color schemes, each with light and
+  dark backgrounds.
 
-## Platforms and source organization
+The [key reference](docs/keys.md) lists every key and command.
 
-Linux/Wayland and Windows share the editor, application, renderer, and bundled
-font code under `src/`. Native window, file, and memory code lives under
-`src/platform/linux/` and `src/platform/windows/`. The Windows build uses Win32
-and GDI and is tested under Wine. See [Windows build/run instructions and tested
-limitations](docs/windows.md).
+## Where does it put stuff?
 
-From Linux, use `make windows` to cross-build, `make run-windows` to build and
-launch through Wine, or `make test-windows` to run the Windows tests.
+Your notes live in `~/Documents/jot` (`~/jot` if there is no Documents folder), or in
+`$JOT_DIR` if you set it:
 
-See [platform contracts, build commands, and platform implementation details](docs/platforms.md).
-CMake selects the target backend without introducing Linux dependencies into a
-Windows build:
-
-```sh
-cmake -S . -B .build/cmake -DCMAKE_BUILD_TYPE=MinSizeRel
-cmake --build .build/cmake
-ctest --test-dir .build/cmake --output-on-failure
+```
+~/Documents/jot/
+├── 1/
+│   ├── jot.md                                  page 1, as plain Markdown
+│   └── assets/
+│       ├── 20261030-142211-a1b2c3d4.png        a screenshot
+│       ├── 20261030-142211-a1b2c3d4.png.txt    its text, read by OCR
+│       └── 20261030-142211-a1b2c3d4.png.tsv    word positions, for highlighting
+├── 2/
+…
+└── 9/
 ```
 
-## Keys
+A page's folder appears the first time you open that page. On Linux, Jot makes the folders
+private (`0700`) and new files private (`0600`).
 
-The shared editor implements normal, insert, visual and visual-line modes,
-counts, operators/text objects, grouped undo/redo, smart-case incremental search,
-Ex ranges/substitutions, clipboard paste/yank, wrapping, and conservative
-Markdown styling. See the [complete key reference](docs/keys.md).
+You can grep the folder, edit a `jot.md` in another editor, or keep it all in git. If you
+edit a page elsewhere, Jot reloads it when you switch back, as long as you have no unsaved
+typing in it. `:Ex` opens the page's folder in your file manager.
 
-`:help` (`:h`) shows a short card with the views and page keys.
-`Ctrl+S` saves, `Ctrl+Q` quits, and `Ctrl+plus/minus/0` changes the font size.
-Choose a view with `:set view=source`, `:set view=normal`, or `:set view=reading`
-(`:set view?` shows the current one):
+Settings (color scheme, view, font size, window size, line numbers) are kept in
+`~/.config/jot/config`, and the last page and cursor positions in `~/.local/state/jot`.
 
-- **Source** shows plain source, including literal image markup, with no Markdown styling.
-- **Normal** is the default: styled Markdown with visible syntax and inline images.
-- **Reading** is a read-only reading view. It conceals supported Markdown markers,
-  removes the gutter, centers the reading column, and adds breathing room.
+## How it differs from Vim
 
-Source and normal remain editable and show line numbers; `:set nonu` hides them and
-`:set rnu` shows relative numbers, as in Vim. Reading keeps navigation,
-search, selection, copying, saving, and link/image opening; switch to source or
-normal to edit. Selections and copies still refer to the underlying Markdown
-source.
+Jot isn't meant to replace Vim or Neovim, but the keys and flow should feel the same:
+motions, counts, operators, text objects, visual mode, `.` repeat, marks, named registers,
+`/` search and `:s` all work. The main differences:
 
-Search highlights turn off when you enter insert mode. The query is retained;
-`n`/`N` or a new search shows highlights again in any view. Use `:set background=light` or
-`:set background=dark` (`bg` also works), and `:colorscheme {name}` (`:colo`).
-Built-in schemes are `jot` (the original look), `tokyonight`, `catppuccin`,
-`kanagawa`, and `everforest`. All support light/dark backgrounds. `:colorscheme` reports the current scheme; `:set background?`
-reports the background setting. Scratch pages remember the view, background,
-and colorscheme when closed. Jot with a dark background is the default.
-See [colorscheme behavior and provenance](docs/colors.md). Saves always use the current page or file.
-In the source and normal views, paste screenshots or drop image files to import them. Images stay as
-standalone `![](assets/name.png)` lines. In normal rendering, inserting or
-pasting text on an image uses a separate text line. `i`/`I` insert above an image;
-`a`/`A` insert below it. Image paste in insert mode leaves the cursor after the
-image so typing can continue. The source view keeps literal source editing. `gx` or double-click opens an image;
-`Ctrl+click` or `gx` opens a link. `y` copies a selected image; right-click an image to copy it, copy its text or open it.
-Tesseract, when installed, runs one job at a time to create `.png.txt`/`.png.tsv`
-sidecars used by search/highlighting. `JOT_OCR=0` disables automatic OCR.
-Deleting an image keeps its file until the note is successfully saved. Saving
-removes tracked images no longer mentioned in the note, along with their OCR
-sidecars. When files are cleaned up, undo/redo history is reset and any local
-register (named ones included) containing a removed image is cleared. Ordinary saves preserve history.
-Closing the window also removes images it pasted that no saved page mentions, such as a
-paste that was undone or discarded with `:q!`. Cleanup does not scan for older orphan files.
+- `y`, `d` and `p` use the system clipboard, like `clipboard=unnamedplus`. Named registers
+  work as in Vim.
+- `Ctrl+V` pastes instead of starting block visual mode, which Jot doesn't have.
+- Macros, `Ctrl-A`/`Ctrl-X`, insert-mode counts, `:g`, `:sort`, `:m`, `:t` and `:normal`
+  aren't implemented.
+- `:s` supports a small, Vim-like subset of regular expressions, so unusual patterns may
+  behave differently.
+- There's no vimrc or plugins.
 
-Saves write a temporary file in the destination directory before renaming it,
-so a failed write does not truncate the original. Existing file permissions are
-preserved, and symlinks are followed on Linux. New Linux files use private
-permissions (0600). Windows uses native file attributes/sharing checks and
-replacement APIs; new files inherit the directory ACL. LF and CRLF files are
-edited as LF internally and saved using the first input newline's style. New
-buffers default to LF.
-
-Editing preserves UTF-8 bytes, but display is limited to the bundled font
-subset. Unsupported codepoints use a replacement glyph. Complex shaping,
-combining sequences, wide characters, fallback fonts and input methods remain
-unsupported. Regex/case operations implement a deliberately small subset; see
-[feature scope and current verification](docs/jot-parity.md).
-
-## Implementation and checks
-
-`src/editor.c` holds the portable text buffer and file operations; `keys.c`,
-`ex.c`, `substitute.c` and `history.c` implement the editing language. `session.c`
-handles page persistence, while `media.c` handles asset references and
-external OCR. PNG/JPEG codecs are vendored from stb with bounded allocations.
-`src/app.c` handles shared input/lifetime/close policy and `src/render.c` paints
-through the pitch-aware `app_paint` interface. `src/tiny-font.c` implements the
-outline font and glyph cache. Native windows, clipboard, file and memory code
-remain isolated under `src/platform/`.
-
-Only two submitted pixel buffers can be pending at once. Rendering is coalesced
-between event batches and happens only when needed. The font cache is a fixed
-48 KiB alpha arena with 64 entries at the current target size. Temporary raster
-workspace is unmapped after each frame. No allocation grows with the number of
-fonts, glyphs, or sizes used.
+## Development
 
 ```sh
-make test
-# Apply or check the C style in .clang-format (needs clang-format):
-make format
-make format-check
-# Write compile_commands.json so clangd checks Linux and Windows files (Windows needs Zig):
-make compile-commands
-# Optional real-app Linux workflows (Mutter, dbus-run-session, Python PyGObject):
-make test-linux-e2e
-# Optional Vim parity check (the same tools plus Vim):
-make vim-compare
-# Optional render preview, written as PPM:
-./.build/linux/tests/client-test /tmp/jot.ppm
-make clean
+make test          # unit and integration tests
+make format        # apply .clang-format (make format-check to check)
+make windows       # check the Windows build still compiles
+make test-windows  # run the Windows tests under Wine
 ```
 
-Tests cover modal editing, grouped undo, regex captures/ranges, UTF-8 boundaries,
-safe file saves, changed-on-disk refusals, manual saves/reload, image round trips, OCR sidecar
-search, input translation, DPI rendering and small-window wrapping. Private native clipboard integration tests avoid replacing the desktop clipboard;
-see the parity report for their coverage and limits. The optional native Linux
-suite starts a private headless Mutter compositor and D-Bus session, launches the
-actual editor, and drives real keyboard and text/PNG clipboard input. It includes
-500 mixed edits checked against an independent text model, plus 10,000 populated
-text lines and 50 images with explicit-save/reload and 250 undo/redo cycles.
-It leaves your desktop and clipboard alone. Logs and test notes remain under
-`.build/linux/e2e/`; `ARGS=--quick` skips the large-note workload. CMake users can
-enable the same test with `-DJOT_LINUX_E2E=ON`. These tools are test-only
-dependencies; the Jot executable still uses the native C/Wayland backend.
-
-`make vim-compare` uses the same private compositor to type each case in
-`tests/vim-compare.toml` into Jot and into Vim, then compares the saved files.
-Cases marked `status = "gap"` are known differences. The run fails when a passing
-case regresses or a gap starts matching Vim. `ARGS="--only REGEX"` runs a subset,
-`ARGS=--show` prints diffs for gaps, and `ARGS=--vim` prints Vim's results without
-starting Jot.
-
-## Current footprint
-
-The current executable measures **192,376 bytes stripped on Linux** and
-**266,752 bytes on Windows**. An empty page recently measured **742–747 KiB
-PSS** (688–692 KiB private), with 3,028–3,036 KiB total RSS including shared
-libraries. Both executable size and idle PSS remain below 1 MiB. See
-[the feature scope, bounds, tests and historical image/before-and-after measurements](docs/jot-parity.md).
-
-## Font assets and historical measurements
-
-- [Font format, rasterizer bounds, supported Unicode, and limitations](docs/font-format.md).
-- [Before/after size and RSS report](docs/font-pipeline-report.md).
-- [FreeType versus custom visual comparison](docs/font-comparison.png).
-
-The original custom-font executable measured 149,896 bytes (60,384 stripped).
-After platform separation, the Make debug build measured 158,904 bytes and the
-CMake MinSizeRel build 70,040 bytes. Idle memory remains consistent with the
-custom-font version; see [platform verification](docs/platforms.md). Five
-interleaved font-pipeline runs measured median idle RSS of 2,828 KiB, versus
-2,824 KiB before; this was essentially unchanged. The previous version already unloaded FreeType
-at idle. The dependency and font-file removal matters for deployment and active
-rendering, rather than producing a large idle-RSS saving.
+Optional checks drive the real app in a private headless Mutter session and leave your
+desktop and clipboard alone. They need Mutter, `dbus-run-session` and PyGObject, plus Vim
+for the parity check:
 
 ```sh
-make memory           # Idle PSS/RSS for a real empty file in a Wayland session
-make subset-font      # Optional: rebuild the subset; requires Python fonttools
-make font-preview
-./.build/linux/tools/font-preview /tmp/font-sizes.ppm
+make test-linux-e2e  # real keyboard and clipboard input, large notes, undo/redo
+make vim-compare     # type each case in tests/vim-compare.toml into Jot and Vim, compare
 ```
 
-The source font and subset are bundled under the SIL Open Font License;
-see `fonts/OFL.txt`, `fonts/NERD-FONTS-LICENSE.txt`, and `fonts/editor.json` for
-provenance. The full TTF is used only to regenerate the subset. Arbitrary fonts
-and runtime font selection are not supported. `make clean` removes generated
-headers and binaries without deleting the bundled font assets.
+More detail:
 
-Idle client RSS/PSS exclude the compositor's retained framebuffer. At 150%,
-the 1200×840 XRGB8888 frame occupies about 3.85 MiB; client mappings are released
-after painting. Startup and redraw peak memory are larger than idle memory.
+- [Platforms and source layout](docs/platforms.md)
+- [Windows build and Wine verification](docs/windows.md)
+- [Feature scope, limits and measurements](docs/jot-parity.md)
+- [Font format and rasterizer](docs/font-format.md)
+- [Color schemes](docs/colors.md)
 
-Protocol and library references:
-[Wayland](https://wayland.freedesktop.org/docs/html/apa.html),
-[FontTools (subset generation only)](https://fonttools.readthedocs.io/en/latest/pens/index.html),
-[libxkbcommon](https://xkbcommon.org/doc/current/md_doc_2quick-guide.html).
+## Credits and licenses
+
+The bundled font is a subset of JetBrains Mono Nerd Font, under the SIL Open Font License
+(`fonts/OFL.txt`, `fonts/NERD-FONTS-LICENSE.txt`). PNG and JPEG decoding uses
+[stb](third_party/stb). The color schemes are adapted from Tokyo Night, Catppuccin,
+Kanagawa and Everforest; their licenses are in [third_party/](third_party). The logo comes
+from the [original GTK version of Jot](https://github.com/osigurdson/jot).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+## Appendix: Windows (experimental)
+
+The Windows version uses the same editor with a native Win32 window. It builds and passes
+its tests under Wine, but hasn't been tried on a real Windows machine yet. Windows 10
+version 1703 or newer is the target.
+
+To cross-build `jot.exe` from Linux, you need CMake, Ninja, Zig and Python 3 (Wine to run
+it there):
+
+```sh
+make windows       # writes .build/windows/jot.exe
+make run-windows   # build, then open it under Wine
+```
+
+Copy `.build/windows/jot.exe` to a Windows machine and run it; it needs no other files.
+[docs/windows.md](docs/windows.md) has the details and what has been verified.
