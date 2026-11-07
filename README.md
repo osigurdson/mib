@@ -7,7 +7,7 @@ A 300KiB, vim-inspired Markdown scratchpad with inline images. It's single binar
 ## Nine pages, no file management
 With Jot, there are no files to manage, just 9 scratch pages that you switch between as needed. Why nine? Jot's focus is on working notes, not building an archive. This is more than enough to manage a few threads. Anything more permanent usually lands in a git repo or wiki anyway.
 
-<img src="docs/demo.svg" width="800" alt="Jot in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
+<img src="docs/demo.svg" width="640" alt="Jot in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
 
 ## Build and run (Linux, Wayland)
 
@@ -68,7 +68,7 @@ Run `jot`. It opens on the page you were last using, in normal mode.
 
 The [key reference](docs/keys.md) lists every key and command.
 
-## Where does it put stuff?
+## File Organization
 
 Your notes live in `~/Documents/jot` (`~/jot` if there is no Documents folder), or in
 `$JOT_DIR` if you set it:
