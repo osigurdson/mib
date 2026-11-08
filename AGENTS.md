@@ -36,6 +36,19 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `make vim-compare`: types each case in `tests/vim-compare.toml` into the real mib binary (in a
   private headless Mutter session) and into Vim, then compares the saved files.
 
+## CI and releases
+
+- `.github/workflows/ci.yml` runs on every push and pull request: `make`, `make test`,
+  `make format-check` (clang-format pinned to the local version through pipx) and
+  `make test-windows` under Wine. It uploads the Linux tarball and Windows exe it tested.
+- Pushing a `v*` tag runs `release.yml`, which reuses those CI binaries, adds SHA256SUMS and
+  build provenance attestations, creates the release and redeploys the download page.
+- `site/index.html` is the download page; `tools/site.py OUT [--release JSON]` fills it with
+  the latest release. `tools/version.py` stamps `mib --version` with `git describe` and the
+  commit.
+- Actions are pinned by commit SHA with the version in a comment; keep it that way when
+  updating them.
+
 ## Change workflow
 
 For each change: implement it with the checks above passing, commit it on `main`, then run

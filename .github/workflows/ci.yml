@@ -1,0 +1,68 @@
+# Builds and tests mib on every push to main and every pull request. The release workflow
+# calls this too, so a release ships exactly the binaries built and tested here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # tags, for the version in mib --version
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libwayland-dev libxkbcommon-dev wayland-protocols
+      - run: make
+      - run: make test
+      - name: Check formatting
+        run: make format-check CLANG_FORMAT="pipx run clang-format==23.1.4"
+      - name: Package
+        run: |
+          stage=.build/package/mib
+          mkdir -p "$stage"
+          install -s -m 755 .build/linux/mib "$stage/mib"
+          cp packaging/io.github.osigurdson.mib.desktop packaging/io.github.osigurdson.mib.svg \
+             LICENSE README.md "$stage/"
+          tar -C .build/package -czf mib-linux-x86_64.tar.gz mib
+          "$stage/mib" --version
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux
+          path: mib-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  windows:
+    # Cross-built with Zig, then the same mib.exe and its tests run under Wine.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.17.0
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build wine wine64 xvfb
+      - name: Build and test under Wine
+        env:
+          WINEDLLOVERRIDES: "mscoree,mshtml=" # skip the Mono and Gecko install prompts
+        run: xvfb-run -a make test-windows
+      - run: cp .build/windows/mib.exe mib-windows-x86_64.exe
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows
+          path: mib-windows-x86_64.exe
+          if-no-files-found: error

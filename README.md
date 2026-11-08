@@ -21,6 +21,16 @@ If tesseract is available on your machine, mib will OCR the text in the images t
 
 <img src="docs/demo-ocr.svg" width="640" alt="mib searching for invoice: the search steps through two matches in a release checklist, then into a pasted screenshot of a monitoring dashboard, where it highlights POST /invoice in the graph legend">
 
+## Download
+
+Prebuilt Linux (x86_64, Wayland) and Windows binaries are on the
+[download page](https://osigurdson.github.io/mib/) and under
+[Releases](https://github.com/osigurdson/mib/releases). GitHub Actions builds each release
+from its version tag, runs the tests on the same binaries, and publishes them with SHA-256
+checksums and a signed build provenance attestation, so you can check which commit a file
+came from (`gh attestation verify FILE --repo osigurdson/mib`). `mib --version` prints the
+version and commit of any build, including your own.
+
 ## Build and run (Linux, Wayland)
 
 mib runs in a Wayland session (GNOME, KDE Plasma, Hyprland, Sway and so on). There is no
@@ -141,6 +151,20 @@ for the parity check:
 make test-linux-e2e  # real keyboard and clipboard input, large notes, undo/redo
 make vim-compare     # type each case in tests/vim-compare.toml into mib and Vim, compare
 ```
+
+GitHub Actions runs `make`, `make test`, `make format-check` and the Windows tests under
+Wine on every push and pull request (`.github/workflows/ci.yml`).
+
+To release, tag a commit on `main` and push the tag:
+
+```sh
+git tag -a v0.1.0 -m "mib 0.1.0"
+git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` then builds and tests that commit, creates the GitHub release
+with checksums and attestations, and refreshes the download page (`site/`, built by
+`tools/site.py`).
 
 More detail:
 

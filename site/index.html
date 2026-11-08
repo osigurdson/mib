@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mib: Markdown under a mebibyte</title>
+<meta name="description" content="A tiny, fast, Vim-style Markdown scratchpad with inline images, for Linux (Wayland) and Windows.">
+<meta property="og:title" content="mib: Markdown under a mebibyte">
+<meta property="og:description" content="A tiny, fast, Vim-style Markdown scratchpad with inline images.">
+<meta property="og:image" content="https://osigurdson.github.io/mib/assets/social-preview.png">
+<link rel="icon" href="assets/icon-small.svg" type="image/svg+xml">
+<style>
+:root {
+  --bg: #FAF7F0; --text: #100E14; --muted: #5E5850; --rule: #E4DDD0;
+  --code: #F0EBE0; --accent: #9A5A00; --bar: #FF9F0A;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #100E14; --text: #FDF4E4; --muted: #A8A196; --rule: #2A2630;
+    --code: #1B1820; --accent: #FFB13D;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 56px 16px 72px; }
+header { text-align: center; }
+header img.mark { width: min(340px, 80%); height: auto; }
+.lede { font-size: 19px; text-align: center; color: var(--muted); margin: 8px auto 32px; max-width: 34em; }
+.demo { display: block; width: 100%; height: auto; border-radius: 12px; }
+h2 { font-size: 22px; margin: 48px 0 8px; }
+h3 { font-size: 17px; margin: 28px 0 6px; }
+a { color: var(--accent); }
+code, pre { font-family: ui-monospace, "JetBrains Mono", "Cascadia Mono", Menlo, monospace; font-size: 14px; }
+pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+p code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+.meta { color: var(--muted); margin-top: 0; }
+.files { width: 100%; border-collapse: collapse; margin: 12px 0; }
+.files td { padding: 10px 0; border-top: 1px solid var(--rule); vertical-align: top; }
+.files td.size { text-align: right; color: var(--muted); white-space: nowrap; padding-left: 12px; }
+.files .sum { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.button {
+  display: inline-block; background: var(--bar); color: #100E14; font-weight: 600;
+  text-decoration: none; padding: 8px 14px; border-radius: 8px;
+}
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 15px; }
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1 style="margin:0">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-dark.svg">
+<img class="mark" src="assets/wordmark-light.svg" alt="mib: Markdown under a mebibyte" width="340" height="273">
+</picture>
+</h1>
+</header>
+<p class="lede">A tiny, fast Markdown scratchpad with Vim keys and inline images. Nine pages,
+no file management, one native binary for Linux (Wayland) and Windows.</p>
+
+<img class="demo" src="assets/demo.svg" alt="mib in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page" width="800" height="560">
+
+<!-- RELEASE -->
+
+<footer>
+<a href="https://github.com/osigurdson/mib">Source on GitHub</a> ·
+<a href="https://github.com/osigurdson/mib/blob/main/docs/keys.md">Key reference</a> ·
+MIT licensed
+</footer>
+</main>
+</body>
+</html>
