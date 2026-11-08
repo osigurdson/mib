@@ -39,25 +39,18 @@ type j
 key enter
 hold 2600
 '''
-# The ocr demo: a release checklist with a pasted screenshot of a failing CI run, which
-# Tesseract has already read. Searching for invoice finds it twice in the notes, then inside
-# the screenshot.
-CI = '''ci / test (ubuntu-latest)    failed in 2m 41s
-
-FAIL  tests/invoice.test.ts
-  x rounds totals to the nearest cent
-    expected: 10.05
-    received: 10.049999
-
-Tests: 1 failed, 212 passed
-'''
+# The ocr demo: a release checklist with a pasted screenshot of a monitoring dashboard, which
+# Tesseract has already read. Searching for invoice finds it twice in the notes, then in the
+# dashboard's graph legend.
 OCR_PAGES = {
     1: '# Release 2.4\n\n- [x] Bump the version and changelog\n'
-       '- [ ] Fix the flaky `invoice` test\n- [ ] Ask Sam about invoice rounding\n'
-       '\n![](assets/ci.png)\n',
+       '- [ ] Fix the flaky `invoice` test\n- [ ] Ask Sam about the invoice latency\n'
+       '\n![](assets/dashboard.png)\n',
     2: '# Standup\n\n- API: rate limits ship Thursday\n',
 }
 OCR_SCRIPT = '''
+type gg
+begin
 hold 1200
 speed 110
 type /invoice
@@ -69,14 +62,17 @@ type n
 type n
 hold 1700
 '''
-# The CI output, drawn by Jot as plain source in another color scheme so it reads as a
-# terminal from a different app.
-CI_SCRIPT = '''
-type :set view=source
+# The dashboard's labels. Each is drawn by Jot (headings come out larger), then recoloured and
+# placed by dashboard().
+LABELS = ['Checkout service / Overview', 'Last 1 hour', 'Error rate', 'Requests / s',
+          'p99 latency', '# 4.8%', '# 1,284', '# 2.9 s', 'p99 latency by endpoint',
+          'POST /invoice', 'GET /cart', '3s', '2s', '1s', '0s', '13:30', '13:45', '14:00',
+          '14:15']
+# Reading view: no gutter, and heading markers hidden.
+LABEL_SCRIPT = '''
+type :set view=reading
 key enter
-type :set nonu
-key enter
-type :colorscheme catppuccin
+type :set bg=light
 key enter
 '''
 
@@ -185,23 +181,32 @@ def record(binary, work, pages, script, assets=None):
     for line in result.stdout.split('\n'):
         if line.startswith('hold '):
             timeline[-1][1] += int(line.split()[1])
+        elif line == 'begin':
+            timeline = []
         elif line:
             number, ms = line.split()
             timeline.append([int(number), int(ms)])
     return frames, timeline
 
 
-def text_screenshot(binary, work, text, script):
-    """text drawn by Jot with script's settings, cropped to its lines with an even margin,
-    as a PNG."""
-    frames, timeline = record(binary, work, {1: text}, script)
+def label_sprites(binary, work):
+    """Each of LABELS as drawn by Jot: {label: (width, height, coverage, baseline)}, where
+    coverage is one byte per pixel from 0 (background) to 255 (full ink), ready to draw in any
+    colour, and baseline is how far below the top the text sits.
+    Labels are drawn a few at a time so each batch fits in the window."""
+    sprites = {}
+    for i in range(0, len(LABELS), 6):
+        sprites.update(label_batch(binary, work / str(i), LABELS[i:i + 6]))
+    return sprites
+
+
+def label_batch(binary, work, labels):
+    frames, timeline = record(binary, work, {1: '\n\n'.join(labels) + '\n'}, LABEL_SCRIPT)
     width, height, rgb = read_ppm(frames / f'{timeline[-1][0]:04d}.ppm')
     stride = width * 3
     pixel = lambda x, y: rgb[y * stride + x * 3:y * stride + x * 3 + 3]
-    background = pixel(width // 2, height // 2)
-    # Text rows: the window's right edge shows the page background (not the title or status
-    # bar) and the row has ink. The cursor sits on the line after the text, so keep only as
-    # many lines as have text.
+    background = pixel(width - 3, height // 2)
+    # Text rows: the window's right edge shows the page background and the row has ink.
     inked = [y for y in range(height) if pixel(width - 3, y) == background
              and rgb[y * stride:(y + 1) * stride] != background * width]
     lines, start = [], inked[0]
@@ -209,15 +214,118 @@ def text_screenshot(binary, work, text, script):
         if b is None or b - a > 1:
             lines.append((start, a))
             start = b
-    lines = lines[:sum(1 for line in text.split('\n') if line.strip())]
-    top, bottom = lines[0][0], lines[-1][1]
-    columns = [x for x in range(width) for y in range(top, bottom + 1, 2)
-               if pixel(x, y) != background]
-    page_top = next(y for y in range(height) if pixel(width - 3, y) == background)
-    margin = min(36, top - page_top)
-    box = (min(columns) - margin, top - margin, max(columns) - min(columns) + 2 * margin,
-           bottom - top + 2 * margin)
-    return png(box[2], box[3], crop(width, rgb, box))
+    lum = lambda p: 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]
+    paper = lum(background)
+    sprites = {}
+    # Reading view draws a rule under level-1 headings; those thin groups aren't labels.
+    lines = [line for line in lines if line[1] - line[0] > 6]
+    assert len(lines) >= len(labels), f'{len(lines)} of {len(labels)} labels fit in the window'
+    for label, (top, bottom) in zip(labels, lines):
+        xs = [x for x in range(width) for y in range(top, bottom + 1)
+              if pixel(x, y) != background]
+        left, right = min(xs), max(xs) + 1
+        dark = [lum(pixel(x, y)) for y in range(top, bottom + 1) for x in range(left, right)]
+        ink = min(dark)
+        coverage = bytes(max(0, min(255, round(255 * (paper - v) / (paper - ink))))
+                         for v in dark)
+        # The baseline: the last row with much ink, so descenders and slashes don't count.
+        w = right - left
+        counts = [sum(1 for c in coverage[r * w:(r + 1) * w] if c > 128)
+                  for r in range(bottom - top + 1)]
+        base = max(r for r, n in enumerate(counts) if n >= max(counts) / 4) + 1
+        sprites[label] = (w, bottom - top + 1, coverage, base)
+    return sprites
+
+
+def dashboard(binary, work):
+    """A screenshot of a dark monitoring dashboard as a PNG: title bar, sidebar, three stat
+    panels and a latency graph whose legend reads POST /invoice and GET /cart."""
+    import math
+    sprites = label_sprites(binary, work)
+    W, H = 1500, 540
+    px = bytearray(bytes((17, 18, 23)) * (W * H))
+
+    def blend(x, y, color, a):
+        if 0 <= x < W and 0 <= y < H and a > 0:
+            o = (y * W + x) * 3
+            for i in range(3):
+                px[o + i] = round(px[o + i] + (color[i] - px[o + i]) * a)
+
+    def rect(x, y, w, h, color, radius=0):
+        for yy in range(y, y + h):
+            for xx in range(x, x + w):
+                dx = max(x + radius - xx - 0.5, xx + 0.5 - (x + w - radius), 0)
+                dy = max(y + radius - yy - 0.5, yy + 0.5 - (y + h - radius), 0)
+                cover = min(1.0, max(0.0, radius + 0.5 - math.hypot(dx, dy))) if radius else 1
+                blend(xx, yy, color, cover)
+
+    def text(label, x, base, color, height=None):
+        """Draw a label starting at x on the baseline base, or centred in the band of height
+        starting at base when height is given. Returns its width."""
+        w, h, coverage, baseline = sprites[label]
+        if height is not None:
+            base += (height + baseline) // 2
+        y = base - baseline
+        for row in range(h):
+            for col in range(w):
+                blend(x + col, y + row, color, coverage[row * w + col] / 255)
+        return w
+
+    def panel(x, y, w, h, title):
+        rect(x, y, w, h, (44, 48, 54), 8)
+        rect(x + 2, y + 2, w - 4, h - 4, (24, 27, 31), 7)
+        text(title, x + 24, y + 50, (204, 204, 220))
+
+    muted, bright = (142, 142, 160), (204, 204, 220)
+    # Title bar and sidebar.
+    rect(0, 0, W, 72, (24, 27, 31))
+    for i, color in enumerate([(255, 95, 87), (254, 188, 46), (40, 200, 64)]):
+        rect(24 + 36 * i, 26, 20, 20, color, 10)
+    text('Checkout service / Overview', 150, 0, bright, 72)
+    label_w = sprites['Last 1 hour'][0]
+    rect(W - label_w - 64, 14, label_w + 40, 44, (44, 48, 54), 6)
+    text('Last 1 hour', W - label_w - 44, 14, bright, 44)
+    rect(0, 72, 72, H - 72, (24, 27, 31))
+    for i in range(4):
+        rect(22, 104 + 64 * i, 28, 28, (70, 75, 85), 6)
+    # Stat panels.
+    stats = [('Error rate', '# 4.8%', (242, 73, 92)), ('Requests / s', '# 1,284', (115, 191, 105)),
+             ('p99 latency', '# 2.9 s', (255, 152, 48))]
+    left, gap, top = 96, 20, 96
+    stat_w = (W - left - 24 - 2 * gap) // 3
+    for i, (title, value, color) in enumerate(stats):
+        x = left + i * (stat_w + gap)
+        panel(x, top, stat_w, 140, title)
+        text(value, x + 24, top + 118, color)
+    # The latency graph.
+    gy, gh, gw = top + 140 + gap, H - (top + 140 + gap) - 24, W - left - 24
+    panel(left, gy, gw, gh, 'p99 latency by endpoint')
+    plot_l, plot_r = left + 90, left + gw - 30
+    plot_t, plot_b = gy + 80, gy + gh - 58
+    for i, label in enumerate(['3s', '2s', '1s', '0s']):
+        y = plot_t + (plot_b - plot_t) * i // 3
+        rect(plot_l, y, plot_r - plot_l, 2, (44, 48, 54))
+        text(label, left + 28, y + sprites[label][3] // 2, muted)
+    for i, label in enumerate(['13:30', '13:45', '14:00', '14:15']):
+        x = plot_l + (plot_r - plot_l) * (2 * i + 1) // 8 - sprites[label][0] // 2
+        text(label, x, plot_b + 44, muted)
+    seconds_y = lambda v: plot_b - (plot_b - plot_t) * v / 3
+    orange, blue = (255, 152, 48), (87, 148, 242)
+    for color, curve in [
+            (blue, lambda t: 0.45 + 0.06 * math.sin(t * 31) + 0.04 * math.sin(t * 83 + 2)),
+            (orange, lambda t: 0.8 + 0.08 * math.sin(t * 23 + 1)
+             + 1.9 * math.exp(-((t - 0.62) / 0.06) ** 2))]:
+        for x in range(plot_l, plot_r):
+            t = (x - plot_l) / (plot_r - plot_l)
+            y = seconds_y(curve(t))
+            for yy in range(int(y) - 3, int(y) + 4):
+                blend(x, yy, color, min(1.0, max(0.0, 2.5 - abs(yy - y))))
+    # Legend, beside the panel title.
+    x = left + gw - 24 - sum(sprites[label][0] + 88 for label in ['POST /invoice', 'GET /cart'])
+    for label, color in [('POST /invoice', orange), ('GET /cart', blue)]:
+        rect(x, gy + 38, 28, 6, color, 3)
+        x += 40 + text(label, x + 40, gy + 50, bright) + 48
+    return png(W, H, bytes(px))
 
 
 def main():
@@ -239,9 +347,9 @@ def build(binary, name, output, keep, work):
                                   SCRIPT.format(chart=work / 'chart.png'))
     elif name == 'ocr':
         title = 'Jot: searching for text inside a pasted screenshot'
-        image = work / 'ci.png'
-        image.write_bytes(text_screenshot(binary, work / 'ci', CI, CI_SCRIPT))
-        # Read it the way Jot does, writing ci.png.txt and ci.png.tsv beside it.
+        image = work / 'dashboard.png'
+        image.write_bytes(dashboard(binary, work / 'labels'))
+        # Read it the way Jot does, writing dashboard.png.txt and .tsv beside it.
         subprocess.run(['tesseract', str(image), str(image), 'txt', 'tsv'], check=True,
                        capture_output=True)
         frames, timeline = record(binary, work / 'demo', OCR_PAGES, OCR_SCRIPT,
@@ -263,6 +371,9 @@ def build(binary, name, output, keep, work):
                 f'height="{h / scale:g}" href="{uri}"/>')
 
     images.append(image((0, 0, width, height), previous))
+    # What a viewer sees: the first frame with every patch shown so far laid over it. Each
+    # frame is checked against it, so a wrong patch fails the recording.
+    shown = bytearray(previous)
     if keep:
         keep.mkdir(parents=True, exist_ok=True)
         (keep / '0000.png').write_bytes(png(width, height, previous))
@@ -276,6 +387,12 @@ def build(binary, name, output, keep, work):
                           f'{percent + 0.001:.3f}%,100%{{opacity:1}}}}'
                           f'.{name}{{animation:{name} {total}ms infinite}}')
             images.extend(image(box, current, name) for box in boxes)
+            for x, y, w, h in boxes:
+                for row in range(y, y + h):
+                    start = (row * width + x) * 3
+                    shown[start:start + w * 3] = current[start:start + w * 3]
+            if shown != current:
+                sys.exit(f'Frame {number} does not match its patches')
             if keep:
                 (keep / f'{number:04d}.png').write_bytes(png(width, height, current))
         previous = current

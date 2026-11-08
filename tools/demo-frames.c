@@ -10,9 +10,10 @@
  *   paste FILE   press p with the PNG in FILE on the clipboard
  *   hold MS      show the last frame for MS milliseconds
  *   speed MS     how long each typed character stays on screen (default 70)
+ *   begin        start the recording over from the current screen, after setup keys
  *
  * Writes OUTPUT_DIR/NNNN.ppm per frame and prints "NNNN MS" lines: the frame and how long it
- * stays on screen. */
+ * stays on screen, and "begin" where the recording starts over. */
 #include "app.h"
 #include "media.h"
 #include "session.h"
@@ -106,7 +107,11 @@ int main(int argc, char **argv)
             frame(typing);
         } else if (!strncmp(line, "hold ", 5))
             printf("hold %s\n", argument);
-        else if (!strncmp(line, "speed ", 6))
+        else if (!strcmp(line, "begin")) {
+            frames = 0;
+            printf("begin\n");
+            frame(0);
+        } else if (!strncmp(line, "speed ", 6))
             typing = (unsigned)atoi(argument);
         else if (line[0] && line[0] != '#') {
             fprintf(stderr, "Unknown demo command: %s\n", line);
