@@ -12,6 +12,7 @@ import sys
 INK = "#100E14"  # near-black background
 CREAM = "#FDF4E4"
 ORANGE = "#FF9F0A"
+MUTED = "#A8A196"  # cream at about 60% on INK, for secondary text
 
 STROKE = 36  # letter stroke width in wordmark units
 BAR = 30  # bar stroke width
@@ -122,6 +123,26 @@ def badge():
     return svg(round(w), h, body, "mib: under 1 MiB")
 
 
+def social():
+    """GitHub's 1280x640 social preview: the wordmark, a divider, the tagline and a short
+    description. Everything sits well inside GitHub's cropping margin."""
+    w, h, scale, gap = 1280, 640, 0.95, 64
+    mark_w, mark_h = 362 * scale, 263 * scale
+    tagline, tagline_w = text_path("Markdown under a mebibyte.", CREAM, 38, 0, 0)
+    line, _ = text_path("A tiny, fast Markdown scratchpad.", MUTED, 26, 0, 0)
+    left = (w - (mark_w + 2 * gap + tagline_w)) / 2
+    divider = left + mark_w + gap
+    text_x = divider + gap
+    body = (f'<rect width="{w}" height="{h}" fill="{INK}"/>'
+            f'<g transform="translate({left - 2 * scale:.2f} {(h - mark_h) / 2 + 68 * scale:.2f}) '
+            f'scale({scale})">{wordmark(CREAM, ORANGE)}</g>'
+            f'<path d="M{divider:.2f} {h / 2 - 110} V{h / 2 + 110}" stroke="{MUTED}" '
+            f'stroke-width="2" opacity="0.6"/>'
+            f'<g transform="translate({text_x:.2f} {h / 2 - 8})">{tagline}</g>'
+            f'<g transform="translate({text_x:.2f} {h / 2 + 50})">{line}</g>')
+    return svg(w, h, body, "mib: Markdown under a mebibyte")
+
+
 def tile(content, bounds, background, border, scale, size=512, radius=114, border_width=0):
     x0, y0, x1, y1 = bounds
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
@@ -166,11 +187,15 @@ def main():
         "wordmark-dark.svg": lockup(CREAM, "mib: Markdown under a mebibyte"),
         "wordmark-light.svg": lockup(INK, "mib: Markdown under a mebibyte"),
         "badge.svg": badge(),
+        "social-preview.svg": social(),
     }
     for name, svg in files.items():
         with open(os.path.join(out, name), "w") as f:
             f.write(svg)
     print("wrote", ", ".join(files), "to", out)
+    # GitHub takes the social preview as a PNG (Settings > General > Social preview).
+    subprocess.run(["rsvg-convert", os.path.join(out, "social-preview.svg"), "-o",
+                    os.path.join(out, "social-preview.png")], check=True)
     if len(sys.argv) > 1:
         return  # a preview run; leave the packaged icons alone
     with open("packaging/io.github.osigurdson.mib.svg", "w") as f:
