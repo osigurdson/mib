@@ -94,7 +94,7 @@ def svg(width, height, body, title="mib"):
 
 def lockup(text_colour, title):
     """Wordmark over the tagline, on a transparent background, for the README header."""
-    tagline, width = text_path("Markdown under a mebibyte.", text_colour, 28, 0, 0)
+    tagline, width = text_path("Markdown under a mebibyte", text_colour, 28, 0, 0)
     pad, scale = 8, 0.8
     mark_height = 263 * scale  # ascender to the bottom of the bar
     baseline = pad + mark_height + 52
@@ -128,8 +128,8 @@ def social():
     description. Everything sits well inside GitHub's cropping margin."""
     w, h, scale, gap = 1280, 640, 0.95, 64
     mark_w, mark_h = 362 * scale, 263 * scale
-    tagline, tagline_w = text_path("Markdown under a mebibyte.", CREAM, 38, 0, 0)
-    line, _ = text_path("A tiny, fast Markdown scratchpad.", MUTED, 26, 0, 0)
+    tagline, tagline_w = text_path("Markdown under a mebibyte", CREAM, 38, 0, 0)
+    line, _ = text_path("A tiny, fast Markdown scratchpad", MUTED, 26, 0, 0)
     left = (w - (mark_w + 2 * gap + tagline_w)) / 2
     divider = left + mark_w + gap
     text_x = divider + gap

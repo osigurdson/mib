@@ -6,7 +6,7 @@
 int app_main(int argc, char **argv)
 {
     if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
-        platform_report("mib: Markdown under a mebibyte.\n\nUsage: mib\n"
+        platform_report("mib: Markdown under a mebibyte\n\nUsage: mib\n"
                         "Opens the nine pages, 1/ to 9/, in $MIB_DIR or ~/Documents/mib (~/mib "
                         "without\nDocuments), on the page shown when it last closed. Alt+1 to "
                         "Alt+9 switch pages.\nSave with :w or Ctrl+S.",
