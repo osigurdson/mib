@@ -23,7 +23,14 @@ If tesseract is available on your machine, mib will OCR the text in the images t
 
 ## Download
 
-Prebuilt Linux (x86_64, Wayland) binaries are on the
+On Linux (x86_64, Wayland, glibc 2.39 or newer), install the latest release to `~/.local`:
+
+```sh
+curl -fsSL https://osigurdson.github.io/mib/install.sh | sh
+```
+
+The [script](site/install.sh) checks the download against the release's checksums before
+installing, and running it again upgrades. Prebuilt binaries are also on the
 [download page](https://osigurdson.github.io/mib/) and under
 [Releases](https://github.com/osigurdson/mib/releases). GitHub Actions builds each release
 from its version tag, runs the tests on the same binary, and publishes it with SHA-256

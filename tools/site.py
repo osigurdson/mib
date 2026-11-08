@@ -77,7 +77,14 @@ mib --version     # mib {e(tag)}, commit {e(commit[:12])}…</pre>
 
 <h3>Install on Linux</h3>
 <p>x86_64 with a Wayland desktop (GNOME, KDE Plasma, Hyprland, Sway…) and glibc 2.39 or newer,
-as in Ubuntu 24.04, Fedora 40, Debian 13 and Arch.</p>
+as in Ubuntu 24.04, Fedora 40, Debian 13 and Arch. This installs to <code>~/.local</code>, with
+no sudo, after checking the download's checksum. Run it again to upgrade.</p>
+<pre>curl -fsSL https://osigurdson.github.io/mib/install.sh | sh</pre>
+<p>To read <a href="{repo}/blob/main/site/install.sh">the script</a> first:</p>
+<pre>curl -fsSLO https://osigurdson.github.io/mib/install.sh
+less install.sh
+sh install.sh</pre>
+<p>Or by hand, from the tarball above:</p>
 <pre>tar xzf {e(linux)}
 install -Dm755 mib/mib ~/.local/bin/mib
 install -Dm644 mib/io.github.osigurdson.mib.desktop -t ~/.local/share/applications
@@ -123,6 +130,7 @@ def main():
     for name in ("wordmark-dark.svg", "wordmark-light.svg", "icon-small.svg", "social-preview.png"):
         shutil.copy(ROOT / "docs/brand" / name, assets / name)
     shutil.copy(ROOT / "docs/demo.svg", assets / "demo.svg")
+    shutil.copy(ROOT / "site/install.sh", args.out / "install.sh")
     print("wrote", args.out / "index.html", "for", release["tag"] if release else "no release")
 
 
