@@ -2,17 +2,17 @@
 
 # Jot
 
-A 300KiB, vim-inspired Markdown scratchpad with inline images. It's a local, single binary desktop app with no Electron or WebView dependencies. Jot oads instantly (<50ms), is CPU efficient and uses less than 1MiB of memory on startup. 
+A 300KiB, vim-inspired Markdown scratchpad with inline images. It's a local, single binary desktop app with no Electron or WebView dependencies. Jot loads instantly (<50ms), is CPU efficient and uses less than 1MiB of memory on startup (99% less than some Electron based markdown tools). 
 
 ## Nine pages, no file management
-With Jot, there are no files to manage, just 9 scratch pages that you switch between as needed. Why nine? Jot's focus is on working notes, not building an archive. This is more than enough to manage a few threads. Anything more permanent usually lands in a git repo or wiki anyway.
+With Jot, there are no files to manage, just 9 scratch pages that you switch between as needed. Why nine? Jot's focus is on working notes, not building an archive. This is more than enough to manage a few threads (e.g meeting notes, screen captures and notes on a bug you are working on, preliminary ideas on how to improve things, etc.). Anything more permanent usually lands in a git repo or wiki anyway.
 
 <img src="docs/demo.svg" width="640" alt="Jot in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
 
 ## Optional OCR and integrated image search
-If tesseract is available on your machine, Jot will OCR the text in your screen captures and includes this in the search.
+If tesseract is available on your machine, Jot will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below.
 
-<img src="docs/demo-ocr.svg" width="640" alt="Jot searching for pricing: the search steps through two matches in the notes, then a match inside a pasted dashboard screenshot">
+<img src="docs/demo-ocr.svg" width="640" alt="Jot searching for invoice: the search steps through two matches in a release checklist, then a match inside a pasted screenshot of a failing CI run">
 
 ## Build and run (Linux, Wayland)
 
