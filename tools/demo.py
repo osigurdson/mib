@@ -10,7 +10,7 @@ CSS, so typing costs a few small patches rather than a whole frame per key. Uses
 Python standard library, plus Tesseract for the ocr demo. --frames keeps the PNG of every
 frame in DIR for checking.
 """
-import os, struct, subprocess, sys, tempfile, zlib
+import os, shutil, struct, subprocess, sys, tempfile, zlib
 from pathlib import Path
 
 SCALE120 = 240  # 2x pixels, so the demo stays sharp on high-DPI screens
@@ -39,37 +39,44 @@ type j
 key enter
 hold 2600
 '''
-# The ocr demo: a page with a pasted log screenshot, which Tesseract has already read, and a
-# search that finds words inside it.
-LOG = '''$ kubectl logs deploy/checkout --since=10m
-14:02:11  GET   /cart      200     48 ms
-14:02:12  POST  /pricing   504   3012 ms  upstream timeout
-14:02:13  GET   /cart      200     51 ms
-14:02:15  POST  /pricing   504   3008 ms  upstream timeout
+# The ocr demo: a page with a pasted dashboard screenshot, which Tesseract has already read.
+# Searching for pricing finds it twice in the notes, then inside the screenshot.
+DASHBOARD = '''checkout-api   POST /pricing   p99 latency
+
+3s
+2s
+1s
+0s
+      13:50          14:00          14:10          14:20
 '''
 OCR_PAGES = {
-    1: '# Checkout latency\n\n- p99 jumped after the 14:00 deploy\n- Logs from the checkout pod:\n'
-       '\n![](assets/log.png)\n',
+    1: '# Checkout latency\n\n- p99 jumped after the 14:00 deploy\n'
+       '- Suspect the new `pricing` call\n- Roll back pricing if it stays high\n'
+       '\n![](assets/dashboard.png)\n',
     2: '# Standup\n\n- API: rate limits ship Thursday\n',
 }
 OCR_SCRIPT = '''
-hold 1400
+hold 1200
 speed 110
-type /timeout
-hold 500
+type /pricing
+hold 300
 key enter
-hold 3200
+hold 1300
+speed 1300
+type n
+type n
+hold 1700
 '''
-# Draws the log as a light terminal-like screenshot, using Jot's own renderer.
-LOG_SCRIPT = '''
+# The dashboard's text, drawn by Jot as plain source in another color scheme so it reads as
+# a different app; dashboard_screenshot paints the graph between the labels.
+DASHBOARD_SCRIPT = '''
 type :set view=source
 key enter
 type :set nonu
 key enter
-type :set bg=light
+type :colorscheme tokyonight
 key enter
 '''
-
 
 def png(width, height, rgb):
     """Encode packed RGB bytes as a PNG."""
@@ -182,37 +189,71 @@ def record(binary, work, pages, script, assets=None):
     return frames, timeline
 
 
-def log_screenshot(binary, work):
-    """LOG drawn by Jot in a light source view, cropped to its five lines of text, as a PNG."""
-    frames, timeline = record(binary, work, {1: LOG}, LOG_SCRIPT)
+def dashboard_screenshot(binary, work):
+    """A latency dashboard panel as a PNG: DASHBOARD's text drawn by Jot, with a graph
+    painted between the axis labels, spiking after 14:00."""
+    import math
+    frames, timeline = record(binary, work, {1: DASHBOARD}, DASHBOARD_SCRIPT)
     width, height, rgb = read_ppm(frames / f'{timeline[-1][0]:04d}.ppm')
+    rgb = bytearray(rgb)
     stride = width * 3
-    pixel = lambda x, y: rgb[y * stride + x * 3:y * stride + x * 3 + 3]
+    pixel = lambda x, y: bytes(rgb[y * stride + x * 3:y * stride + x * 3 + 3])
     background = pixel(width // 2, height // 2)
-    # Text rows: the window's right edge shows the page background (not the title or status bar)
-    # and the row has ink. The cursor sits on the line after the log, so keep five lines.
+    # Text rows: the window's right edge shows the page background (not the title or status
+    # bar) and the row has ink. Six lines have text; the cursor sits on the line after them.
     inked = [y for y in range(height) if pixel(width - 3, y) == background
-             and rgb[y * stride:(y + 1) * stride] != background * width]
+             and bytes(rgb[y * stride:(y + 1) * stride]) != background * width]
     lines, start = [], inked[0]
     for a, b in zip(inked, inked[1:] + [None]):
         if b is None or b - a > 1:
             lines.append((start, a))
             start = b
-    top, bottom = lines[0][0], lines[LOG.count('\n') - 1][1]
-    columns = [x for x in range(width) for y in range(top, bottom + 1, 2)
-               if pixel(x, y) != background]
-    # The same margin on every side, small enough to stay below the title bar.
+    title, labels, times = lines[0], lines[1:5], lines[5]
+    centre = lambda line: (line[0] + line[1]) // 2
+    # The graph spans from just right of the y labels to the end of the time labels.
+    ink = lambda line: [x for x in range(width) for y in range(line[0], line[1] + 1, 2)
+                        if pixel(x, y) != background]
+    left, right = max(ink(labels[0])) + 40, max(ink(times))
+    top_y, zero_y = centre(labels[0]), centre(labels[3])
+
+    def put(x, y, color):
+        rgb[y * stride + x * 3:y * stride + x * 3 + 3] = bytes(color)
+
+    grid, line, fill = (41, 46, 66), (122, 162, 247), (36, 48, 82)
+    spike, spike_fill = (247, 118, 142), (74, 42, 60)
+    for label in labels:
+        for x in range(left, right):
+            put(x, centre(label), grid)
+    for x in range(left, right):
+        t = (x - left) / (right - left)
+        hot = math.exp(-((t - 0.58) / 0.07) ** 2)
+        seconds = 0.35 + 0.08 * math.sin(t * 29) + 0.05 * math.sin(t * 71 + 1) + 2.3 * hot
+        y = round(zero_y - (zero_y - top_y) * seconds / 3)
+        stroke, under = (spike, spike_fill) if hot > 0.1 else (line, fill)
+        for yy in range(y + 3, zero_y):
+            put(x, yy, under)
+        for yy in range(y - 2, y + 3):
+            put(x, yy, stroke)
+    columns = ink(title) + ink(times) + [right]
     page_top = next(y for y in range(height) if pixel(width - 3, y) == background)
-    margin = min(28, top - page_top)
-    box = (min(columns) - margin, top - margin, max(columns) - min(columns) + 2 * margin,
-           bottom - top + 2 * margin)
-    return png(box[2], box[3], crop(width, rgb, box))
+    margin = min(36, title[0] - page_top)
+    box = (min(columns) - margin, title[0] - margin, max(columns) - min(columns) + 2 * margin,
+           times[1] - title[0] + 2 * margin)
+    return png(box[2], box[3], crop(width, bytes(rgb), box))
 
 
 def main():
     binary, name, output = sys.argv[1], sys.argv[2], Path(sys.argv[3])
     keep = Path(sys.argv[sys.argv.index('--frames') + 1]) if '--frames' in sys.argv else None
+    # Raw frames are about 5 MB each, so the work folder goes as soon as the SVG is written.
     work = Path(tempfile.mkdtemp(prefix='jot-demo-'))
+    try:
+        build(binary, name, output, keep, work)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def build(binary, name, output, keep, work):
     if name == 'editing':
         title = 'Jot: editing Markdown, pasting a screenshot and switching pages'
         (work / 'chart.png').write_bytes(chart())
@@ -220,9 +261,9 @@ def main():
                                   SCRIPT.format(chart=work / 'chart.png'))
     elif name == 'ocr':
         title = 'Jot: searching for text inside a pasted screenshot'
-        image = work / 'log.png'
-        image.write_bytes(log_screenshot(binary, work / 'log'))
-        # Read it the way Jot does, writing log.png.txt and log.png.tsv beside it.
+        image = work / 'dashboard.png'
+        image.write_bytes(dashboard_screenshot(binary, work / 'dashboard'))
+        # Read it the way Jot does, writing dashboard.png.txt and .tsv beside it.
         subprocess.run(['tesseract', str(image), str(image), 'txt', 'tsv'], check=True,
                        capture_output=True)
         frames, timeline = record(binary, work / 'demo', OCR_PAGES, OCR_SCRIPT,

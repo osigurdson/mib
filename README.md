@@ -12,7 +12,7 @@ With Jot, there are no files to manage, just 9 scratch pages that you switch bet
 ## Optional OCR and integrated image search
 If tesseract is available on your machine, Jot will OCR the text in your screen captures and includes this in the search.
 
-<img src="docs/demo-ocr.svg" width="640" alt="Jot searching for timeout: the search finds and highlights the word in two places inside a pasted screenshot of service logs">
+<img src="docs/demo-ocr.svg" width="640" alt="Jot searching for pricing: the search steps through two matches in the notes, then a match inside a pasted dashboard screenshot">
 
 ## Build and run (Linux, Wayland)
 
