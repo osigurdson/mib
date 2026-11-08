@@ -5,9 +5,21 @@
 </picture>
 </h1>
 
-<p align="center"><img src="docs/brand/badge.svg" alt="mib: under 1 MiB" height="28"></p>
-
 A 300KiB, vim-inspired Markdown scratchpad with inline images. It's a local, single binary desktop app with no Electron or WebView dependencies. mib loads instantly (<50ms), is CPU efficient and uses less than 1MiB of memory on startup (99% less than some Electron based markdown tools). 
+
+## Install
+
+On Linux (x86_64, Wayland, glibc 2.39 or newer):
+
+```sh
+curl -fsSL https://osigurdson.github.io/mib/install.sh | sh
+```
+
+This installs the latest release to `~/.local` after checking its checksum; run it again to
+upgrade. The [download page](https://osigurdson.github.io/mib/) has the release files, how to
+verify them and how to install by hand, or you can
+[build from source](#build-and-run-linux-wayland). `mib --version` shows the release and
+commit you're running.
 
 ## Nine pages, no file management
 With mib, there are no files to manage, just 9 scratch pages that you switch between as needed. 
@@ -20,23 +32,6 @@ Why nine? mib's focus is on working notes, not building an archive. This is more
 If tesseract is available on your machine, mib will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below.
 
 <img src="docs/demo-ocr.svg" width="640" alt="mib searching for invoice: the search steps through two matches in a release checklist, then into a pasted screenshot of a monitoring dashboard, where it highlights POST /invoice in the graph legend">
-
-## Download
-
-On Linux (x86_64, Wayland, glibc 2.39 or newer), install the latest release to `~/.local`:
-
-```sh
-curl -fsSL https://osigurdson.github.io/mib/install.sh | sh
-```
-
-The [script](site/install.sh) checks the download against the release's checksums before
-installing, and running it again upgrades. Prebuilt binaries are also on the
-[download page](https://osigurdson.github.io/mib/) and under
-[Releases](https://github.com/osigurdson/mib/releases). GitHub Actions builds each release
-from its version tag, runs the tests on the same binary, and publishes it with SHA-256
-checksums and a signed build provenance attestation, so you can check which commit a file
-came from (`gh attestation verify FILE --repo osigurdson/mib`). `mib --version` prints the
-version and commit of any build, including your own.
 
 ## Build and run (Linux, Wayland)
 
