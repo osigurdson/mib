@@ -23,10 +23,10 @@ If tesseract is available on your machine, mib will OCR the text in the images t
 
 ## Download
 
-Prebuilt Linux (x86_64, Wayland) and Windows binaries are on the
+Prebuilt Linux (x86_64, Wayland) binaries are on the
 [download page](https://osigurdson.github.io/mib/) and under
 [Releases](https://github.com/osigurdson/mib/releases). GitHub Actions builds each release
-from its version tag, runs the tests on the same binaries, and publishes them with SHA-256
+from its version tag, runs the tests on the same binary, and publishes it with SHA-256
 checksums and a signed build provenance attestation, so you can check which commit a file
 came from (`gh attestation verify FILE --repo osigurdson/mib`). `mib --version` prints the
 version and commit of any build, including your own.
@@ -152,8 +152,9 @@ make test-linux-e2e  # real keyboard and clipboard input, large notes, undo/redo
 make vim-compare     # type each case in tests/vim-compare.toml into mib and Vim, compare
 ```
 
-GitHub Actions runs `make`, `make test`, `make format-check` and the Windows tests under
-Wine on every push and pull request (`.github/workflows/ci.yml`).
+GitHub Actions runs `make`, `make test` and `make format-check` on every push and pull
+request (`.github/workflows/ci.yml`). Windows isn't in CI yet; run `make test-windows`
+locally after touching shared or Windows code.
 
 To release, tag a commit on `main` and push the tag:
 

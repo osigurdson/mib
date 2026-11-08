@@ -1,7 +1,8 @@
 # Publishes a release when a version tag is pushed:
 #   git tag -a v0.1.0 -m "mib 0.1.0" && git push origin v0.1.0
-# The binaries come from the CI workflow run on that tag, get SHA-256 checksums and a signed
-# build provenance attestation (gh attestation verify), and the download page is refreshed.
+# The Linux build comes from the CI workflow run on that tag. It gets a SHA-256 checksum and a
+# signed build provenance attestation (gh attestation verify), and the download page is
+# refreshed.
 name: Release
 
 on:
@@ -31,7 +32,6 @@ jobs:
         run: |
           mkdir dist
           mv artifacts/mib-linux-x86_64.tar.gz "dist/mib-$GITHUB_REF_NAME-linux-x86_64.tar.gz"
-          mv artifacts/mib-windows-x86_64.exe "dist/mib-$GITHUB_REF_NAME-windows-x86_64.exe"
           cd dist && sha256sum mib-* > SHA256SUMS && cat SHA256SUMS
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:

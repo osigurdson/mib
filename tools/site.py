@@ -55,7 +55,7 @@ def release_html(r):
     tag, commit = r["tag"], r["commit"]
     files = [a for a in r["assets"] if a["name"].startswith("mib-")]
     linux = next((a["name"] for a in files if "linux" in a["name"]), "mib-linux.tar.gz")
-    windows = next((a["name"] for a in files if "windows" in a["name"]), "mib.exe")
+    windows = next((a["name"] for a in files if "windows" in a["name"]), None)
     rows = "".join(
         f'<tr><td><a href="{e(a["url"])}">{e(a["name"])}</a>'
         f'<code class="sum">sha256 {e(a["sha256"])}</code></td>'
@@ -82,10 +82,20 @@ as in Ubuntu 24.04, Fedora 40, Debian 13 and Arch.</p>
 install -Dm755 mib/mib ~/.local/bin/mib
 install -Dm644 mib/io.github.osigurdson.mib.desktop -t ~/.local/share/applications
 install -Dm644 mib/io.github.osigurdson.mib.svg -t ~/.local/share/icons/hicolor/scalable/apps</pre>
+{windows_html(windows)}"""
 
+
+def windows_html(name):
+    if not name:
+        return """
 <h3>Windows</h3>
-<p>Download <code>{e(windows)}</code> and run it; there is no installer. Windows 10 (1703) or
-newer. The file isn't code-signed yet, so SmartScreen may ask you to confirm.</p>
+<p>The Windows build is experimental and not released yet; see
+<a href="https://github.com/osigurdson/mib#appendix-windows-experimental">building it</a>.</p>
+"""
+    return f"""
+<h3>Windows</h3>
+<p>Download <code>{html.escape(name)}</code> and run it; there is no installer. Windows 10
+(1703) or newer. The file isn't code-signed yet, so SmartScreen may ask you to confirm.</p>
 """
 
 

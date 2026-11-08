@@ -39,9 +39,10 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 ## CI and releases
 
 - `.github/workflows/ci.yml` runs on every push and pull request: `make`, `make test`,
-  `make format-check` (clang-format pinned to the local version through pipx) and
-  `make test-windows` under Wine. It uploads the Linux tarball and Windows exe it tested.
-- Pushing a `v*` tag runs `release.yml`, which reuses those CI binaries, adds SHA256SUMS and
+  and `make format-check` (clang-format pinned to the local version through pipx), and
+  uploads the Linux tarball it tested. Windows is not in CI yet; run `make test-windows`
+  locally.
+- Pushing a `v*` tag runs `release.yml`, which reuses that CI tarball, adds SHA256SUMS and
   build provenance attestations, creates the release and redeploys the download page.
 - `site/index.html` is the download page; `tools/site.py OUT [--release JSON]` fills it with
   the latest release. `tools/version.py` stamps `mib --version` with `git describe` and the
