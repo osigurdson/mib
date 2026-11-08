@@ -43,7 +43,7 @@ CLANG_FORMAT ?= clang-format
 # Every C file mib owns; third_party/ keeps its upstream formatting.
 FORMAT_FILES = $(shell git ls-files '*.c' '*.h' '*.inc' ':!third_party')
 
-.PHONY: all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font mib editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview demo-frames demo
+.PHONY: FORCE all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font mib editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview demo-frames demo
 all: mib
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -81,9 +81,15 @@ $(GEN)/tablet-unstable-v2-protocol.c: $(PROTOCOLS_DIR)/unstable/tablet/tablet-un
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)
 	$(PYTHON) tools/embed-font.py $< $@
 
+# Checked on every build; tools/version.py only rewrites it when the version or commit changes.
+$(GEN)/version.h: FORCE | $(GEN)
+	@$(PYTHON) tools/version.py $@
+
+FORCE:
+
 mib: $(LINUX_BUILD_DIR)/mib
 
-$(LINUX_BUILD_DIR)/mib: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
+$(LINUX_BUILD_DIR)/mib: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(GEN)/version.h $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ src/main.c src/platform/linux/entry.c $(CORE) $(MEMORY) $(FILES) $(WINDOW) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
 
 run: mib

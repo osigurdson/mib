@@ -76,6 +76,13 @@ target_include_directories(mib-memory PUBLIC src)
 # linker flag.
 add_executable(mib WIN32 src/main.c ${PLATFORM_ENTRY} ${PLATFORM_WINDOW} ${PLATFORM_FILES})
 target_link_libraries(mib PRIVATE mib-core mib-memory ${PLATFORM_LIBRARIES})
+# version.h names the git version and commit; checked on every build, rewritten on change.
+add_custom_target(version
+    COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/version.py"
+            "${GENERATED}/version.h"
+    BYPRODUCTS "${GENERATED}/version.h" VERBATIM)
+add_dependencies(mib version)
+target_include_directories(mib PRIVATE "${GENERATED}")
 if(MSVC)
     target_link_options(mib PRIVATE /ENTRY:wmainCRTStartup)
 elseif(WIN32)
