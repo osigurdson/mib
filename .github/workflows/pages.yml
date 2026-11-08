@@ -11,8 +11,7 @@ on:
       - docs/demo.svg
       - docs/brand/**
       - .github/workflows/pages.yml
-  workflow_dispatch:
-  workflow_call:
+  workflow_dispatch: # also started by the release workflow
 
 permissions:
   contents: read
