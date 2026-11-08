@@ -1,17 +1,20 @@
-"""Record the README demo, docs/demo.svg, from the real editor.
+"""Record a README demo from the real editor.
 
-    python3 tools/demo.py DEMO_FRAMES_BINARY OUTPUT.svg [--frames DIR]
+    python3 tools/demo.py DEMO_FRAMES_BINARY NAME OUTPUT.svg [--frames DIR]
 
-Fills a throwaway notes folder, plays SCRIPT through tools/demo-frames.c (the real editor and
-renderer, keys in and pixels out), then packs the frames into one animated SVG. The SVG shows
+NAME is a key of DEMOS: editing (docs/demo.svg) or ocr (docs/demo-ocr.svg). Fills a
+throwaway notes folder, plays the demo's script through tools/demo-frames.c (the real editor
+and renderer, keys in and pixels out), then packs the frames into one animated SVG. The SVG shows
 the first frame and lays each later frame's changed regions over it as PNG patches, timed with
 CSS, so typing costs a few small patches rather than a whole frame per key. Uses only the
-Python standard library. --frames keeps the PNG of every frame in DIR for checking.
+Python standard library, plus Tesseract for the ocr demo. --frames keeps the PNG of every
+frame in DIR for checking.
 """
 import os, struct, subprocess, sys, tempfile, zlib
 from pathlib import Path
 
 SCALE120 = 240  # 2x pixels, so the demo stays sharp on high-DPI screens
+# The editing demo: type a Markdown task, paste a screenshot, switch pages.
 PAGES = {
     1: '# Checkout latency\n\n- p99 jumped after the 14:00 deploy\n'
        '- Suspect the new `pricing` call\n',
@@ -35,6 +38,36 @@ speed 450
 type j
 key enter
 hold 2600
+'''
+# The ocr demo: a page with a pasted log screenshot, which Tesseract has already read, and a
+# search that finds words inside it.
+LOG = '''$ kubectl logs deploy/checkout --since=10m
+14:02:11  GET   /cart      200     48 ms
+14:02:12  POST  /pricing   504   3012 ms  upstream timeout
+14:02:13  GET   /cart      200     51 ms
+14:02:15  POST  /pricing   504   3008 ms  upstream timeout
+'''
+OCR_PAGES = {
+    1: '# Checkout latency\n\n- p99 jumped after the 14:00 deploy\n- Logs from the checkout pod:\n'
+       '\n![](assets/log.png)\n',
+    2: '# Standup\n\n- API: rate limits ship Thursday\n',
+}
+OCR_SCRIPT = '''
+hold 1400
+speed 110
+type /timeout
+hold 500
+key enter
+hold 3200
+'''
+# Draws the log as a light terminal-like screenshot, using Jot's own renderer.
+LOG_SCRIPT = '''
+type :set view=source
+key enter
+type :set nonu
+key enter
+type :set bg=light
+key enter
 '''
 
 
@@ -122,28 +155,80 @@ def crop(width, rgb, box):
     return b''.join(rgb[(y + i) * stride + x * 3:(y + i) * stride + (x + w) * 3] for i in range(h))
 
 
-def main():
-    binary, output = sys.argv[1], Path(sys.argv[2])
-    keep = Path(sys.argv[sys.argv.index('--frames') + 1]) if '--frames' in sys.argv else None
-    work = Path(tempfile.mkdtemp(prefix='jot-demo-'))
+def record(binary, work, pages, script, assets=None):
+    """Play script over a fresh notes folder holding pages, and assets (files copied into a
+    page's assets/ folder), in its own config and state folders. Returns the frames folder and
+    [frame number, milliseconds] for each frame."""
+    work.mkdir(parents=True)
     notes, frames = work / 'notes', work / 'frames'
-    for page, text in PAGES.items():
-        (notes / str(page)).mkdir(parents=True)
+    for page, text in pages.items():
+        (notes / str(page) / 'assets').mkdir(parents=True)
         (notes / str(page) / 'jot.md').write_text(text)
+    for page, files in (assets or {}).items():
+        for file in files:
+            (notes / str(page) / 'assets' / file.name).write_bytes(file.read_bytes())
     frames.mkdir()
-    (work / 'chart.png').write_bytes(chart())
     env = dict(os.environ, JOT_DIR=str(notes), XDG_CONFIG_HOME=str(work / 'config'),
                XDG_STATE_HOME=str(work / 'state'), JOT_OCR='0')
     result = subprocess.run([binary, str(frames), str(SCALE120)], env=env, check=True,
-                            input=SCRIPT.format(chart=work / 'chart.png'), text=True,
-                            capture_output=True)
-    timeline = []  # [frame number, milliseconds]
+                            input=script, text=True, capture_output=True)
+    timeline = []
     for line in result.stdout.split('\n'):
         if line.startswith('hold '):
             timeline[-1][1] += int(line.split()[1])
         elif line:
             number, ms = line.split()
             timeline.append([int(number), int(ms)])
+    return frames, timeline
+
+
+def log_screenshot(binary, work):
+    """LOG drawn by Jot in a light source view, cropped to its five lines of text, as a PNG."""
+    frames, timeline = record(binary, work, {1: LOG}, LOG_SCRIPT)
+    width, height, rgb = read_ppm(frames / f'{timeline[-1][0]:04d}.ppm')
+    stride = width * 3
+    pixel = lambda x, y: rgb[y * stride + x * 3:y * stride + x * 3 + 3]
+    background = pixel(width // 2, height // 2)
+    # Text rows: the window's right edge shows the page background (not the title or status bar)
+    # and the row has ink. The cursor sits on the line after the log, so keep five lines.
+    inked = [y for y in range(height) if pixel(width - 3, y) == background
+             and rgb[y * stride:(y + 1) * stride] != background * width]
+    lines, start = [], inked[0]
+    for a, b in zip(inked, inked[1:] + [None]):
+        if b is None or b - a > 1:
+            lines.append((start, a))
+            start = b
+    top, bottom = lines[0][0], lines[LOG.count('\n') - 1][1]
+    columns = [x for x in range(width) for y in range(top, bottom + 1, 2)
+               if pixel(x, y) != background]
+    # The same margin on every side, small enough to stay below the title bar.
+    page_top = next(y for y in range(height) if pixel(width - 3, y) == background)
+    margin = min(28, top - page_top)
+    box = (min(columns) - margin, top - margin, max(columns) - min(columns) + 2 * margin,
+           bottom - top + 2 * margin)
+    return png(box[2], box[3], crop(width, rgb, box))
+
+
+def main():
+    binary, name, output = sys.argv[1], sys.argv[2], Path(sys.argv[3])
+    keep = Path(sys.argv[sys.argv.index('--frames') + 1]) if '--frames' in sys.argv else None
+    work = Path(tempfile.mkdtemp(prefix='jot-demo-'))
+    if name == 'editing':
+        title = 'Jot: editing Markdown, pasting a screenshot and switching pages'
+        (work / 'chart.png').write_bytes(chart())
+        frames, timeline = record(binary, work / 'demo', PAGES,
+                                  SCRIPT.format(chart=work / 'chart.png'))
+    elif name == 'ocr':
+        title = 'Jot: searching for text inside a pasted screenshot'
+        image = work / 'log.png'
+        image.write_bytes(log_screenshot(binary, work / 'log'))
+        # Read it the way Jot does, writing log.png.txt and log.png.tsv beside it.
+        subprocess.run(['tesseract', str(image), str(image), 'txt', 'tsv'], check=True,
+                       capture_output=True)
+        frames, timeline = record(binary, work / 'demo', OCR_PAGES, OCR_SCRIPT,
+                                  assets={1: [image, Path(f'{image}.txt'), Path(f'{image}.tsv')]})
+    else:
+        sys.exit(f'Unknown demo {name}; use editing or ocr')
     width, height, previous = read_ppm(frames / '0000.ppm')
     scale = SCALE120 / 120
     logical_w, logical_h = round(width / scale), round(height / scale)
@@ -179,7 +264,7 @@ def main():
     radius = 10
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {logical_w} {logical_h}" '
            f'width="{logical_w}" height="{logical_h}">'
-           f'<title>Jot: editing Markdown, pasting a screenshot and switching pages</title>'
+           f'<title>{title}</title>'
            f'<style>{"".join(styles)}</style>'
            f'<clipPath id="window"><rect width="{logical_w}" height="{logical_h}" '
            f'rx="{radius}"/></clipPath><g clip-path="url(#window)">'

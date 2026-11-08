@@ -189,9 +189,10 @@ demo-frames: $(TOOL_BIN)/demo-frames
 $(TOOL_BIN)/demo-frames: tools/demo-frames.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TOOL_BIN)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/demo-frames.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
-# Record docs/demo.svg, the README demo, from the real editor.
+# Record the README demos, docs/demo.svg and docs/demo-ocr.svg, from the real editor.
 demo: $(TOOL_BIN)/demo-frames
-	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" docs/demo.svg --frames "$(LINUX_BUILD_DIR)/demo-frames" $(ARGS)
+	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" editing docs/demo.svg --frames "$(LINUX_BUILD_DIR)/demo-frames" $(ARGS)
+	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" ocr docs/demo-ocr.svg --frames "$(LINUX_BUILD_DIR)/demo-ocr-frames" $(ARGS)
 
 font-preview: $(TOOL_BIN)/font-preview
 
