@@ -1,4 +1,4 @@
-<img src="packaging/dev.jot.Jot.svg" alt="Jot's icon: a white lowercase j with a yellow dot" align="right" width="128">
+<img src="packaging/dev.jot.Jot.svg" alt="The mib icon: a cream lowercase mib with an orange bar underneath" align="right" width="128">
 
 # Jot
 
