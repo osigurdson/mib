@@ -132,7 +132,7 @@ void media_saved(void *context)
                  failed ? " (some assets could not be removed)" : "");
 }
 /* Obsidian's size suffix: "alt|300", "alt|300x200" or a bare "300". Returns the width and
- * where the suffix starts, or 0 when there is none. The height is ignored: Jot keeps the
+ * where the suffix starts, or 0 when there is none. The height is ignored: mib keeps the
  * aspect ratio. */
 static int alt_width(const char *alt, size_t n, size_t *suffix)
 {
@@ -735,7 +735,7 @@ char *media_fragment(struct app *app, size_t *length)
     size_t total = 16 + n + ed->register_length;
     unsigned char *bytes = malloc(total);
     if (bytes) {
-        memcpy(bytes, "JOTFRG1", 8);
+        memcpy(bytes, "MIBFRG1", 8);
         fragment_write_u32(bytes + 8, (uint32_t)n);
         fragment_write_u32(bytes + 12, (uint32_t)ed->register_length);
         memcpy(bytes + 16, directory, n);
@@ -751,7 +751,7 @@ bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t le
         app->dirty = true;
         return false;
     }
-    if (length < 16 || memcmp(bytes, "JOTFRG1", 8))
+    if (length < 16 || memcmp(bytes, "MIBFRG1", 8))
         return false;
     size_t directory_length = fragment_u32(bytes + 8), text_length = fragment_u32(bytes + 12);
     if (!directory_length || directory_length > 65535 || text_length > 16 * 1024 * 1024 ||
@@ -987,7 +987,7 @@ void media_tick(struct app *app)
                 !app->editor.search_failed && hit && app->editor.match_start == hit->start;
         }
     }
-    const char *enabled = getenv("JOT_OCR");
+    const char *enabled = getenv("MIB_OCR");
     if (m->ocr_unavailable || (enabled && !strcmp(enabled, "0")))
         return;
     for (unsigned i = 0; i < m->count; ++i) {
@@ -1038,7 +1038,7 @@ static bool saved_reference(const struct app *app, const char *image)
         if (app->root) {
             size_t n = strlen(app->root) + 16;
             if ((path = malloc(n)))
-                snprintf(path, n, "%s/%u/jot.md", app->root, page + 1);
+                snprintf(path, n, "%s/%u/page.md", app->root, page + 1);
         } else if (app->editor.filename) {
             size_t n = strlen(app->editor.filename) + 1;
             if ((path = malloc(n)))

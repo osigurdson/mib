@@ -42,7 +42,7 @@ static void press_alt(struct wayland_client *client, xkb_keysym_t symbol, bool n
  * shows page 3 and Alt+0 the page list, without typing anything. */
 static void page_keys(void)
 {
-    char folder[] = "/tmp/jot-page-keys-XXXXXX";
+    char folder[] = "/tmp/mib-page-keys-XXXXXX";
     assert(mkdtemp(folder));
     struct app app;
     assert(app_open(&app) && session_open(&app, folder) == 1);
@@ -460,7 +460,7 @@ int main(int argc, char **argv)
     resize_protocol();
     region_protocol();
     struct app app = {.width = 800, .height = 560, .scale120 = 180, .running = true};
-    char path[] = "/tmp/jot-integration-XXXXXX";
+    char path[] = "/tmp/mib-integration-XXXXXX";
     int fd = mkstemp(path);
     assert(fd >= 0);
     close(fd);
@@ -475,7 +475,7 @@ int main(int argc, char **argv)
     client.xkb_state = xkb_state_new(client.xkb_keymap);
     assert(client.xkb_state);
     press(&client, XKB_KEY_i);
-    const char *text = "Jot, directly on Wayland.\nCPU rendering with tiny-font.\n\n";
+    const char *text = "mib, directly on Wayland.\nCPU rendering with tiny-font.\n\n";
     for (const char *p = text; *p; ++p)
         press(&client, *p == '\n' ? XKB_KEY_Return : (xkb_keysym_t)*p);
     assert(!strcmp(app.editor.text, text));

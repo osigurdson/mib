@@ -40,11 +40,11 @@ FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
 FONT_DATA := $(GEN)/font-data.h
 CLANG_FORMAT ?= clang-format
-# Every C file Jot owns; third_party/ keeps its upstream formatting.
+# Every C file mib owns; third_party/ keeps its upstream formatting.
 FORMAT_FILES = $(shell git ls-files '*.c' '*.h' '*.inc' ':!third_party')
 
-.PHONY: all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font jot editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview demo-frames demo
-all: jot
+.PHONY: all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font mib editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview demo-frames demo
+all: mib
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
 	mkdir -p $@
@@ -81,19 +81,19 @@ $(GEN)/tablet-unstable-v2-protocol.c: $(PROTOCOLS_DIR)/unstable/tablet/tablet-un
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)
 	$(PYTHON) tools/embed-font.py $< $@
 
-jot: $(LINUX_BUILD_DIR)/jot
+mib: $(LINUX_BUILD_DIR)/mib
 
-$(LINUX_BUILD_DIR)/jot: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
+$(LINUX_BUILD_DIR)/mib: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ src/main.c src/platform/linux/entry.c $(CORE) $(MEMORY) $(FILES) $(WINDOW) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
 
-run: jot
-	"$(LINUX_BUILD_DIR)/jot"
+run: mib
+	"$(LINUX_BUILD_DIR)/mib"
 
-install: jot
+install: mib
 	$(INSTALL) -d "$(DESTDIR)$(BINDIR)" "$(DESTDIR)$(APPLICATIONSDIR)" "$(DESTDIR)$(ICONDIR)/hicolor/scalable/apps"
-	$(INSTALL) $(INSTALL_STRIP) -m 755 "$(LINUX_BUILD_DIR)/jot" "$(DESTDIR)$(BINDIR)/jot"
-	$(INSTALL) -m 644 packaging/dev.jot.Jot.svg "$(DESTDIR)$(ICONDIR)/hicolor/scalable/apps/dev.jot.Jot.svg"
-	$(PYTHON) tools/install-desktop.py "$(BINDIR)/jot" "$(DESTDIR)$(APPLICATIONSDIR)/dev.jot.Jot.desktop"
+	$(INSTALL) $(INSTALL_STRIP) -m 755 "$(LINUX_BUILD_DIR)/mib" "$(DESTDIR)$(BINDIR)/mib"
+	$(INSTALL) -m 644 packaging/io.github.osigurdson.mib.svg "$(DESTDIR)$(ICONDIR)/hicolor/scalable/apps/io.github.osigurdson.mib.svg"
+	$(PYTHON) tools/install-desktop.py "$(BINDIR)/mib" "$(DESTDIR)$(APPLICATIONSDIR)/io.github.osigurdson.mib.desktop"
 
 windows:
 	$(CMAKE) -S . -B "$(WINDOWS_BUILD_DIR)" -G Ninja \
@@ -103,7 +103,7 @@ windows:
 
 run-windows: windows
 	WINEPREFIX="$(WINEPREFIX)" WINEARCH="$(WINEARCH)" WINEDEBUG="$(WINEDEBUG)" \
-		$(WINE) "$(WINDOWS_BUILD_DIR)/jot.exe"
+		$(WINE) "$(WINDOWS_BUILD_DIR)/mib.exe"
 
 test-windows: windows
 	WINEPREFIX="$(WINEPREFIX)" WINEARCH="$(WINEARCH)" WINEDEBUG="$(WINEDEBUG)" \
@@ -156,7 +156,7 @@ $(TEST_BIN)/clipboard-test: tests/clipboard-test.c $(CORE) $(HEADERS) $(MEMORY) 
 
 OPTIONAL_OCR_TEST := $(if $(shell command -v tesseract 2>/dev/null),ocr-test)
 
-# Tests keep Jot's shared settings file away from the user's own ~/.config/jot.
+# Tests keep mib's shared settings file away from the user's own ~/.config/mib.
 test: export XDG_CONFIG_HOME = $(abspath $(TEST_BIN))/config
 test: export XDG_STATE_HOME = $(abspath $(TEST_BIN))/state
 test: editor-test client-test font-test app-test modal-test session-test media-test clipboard-test $(OPTIONAL_OCR_TEST)
@@ -172,12 +172,12 @@ test: editor-test client-test font-test app-test modal-test session-test media-t
 	cd "$(TEST_BIN)" && ./app-test
 
 # Optional native workflows in an isolated GNOME/Mutter compositor.
-test-linux-e2e: jot
-	$(PYTHON) tools/test-linux-e2e.py --binary "$(LINUX_BUILD_DIR)/jot" --output "$(LINUX_BUILD_DIR)/e2e" $(ARGS)
+test-linux-e2e: mib
+	$(PYTHON) tools/test-linux-e2e.py --binary "$(LINUX_BUILD_DIR)/mib" --output "$(LINUX_BUILD_DIR)/e2e" $(ARGS)
 
-# Optional Vim parity check: types tests/vim-compare.toml into Jot and Vim.
-vim-compare: jot
-	$(PYTHON) tools/vim-compare.py --binary "$(LINUX_BUILD_DIR)/jot" --output "$(LINUX_BUILD_DIR)/vim-compare" $(ARGS)
+# Optional Vim parity check: types tests/vim-compare.toml into mib and Vim.
+vim-compare: mib
+	$(PYTHON) tools/vim-compare.py --binary "$(LINUX_BUILD_DIR)/mib" --output "$(LINUX_BUILD_DIR)/vim-compare" $(ARGS)
 
 page-preview: $(TOOL_BIN)/page-preview
 
@@ -213,8 +213,8 @@ format:
 format-check:
 	$(CLANG_FORMAT) --dry-run -Werror $(FORMAT_FILES)
 
-memory: jot
-	$(PYTHON) tools/measure-memory.py --binary "$(LINUX_BUILD_DIR)/jot"
+memory: mib
+	$(PYTHON) tools/measure-memory.py --binary "$(LINUX_BUILD_DIR)/mib"
 
 clean:
 	rm -rf "$(LINUX_BUILD_DIR)"

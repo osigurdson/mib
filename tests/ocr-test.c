@@ -11,8 +11,8 @@
 #include <unistd.h>
 int main(void)
 {
-    unsetenv("JOT_OCR");
-    char directory[] = "/tmp/jot-ocr-XXXXXX";
+    unsetenv("MIB_OCR");
+    char directory[] = "/tmp/mib-ocr-XXXXXX";
     assert(mkdtemp(directory));
     struct app app;
     assert(app_open(&app));
@@ -84,10 +84,10 @@ int main(void)
     assert(!mkdir(bin, 0700));
     snprintf(script, sizeof(script), "%s/tesseract", bin);
     const char *program =
-        "#!/bin/sh\nsleep 0.25\nprintf '%s\\n' \"$JOT_TEST_WORD\" > \"$2.txt\"\nprintf "
+        "#!/bin/sh\nsleep 0.25\nprintf '%s\\n' \"$MIB_TEST_WORD\" > \"$2.txt\"\nprintf "
         "'level\\tpage_num\\tblock_num\\tpar_num\\tline_num\\tword_"
         "num\\tleft\\ttop\\twidth\\theight\\tconf\\ttext\\n5\\t1\\t1\\t1\\t1\\t1\\t20\\t20\\t100\\t"
-        "30\\t90\\t%s\\n' \"$JOT_TEST_WORD\" > \"$2.tsv\"\n";
+        "30\\t90\\t%s\\n' \"$MIB_TEST_WORD\" > \"$2.tsv\"\n";
     FILE *wrapper = fopen(script, "wb");
     assert(wrapper);
     assert(fwrite(program, 1, strlen(program), wrapper) == strlen(program));
@@ -111,7 +111,7 @@ int main(void)
         assert(editor_replace(&app.editor, 0, app.editor.length, "top\nbottom\n", 11));
         app.editor.mode = NORMAL;
         app.editor.cursor = 0;
-        assert(!setenv("JOT_TEST_WORD", attempt ? "WOMBAT" : "NUMBAT", 1));
+        assert(!setenv("MIB_TEST_WORD", attempt ? "WOMBAT" : "NUMBAT", 1));
         assert(media_paste_image(&app, (unsigned char *)encoded, encoded_length));
         extra_assets[attempt] = media_target(&app);
         assert(extra_assets[attempt] && app.work_at);
@@ -143,7 +143,7 @@ int main(void)
     char *removed_asset = media_target(&app);
     assert(removed_asset && app.work_at);
     assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
-    char *note_path = session_path(&app, "jot.md");
+    char *note_path = session_path(&app, "page.md");
     assert(note_path && editor_save(&app.editor, note_path));
     struct timespec settle = {.tv_nsec = 350000000};
     nanosleep(&settle, NULL);
@@ -159,7 +159,7 @@ int main(void)
     free(encoded);
     assert(!setenv("PATH", saved_path, 1));
     free(saved_path);
-    unsetenv("JOT_TEST_WORD");
+    unsetenv("MIB_TEST_WORD");
     unlink(script);
     rmdir(bin);
     app_close(&app);

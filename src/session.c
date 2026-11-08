@@ -292,19 +292,19 @@ static char *from_variable(const char *variable, const char *name)
 char *session_config_directory(void)
 {
 #ifdef _WIN32
-    return from_variable("APPDATA", "jot");
+    return from_variable("APPDATA", "mib");
 #else
-    char *path = from_variable("XDG_CONFIG_HOME", "jot");
-    return path ? path : from_variable("HOME", ".config/jot");
+    char *path = from_variable("XDG_CONFIG_HOME", "mib");
+    return path ? path : from_variable("HOME", ".config/mib");
 #endif
 }
 char *session_state_directory(void)
 {
 #ifdef _WIN32
-    return from_variable("LOCALAPPDATA", "jot");
+    return from_variable("LOCALAPPDATA", "mib");
 #else
-    char *path = from_variable("XDG_STATE_HOME", "jot");
-    return path ? path : from_variable("HOME", ".local/state/jot");
+    char *path = from_variable("XDG_STATE_HOME", "mib");
+    return path ? path : from_variable("HOME", ".local/state/mib");
 #endif
 }
 static bool write_settings(const struct app_settings *s)
@@ -315,7 +315,7 @@ static bool write_settings(const struct app_settings *s)
     if (ok) {
         char text[512], error[128];
         int n = snprintf(text, sizeof(text),
-                         "# Jot settings, shared by every page. Jot updates this file when a\n"
+                         "# mib settings, shared by every page. mib updates this file when a\n"
                          "# window closes, keeping changes made here to other settings.\n"
                          "colorscheme = %s\nbackground = %s\nview = %s\nfont_size = %u\n"
                          "width = %d\nheight = %d\nmaximized = %s\nnumber = %s\n"
@@ -516,8 +516,8 @@ static void save_settings(struct app *app)
         write_settings(&s);
     app->settings_loaded = false;
 }
-/* The notes folder: name is a path, or NULL or "" for $JOT_DIR, else ~/Documents/jot
- * (~/jot without Documents). */
+/* The notes folder: name is a path, or NULL or "" for $MIB_DIR, else ~/Documents/mib
+ * (~/mib without Documents). */
 static char *resolve(const char *name)
 {
     char *home = platform_getenv(
@@ -530,10 +530,10 @@ static char *resolve(const char *name)
     const char *base = home ? home : ".";
     char *path, *env = NULL;
     if (!name || !*name)
-        name = env = platform_getenv("JOT_DIR");
+        name = env = platform_getenv("MIB_DIR");
     if (!name) {
         char *docs = join(base, "Documents");
-        path = join(docs && directory(docs) ? docs : base, "jot");
+        path = join(docs && directory(docs) ? docs : base, "mib");
         free(docs);
     } else if (name[0] == '~' && (name[1] == '/' || name[1] == '\\' || !name[1]))
         path = name[1] ? join(base, name + 2) : join(base, "");
@@ -558,7 +558,7 @@ static char *resolve(const char *name)
 #endif
     return path;
 }
-/* The state file holding the number of the page shown when Jot last closed. */
+/* The state file holding the number of the page shown when mib last closed. */
 static char *page_file(void)
 {
     char *folder = session_state_directory();
@@ -613,7 +613,7 @@ int session_open(struct app *app, const char *name)
     if (!app->root)
         goto failed;
     strcpy(app->root, app->directory);
-    /* Show the page shown when Jot last closed, page 1 at first. */
+    /* Show the page shown when mib last closed, page 1 at first. */
     app->current = last_page();
     char number[4];
     snprintf(number, sizeof(number), "%u", app->current + 1);
@@ -627,7 +627,7 @@ int session_open(struct app *app, const char *name)
     free(assets);
     if (!made)
         goto failed;
-    char *page = session_path(app, "jot.md");
+    char *page = session_path(app, "page.md");
     if (!page)
         goto failed;
     bool missing;

@@ -80,7 +80,7 @@ header = struct.pack("<4sHHhhhhHHIII", b"TVF1", units, advance,
                      len(CODEPOINTS), 20, 32, 32 + len(records), 32 + len(records) + len(commands))
 args.output.write_bytes(header + records + commands)
 args.output.with_suffix(".json").write_text(json.dumps({
-    "family": "Jot Mono Subset",  # Renamed derivative; retain the upstream OFL.
+    "family": "Mib Mono Subset",  # Renamed derivative; retain the upstream OFL.
     "source_family": font["name"].getDebugName(1),
     "source_version": font["name"].getDebugName(5),
     "source_sha256": hashlib.sha256(args.source.read_bytes()).hexdigest(),

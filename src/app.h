@@ -21,7 +21,7 @@ struct app_settings {
     bool maximized, light, number, relativenumber;
 };
 
-/* The notes folder holds nine pages, 1/ to 9/, each with its own jot.md and assets/, shown in
+/* The notes folder holds nine pages, 1/ to 9/, each with its own page.md and assets/, shown in
  * numeric keypad order on the map (7 8 9 / 4 5 6 / 1 2 3). The shown page lives in app.editor,
  * app.media and app.directory; the others keep their document and media here once loaded,
  * while registers, search and settings stay with app.editor. */

@@ -173,14 +173,14 @@ def main():
     print("wrote", ", ".join(files), "to", out)
     if len(sys.argv) > 1:
         return  # a preview run; leave the packaged icons alone
-    with open("packaging/dev.jot.Jot.svg", "w") as f:
+    with open("packaging/io.github.osigurdson.mib.svg", "w") as f:
         f.write(files["icon.svg"])
     import tempfile
 
     with tempfile.TemporaryDirectory() as scratch:
         windows_icon(os.path.join(out, "icon.svg"), os.path.join(out, "icon-small.svg"),
                      "packaging/mib.ico", scratch)
-    print("wrote packaging/dev.jot.Jot.svg and packaging/mib.ico")
+    print("wrote packaging/io.github.osigurdson.mib.svg and packaging/mib.ico")
 
 
 if __name__ == "__main__":

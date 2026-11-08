@@ -1,6 +1,6 @@
 # Vim parity cases for tools/vim-compare.py (`make vim-compare`).
 #
-# Each case types `keys` into Jot and into Vim, starting from the same seed with the cursor on
+# Each case types `keys` into mib and into Vim, starting from the same seed with the cursor on
 # line 1, column 1, then compares the saved files. Keys use Vim notation: <Esc> <CR> <BS> <Tab>
 # <Del> <Up> <Down> <Left> <Right> <Home> <End> <lt> and <C-x>.
 #
@@ -106,7 +106,7 @@ note = "Vim 9.1+ jumps forward to the next pair on the line"
 name = "G to last line"
 keys = "Gx"
 status = "gap"
-note = "Jot shows the final line break as an empty last line, and G goes there"
+note = "mib shows the final line break as an empty last line, and G goes there"
 
 [[case]]
 name = "dG"
@@ -219,7 +219,7 @@ status = "gap"
 name = "visual block insert"
 keys = "<C-v>jjI# <Esc>"
 status = "gap"
-note = "Ctrl+V pastes in Jot"
+note = "Ctrl+V pastes in mib"
 
 [[case]]
 name = "gv"
@@ -293,7 +293,7 @@ name = "macro record keys"
 keys = "qaA;<Esc>jq2@a"
 vim_keys = "A;<Esc>jA;<Esc>jA;<Esc>"
 status = "gap"
-note = "Macros are not supported; Jot discards qa, q2 and @a. :normal can't record, so vim_keys spells out the result"
+note = "Macros are not supported; mib discards qa, q2 and @a. :normal can't record, so vim_keys spells out the result"
 
 [[case]]
 name = "macro run keys"

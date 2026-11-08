@@ -192,7 +192,7 @@ static void windows_service(struct app *app, unsigned requests, void *context)
         }
         if (!(requests & ED_COPY_OCR)) {
             /* An image is offered only as an image, since apps offered text as well paste
-             * the text; Jot itself uses the fragment. */
+             * the text; mib itself uses the fragment. */
             if (!text && !png && !dib)
                 text = clipboard_text(ed->register_text);
             size_t fragment_length;
@@ -204,7 +204,7 @@ static void windows_service(struct app *app, unsigned requests, void *context)
         }
         if ((text || png || dib || fragment) && OpenClipboard(window->handle)) {
             EmptyClipboard();
-            if (fragment && SetClipboardData(RegisterClipboardFormatW(L"Jot.Fragment"), fragment))
+            if (fragment && SetClipboardData(RegisterClipboardFormatW(L"Mib.Fragment"), fragment))
                 fragment = NULL;
             if (text && SetClipboardData(CF_UNICODETEXT, text))
                 text = NULL;
@@ -237,7 +237,7 @@ static void windows_service(struct app *app, unsigned requests, void *context)
             }
             if (!pasted && (handle = GetClipboardData(CF_DIB)))
                 pasted = paste_dib(app, handle);
-            if (!pasted && (handle = GetClipboardData(RegisterClipboardFormatW(L"Jot.Fragment")))) {
+            if (!pasted && (handle = GetClipboardData(RegisterClipboardFormatW(L"Mib.Fragment")))) {
                 SIZE_T length = GlobalSize(handle);
                 const unsigned char *bytes = GlobalLock(handle);
                 if (bytes && length <= 32 * 1024 * 1024)

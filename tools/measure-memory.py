@@ -10,7 +10,7 @@ import zlib
 
 root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--binary", type=Path, default=root / ".build/linux/jot")
+parser.add_argument("--binary", type=Path, default=root / ".build/linux/mib")
 parser.add_argument("--kind", choices=("page", "image"), default="page")
 parser.add_argument("--samples", type=int, default=3)
 parser.add_argument("--delay", type=float, default=0.8)
@@ -32,16 +32,16 @@ def screenshot():
             + chunk(b"IDAT", encoded) + chunk(b"IEND", b""))
 
 failed = False
-with tempfile.TemporaryDirectory(prefix="jot-memory-") as directory:
+with tempfile.TemporaryDirectory(prefix="mib-memory-") as directory:
     fixture = Path(directory)
     page = fixture / "notes/1"
     (page / "assets").mkdir(parents=True)
-    (page / "jot.md").write_text("![](assets/screenshot.png)\n" if args.kind == "image" else "")
+    (page / "page.md").write_text("![](assets/screenshot.png)\n" if args.kind == "image" else "")
     if args.kind == "image":
         (page / "assets/screenshot.png").write_bytes(screenshot())
     command = [str(args.binary.resolve())]
     # The notes folder, settings and remembered page all stay in the fixture.
-    environment = dict(os.environ, JOT_OCR="0", JOT_DIR=str(fixture / "notes"),
+    environment = dict(os.environ, MIB_OCR="0", MIB_DIR=str(fixture / "notes"),
                        XDG_CONFIG_HOME=str(fixture / "config"), XDG_STATE_HOME=str(fixture / "state"))
     for sample in range(args.samples):
         process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=environment)

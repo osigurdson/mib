@@ -1,7 +1,7 @@
-#ifndef JOT_COLORS_H
-#define JOT_COLORS_H
+#ifndef MIB_COLORS_H
+#define MIB_COLORS_H
 #include "render-internal.h"
-/* Jot colors and fixed-size upstream palettes; see docs/colors.md. */
+/* mib colors and fixed-size upstream palettes; see docs/colors.md. */
 static const struct palette dark = {
     0xff18202b, 0xffe5edf5, 0xff697889, 0xff88c0d0, 0xffebcb8b, 0xffa3be8c, 0xff77868a,
     0xffb9a0cb, 0xff242d3b, 0xff66502c, 0xff405c78, 0xff8fbcbb, 0xff283443, 0xff34485b,

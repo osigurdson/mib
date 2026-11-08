@@ -5,18 +5,18 @@
 #include <stdint.h>
 struct app;
 uint64_t session_now(void);
-/* Open the notes folder holding pages 1/ to 9/: name is a folder path, or NULL for $JOT_DIR
-   or ~/Documents/jot. Show the page shown when Jot last closed (kept in the state folder's
+/* Open the notes folder holding pages 1/ to 9/: name is a folder path, or NULL for $MIB_DIR
+   or ~/Documents/mib. Show the page shown when mib last closed (kept in the state folder's
    page file), open its text and restore preferences. Return 1, or -1 on error. Several
    windows may open the same folder; a save refuses to overwrite a page another window
    changed (see editor_write). */
 int session_open(struct app *app, const char *name);
 /* Save settings, positions and, for the notes folder, the shown page. */
 void session_close(struct app *app);
-/* The config folder: $XDG_CONFIG_HOME/jot or ~/.config/jot, or %APPDATA%\jot on Windows. */
+/* The config folder: $XDG_CONFIG_HOME/mib or ~/.config/mib, or %APPDATA%\mib on Windows. */
 char *session_config_directory(void);
-/* The state folder, for files Jot updates as it runs: $XDG_STATE_HOME/jot or
-   ~/.local/state/jot, or %LOCALAPPDATA%\jot on Windows. */
+/* The state folder, for files mib updates as it runs: $XDG_STATE_HOME/mib or
+   ~/.local/state/mib, or %LOCALAPPDATA%\mib on Windows. */
 char *session_state_directory(void);
 /* The positions file in the state folder keeps each file's cursor line, column and top line,
    most recent first. Restoring moves the cursor and view only when the file has an entry. */

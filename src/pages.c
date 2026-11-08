@@ -51,7 +51,7 @@ static char *page_path(const struct app *app, unsigned index, const char *name)
         snprintf(path, n, "%s%s%s%s", app->root, folder, name ? "/" : "", name ? name : "");
     return path;
 }
-/* Read a page's jot.md, which may not exist yet, with the cursor where it was last left, or at
+/* Read a page's page.md, which may not exist yet, with the cursor where it was last left, or at
  * the end for a page with no remembered position. Loading never creates the page's folder;
  * showing it does. */
 static bool load(struct app *app, unsigned index)
@@ -59,7 +59,7 @@ static bool load(struct app *app, unsigned index)
     struct page *page = &app->pages[index];
     if (page->loaded)
         return true;
-    char *path = page_path(app, index, "jot.md");
+    char *path = page_path(app, index, "page.md");
     struct editor document = {0};
     bool ok = path && editor_open(&document, path);
     free(path);
@@ -119,7 +119,7 @@ bool app_page_switch(struct app *app, unsigned index)
     /* Keep the page's own scroll position; a page shown for the first time follows its
      * cursor to the end instead. */
     app->follow_cursor = fresh;
-    /* Pick up changes made outside Jot while the page was hidden, as on focus, and resume
+    /* Pick up changes made outside mib while the page was hidden, as on focus, and resume
      * the page's image work. */
     session_focus(app, true);
     media_tick(app);

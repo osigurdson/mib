@@ -1,5 +1,5 @@
 /* Drive the real editor from a script on stdin and write each frame it draws, for the README
- * demo (tools/demo.py). Opens the notes folder in $JOT_DIR like jot itself.
+ * demo (tools/demo.py). Opens the notes folder in $MIB_DIR like mib itself.
  *
  *   demo-frames OUTPUT_DIR SCALE120
  *

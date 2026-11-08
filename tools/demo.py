@@ -62,7 +62,7 @@ type n
 type n
 hold 1700
 '''
-# The dashboard's labels. Each is drawn by Jot (headings come out larger), then recoloured and
+# The dashboard's labels. Each is drawn by mib (headings come out larger), then recoloured and
 # placed by dashboard().
 LABELS = ['Checkout service / Overview', 'Last 1 hour', 'Error rate', 'Requests / s',
           'p99 latency', '# 4.8%', '# 1,284', '# 2.9 s', 'p99 latency by endpoint',
@@ -168,13 +168,13 @@ def record(binary, work, pages, script, assets=None):
     notes, frames = work / 'notes', work / 'frames'
     for page, text in pages.items():
         (notes / str(page) / 'assets').mkdir(parents=True)
-        (notes / str(page) / 'jot.md').write_text(text)
+        (notes / str(page) / 'page.md').write_text(text)
     for page, files in (assets or {}).items():
         for file in files:
             (notes / str(page) / 'assets' / file.name).write_bytes(file.read_bytes())
     frames.mkdir()
-    env = dict(os.environ, JOT_DIR=str(notes), XDG_CONFIG_HOME=str(work / 'config'),
-               XDG_STATE_HOME=str(work / 'state'), JOT_OCR='0')
+    env = dict(os.environ, MIB_DIR=str(notes), XDG_CONFIG_HOME=str(work / 'config'),
+               XDG_STATE_HOME=str(work / 'state'), MIB_OCR='0')
     result = subprocess.run([binary, str(frames), str(SCALE120)], env=env, check=True,
                             input=script, text=True, capture_output=True)
     timeline = []
@@ -190,7 +190,7 @@ def record(binary, work, pages, script, assets=None):
 
 
 def label_sprites(binary, work):
-    """Each of LABELS as drawn by Jot: {label: (width, height, coverage, baseline)}, where
+    """Each of LABELS as drawn by mib: {label: (width, height, coverage, baseline)}, where
     coverage is one byte per pixel from 0 (background) to 255 (full ink), ready to draw in any
     colour, and baseline is how far below the top the text sits.
     Labels are drawn a few at a time so each batch fits in the window."""
@@ -332,7 +332,7 @@ def main():
     binary, name, output = sys.argv[1], sys.argv[2], Path(sys.argv[3])
     keep = Path(sys.argv[sys.argv.index('--frames') + 1]) if '--frames' in sys.argv else None
     # Raw frames are about 5 MB each, so the work folder goes as soon as the SVG is written.
-    work = Path(tempfile.mkdtemp(prefix='jot-demo-'))
+    work = Path(tempfile.mkdtemp(prefix='mib-demo-'))
     try:
         build(binary, name, output, keep, work)
     finally:
@@ -341,15 +341,15 @@ def main():
 
 def build(binary, name, output, keep, work):
     if name == 'editing':
-        title = 'Jot: editing Markdown, pasting a screenshot and switching pages'
+        title = 'mib: editing Markdown, pasting a screenshot and switching pages'
         (work / 'chart.png').write_bytes(chart())
         frames, timeline = record(binary, work / 'demo', PAGES,
                                   SCRIPT.format(chart=work / 'chart.png'))
     elif name == 'ocr':
-        title = 'Jot: searching for text inside a pasted screenshot'
+        title = 'mib: searching for text inside a pasted screenshot'
         image = work / 'dashboard.png'
         image.write_bytes(dashboard(binary, work / 'labels'))
-        # Read it the way Jot does, writing dashboard.png.txt and .tsv beside it.
+        # Read it the way mib does, writing dashboard.png.txt and .tsv beside it.
         subprocess.run(['tesseract', str(image), str(image), 'txt', 'tsv'], check=True,
                        capture_output=True)
         frames, timeline = record(binary, work / 'demo', OCR_PAGES, OCR_SCRIPT,

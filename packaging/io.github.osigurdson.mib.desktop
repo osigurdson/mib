@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Jot
+Name=mib
 Comment=Notes and screenshots in a small modal editor
-Exec=jot
-Icon=dev.jot.Jot
+Exec=mib
+Icon=io.github.osigurdson.mib
 Terminal=false
 Categories=Utility;TextEditor;
 Keywords=notes;markdown;screenshots;vim;
-StartupWMClass=dev.jot.Jot
+StartupWMClass=io.github.osigurdson.mib

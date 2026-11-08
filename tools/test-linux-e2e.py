@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the actual Jot Wayland executable in a private, headless Mutter session.
+"""Drive the actual mib Wayland executable in a private, headless Mutter session.
 
 Test-only dependencies: Mutter, dbus-run-session, Python PyGObject (Gio).
 No input or clipboard requests are sent to the user's desktop/session bus.
@@ -29,7 +29,7 @@ def png_fixture(width=96, height=64, seed=0):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--binary', type=Path, default=Path('.build/linux/jot'))
+    parser.add_argument('--binary', type=Path, default=Path('.build/linux/mib'))
     parser.add_argument('--output', type=Path, default=Path('.build/linux/e2e'))
     parser.add_argument('--quick', action='store_true', help='Skip the 10,000-line/50-image stress workflow')
     parser.add_argument('--isolated', action='store_true', help=argparse.SUPPRESS)
@@ -58,7 +58,7 @@ def main():
     env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(root/'config'),
                XDG_DATA_HOME=str(root/'data'), XDG_CACHE_HOME=str(root/'cache'),
                XDG_STATE_HOME=str(root/'state'), GSETTINGS_BACKEND='memory',
-               GIO_USE_VFS='local', JOT_OCR='0', WAYLAND_DISPLAY='wayland-0')
+               GIO_USE_VFS='local', MIB_OCR='0', WAYLAND_DISPLAY='wayland-0')
     env.pop('DISPLAY', None)
     env.pop('WAYLAND_DEBUG', None)
     context = GLib.MainContext.default()
@@ -130,7 +130,7 @@ def main():
             pump(.03)
 
         call('Start')
-        key(0xffe1)  # Create the virtual keyboard before Jot binds wl_seat.
+        key(0xffe1)  # Create the virtual keyboard before mib binds wl_seat.
         clipboard = {'image/png': png_fixture()}
         transfers = []
         transfer_errors = []
@@ -177,14 +177,14 @@ def main():
             notes = root/name
             folder = notes/'1'
             folder.mkdir(parents=True)
-            note = folder/'jot.md'
+            note = folder/'page.md'
             note.write_text(seed or '')
             if assets:
                 (folder/'assets').mkdir()
                 for name, data in assets.items():
                     (folder/'assets'/name).write_bytes(data)
             # Start at the top, as a newly opened file did, rather than at the page's end.
-            state = root/'state'/'jot'
+            state = root/'state'/'mib'
             state.mkdir(parents=True, exist_ok=True)
             (state/'positions').write_text(f'0 0 0 {note.resolve()}\n')
             (state/'page').write_text('1\n')
@@ -192,20 +192,20 @@ def main():
             if log:
                 log.close()
             log = log_path.open('w')
-            app_env = dict(env, WAYLAND_DEBUG='client', JOT_DIR=str(notes))
+            app_env = dict(env, WAYLAND_DEBUG='client', MIB_DIR=str(notes))
             app = subprocess.Popen([str(args.binary.resolve())],
                                    env=app_env, stdout=log, stderr=log)
             def focused():
-                assert app.poll() is None, 'Jot exited early: ' + str(log_path)
+                assert app.poll() is None, 'mib exited early: ' + str(log_path)
                 return re.search(r'wl_keyboard[^\n]*\.enter\(', log_path.read_text(errors='replace')) is not None
-            wait_for(focused, 'Jot keyboard focus')
+            wait_for(focused, 'mib keyboard focus')
             pump(.05)
             return folder, note
 
         def finish(note):
             command('wq')
-            wait_for(lambda: app.poll() is not None, 'Jot save and quit')
-            assert app.returncode == 0, f'Jot exited {app.returncode}; see {log.name}'
+            wait_for(lambda: app.poll() is not None, 'mib save and quit')
+            assert app.returncode == 0, f'mib exited {app.returncode}; see {log.name}'
             return note.read_text()
 
         def expect(actual, expected):

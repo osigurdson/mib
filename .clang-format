@@ -1,4 +1,4 @@
-# Jot's C style: 4-space indents, function braces on their own line, 100 columns.
+# mib's C style: 4-space indents, function braces on their own line, 100 columns.
 # Run `make format` to apply it and `make format-check` to verify it.
 BasedOnStyle: LLVM
 IndentWidth: 4

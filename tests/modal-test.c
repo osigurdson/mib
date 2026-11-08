@@ -535,7 +535,7 @@ int main(void)
     }
     ed.requests = 0;
     uint64_t revision = ed.revision;
-    const char *schemes[] = {"jot", "tokyonight", "catppuccin", "kanagawa", "everforest"};
+    const char *schemes[] = {"mib", "tokyonight", "catppuccin", "kanagawa", "everforest"};
     for (unsigned i = 0; i < COLOR_COUNT; ++i) {
         char command[80];
         snprintf(command, sizeof(command), "colorscheme %s", schemes[i]);
@@ -554,10 +554,10 @@ int main(void)
         assert(ed.revision == revision);
         expect("notes");
     }
-    editor_command(&ed, "colo jot");
-    assert(ed.colorscheme == COLOR_JOT);
+    editor_command(&ed, "colo mib");
+    assert(ed.colorscheme == COLOR_MIB);
     editor_command(&ed, "colorscheme missing");
-    assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_JOT);
+    assert(strstr(ed.message, "Cannot find color scheme") && ed.colorscheme == COLOR_MIB);
     editor_command(&ed, "set background=invalid");
     assert(strstr(ed.message, "Unknown option") && !ed.light);
     editor_command(&ed, "set view=reading");
@@ -572,7 +572,7 @@ int main(void)
         assert(strstr(ed.message, "Cannot find color scheme") &&
                ed.colorscheme == COLOR_CATPPUCCIN);
     }
-    editor_command(&ed, "colorscheme jot");
+    editor_command(&ed, "colorscheme mib");
     editor_command(&ed, "set view=normal");
     reset("one two three\nfour five\nsix\n");
     keys("2dw");

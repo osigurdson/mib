@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static const wchar_t window_class[] = L"JotWindow";
+static const wchar_t window_class[] = L"MibWindow";
 struct windows_window {
     struct app *app;
     HWND handle;
@@ -480,7 +480,7 @@ static bool open_window(struct windows_window *window, struct app *app, int show
     if (!AdjustWindowRectExForDpi(&size, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi))
         return false;
     bool maximized = app->maximized;
-    HWND handle = CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"Jot", WS_OVERLAPPEDWINDOW,
+    HWND handle = CreateWindowExW(WS_EX_ACCEPTFILES, window_class, L"mib", WS_OVERLAPPEDWINDOW,
                                   CW_USEDEFAULT, CW_USEDEFAULT, size.right - size.left,
                                   size.bottom - size.top, NULL, NULL, instance, window);
     if (!handle)
@@ -500,7 +500,7 @@ static bool open_window(struct windows_window *window, struct app *app, int show
 void platform_report(const char *text, bool error)
 {
     wchar_t *wide = windows_utf16(text);
-    MessageBoxW(NULL, wide ? wide : L"Jot could not start", L"Jot",
+    MessageBoxW(NULL, wide ? wide : L"mib could not start", L"mib",
                 MB_OK | (error ? MB_ICONERROR : MB_ICONINFORMATION));
     free(wide);
 }

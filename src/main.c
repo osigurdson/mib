@@ -6,14 +6,15 @@
 int app_main(int argc, char **argv)
 {
     if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
-        platform_report("Usage: jot\nJot opens its nine pages, 1/ to 9/, in $JOT_DIR or "
-                        "~/Documents/jot (~/jot without\nDocuments), on the page shown when it "
-                        "last closed. Alt+1 to Alt+9 switch pages.\nSave with :w or Ctrl+S.",
+        platform_report("mib: Markdown under a mebibyte.\n\nUsage: mib\n"
+                        "Opens the nine pages, 1/ to 9/, in $MIB_DIR or ~/Documents/mib (~/mib "
+                        "without\nDocuments), on the page shown when it last closed. Alt+1 to "
+                        "Alt+9 switch pages.\nSave with :w or Ctrl+S.",
                         false);
         return EXIT_SUCCESS;
     }
     if (argc > 1) {
-        platform_report("Usage: jot", true);
+        platform_report("Usage: mib", true);
         return EXIT_FAILURE;
     }
     struct app app;

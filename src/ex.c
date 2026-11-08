@@ -6,9 +6,9 @@
 
 const char *editor_colorscheme_name(enum color_scheme scheme)
 {
-    static const char *const names[] = {"jot", "tokyonight", "catppuccin", "kanagawa",
+    static const char *const names[] = {"mib", "tokyonight", "catppuccin", "kanagawa",
                                         "everforest"};
-    return (unsigned)scheme < COLOR_COUNT ? names[scheme] : "jot";
+    return (unsigned)scheme < COLOR_COUNT ? names[scheme] : "mib";
 }
 const char *editor_view_name(enum view_mode view)
 {

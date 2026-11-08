@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Type Vim key sequences into the real Jot binary and into Vim, then compare the saved files.
+"""Type Vim key sequences into the real mib binary and into Vim, then compare the saved files.
 
-Each case in tests/vim-compare.toml starts Jot on page 1 of a fresh notes folder, holding the
+Each case in tests/vim-compare.toml starts mib on page 1 of a fresh notes folder, holding the
 case's seed, inside a private headless Mutter session, types the keys, then saves with
 <Esc><Esc>:wq<CR>. The same keys run in
-Vim (`vim -u NONE -es` with options matching Jot's conventions). Cases marked `status = "gap"`
+Vim (`vim -u NONE -es` with options matching mib's conventions). Cases marked `status = "gap"`
 are known differences; the run fails when a passing case regresses or a gap starts matching.
 
 Test-only dependencies: Mutter, dbus-run-session, Python PyGObject (Gio) and Vim.
@@ -23,7 +23,7 @@ import time
 import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
-# Vim settings that match Jot's fixed behaviour: 4-space indents, kept indentation,
+# Vim settings that match mib's fixed behaviour: 4-space indents, kept indentation,
 # smart-case search, single-space joins and 79-column gq.
 VIM_SETUP = ['set nocompatible', 'set expandtab shiftwidth=4 tabstop=4 softtabstop=0 autoindent',
              'set ignorecase smartcase nojoinspaces textwidth=79 nrformats=bin,hex',
@@ -90,20 +90,20 @@ def load_cases(path, only):
     return seeds, cases
 
 
-def diff(vim, jot):
-    lines = difflib.unified_diff(vim.splitlines(keepends=True), jot.splitlines(keepends=True),
-                                 'vim', 'jot', n=1)
+def diff(vim, mib):
+    lines = difflib.unified_diff(vim.splitlines(keepends=True), mib.splitlines(keepends=True),
+                                 'vim', 'mib', n=1)
     return ''.join('      ' + repr(line)[1:-1].replace('\\n', '') + '\n' for line in lines)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--binary', type=Path, default=ROOT / '.build/linux/jot')
+    parser.add_argument('--binary', type=Path, default=ROOT / '.build/linux/mib')
     parser.add_argument('--cases', type=Path, default=ROOT / 'tests/vim-compare.toml')
     parser.add_argument('--output', type=Path, default=ROOT / '.build/linux/vim-compare')
     parser.add_argument('--only', action='append', metavar='REGEX', help='Run cases whose name matches (repeatable)')
     parser.add_argument('--show', action='store_true', help='Print the diff for known gaps too')
-    parser.add_argument('--vim', action='store_true', help="Only print Vim's result for each case (no Jot)")
+    parser.add_argument('--vim', action='store_true', help="Only print Vim's result for each case (no mib)")
     parser.add_argument('--isolated', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     seeds, cases = load_cases(args.cases, args.only)
@@ -135,11 +135,11 @@ def main():
     bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
     run_dir = Path(tempfile.mkdtemp(prefix='run-', dir=args.output))
     # Wayland socket paths are limited to 108 bytes, so the runtime directory stays short.
-    runtime = Path(tempfile.mkdtemp(prefix='jot-vc-'))
+    runtime = Path(tempfile.mkdtemp(prefix='mib-vc-'))
     env = dict(os.environ, XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(run_dir / 'config'),
                XDG_DATA_HOME=str(run_dir / 'data'), XDG_CACHE_HOME=str(run_dir / 'cache'),
                XDG_STATE_HOME=str(run_dir / 'state'), GSETTINGS_BACKEND='memory',
-               GIO_USE_VFS='local', JOT_OCR='0', WAYLAND_DISPLAY='wayland-0')
+               GIO_USE_VFS='local', MIB_OCR='0', WAYLAND_DISPLAY='wayland-0')
     env.pop('DISPLAY', None)
     env.pop('WAYLAND_DEBUG', None)
     context = GLib.MainContext.default()
@@ -210,17 +210,17 @@ def main():
             pump(.04)
 
         call('Start')
-        tap(0xffe1)  # Create the virtual keyboard before Jot binds wl_seat.
+        tap(0xffe1)  # Create the virtual keyboard before mib binds wl_seat.
         counts = {'PASS': 0, 'GAP': 0, 'FAIL': 0, 'FIXED': 0, 'ERROR': 0}
         for case in cases:
             seed = seeds[case.get('seed', 'default')]
             folder = Path(tempfile.mkdtemp(prefix='case-', dir=run_dir))
             # Each case is page 1 of its own notes folder. A remembered position at the top
             # starts the cursor where Vim's starts, instead of at the end of a new page.
-            note = folder / '1' / 'jot.md'
+            note = folder / '1' / 'page.md'
             note.parent.mkdir()
             note.write_text(seed)
-            state = run_dir / 'state' / 'jot'
+            state = run_dir / 'state' / 'mib'
             state.mkdir(parents=True, exist_ok=True)
             (state / 'positions').write_text(f'0 0 0 {note.resolve()}\n')
             (state / 'page').write_text('1\n')
@@ -228,32 +228,32 @@ def main():
             error = None
             with log_path.open('w') as log:
                 app = subprocess.Popen([str(args.binary.resolve())],
-                                       env=dict(env, WAYLAND_DEBUG='client', JOT_DIR=str(folder)),
+                                       env=dict(env, WAYLAND_DEBUG='client', MIB_DIR=str(folder)),
                                        stdout=log, stderr=log)
                 try:
                     def focused():
                         if app.poll() is not None:
-                            raise RuntimeError(f'Jot exited early; see {log_path}')
+                            raise RuntimeError(f'mib exited early; see {log_path}')
                         return re.search(r'wl_keyboard[^\n]*\.enter\(', log_path.read_text(errors='replace'))
-                    wait_for(focused, 'Jot keyboard focus')
+                    wait_for(focused, 'mib keyboard focus')
                     pump(.05)
                     send(case['keys'])
                     send('<Esc><Esc>:wq<CR>')
-                    wait_for(lambda: app.poll() is not None, 'Jot to save and quit', 4)
+                    wait_for(lambda: app.poll() is not None, 'mib to save and quit', 4)
                     if app.returncode:
-                        error = f'Jot exited {app.returncode}; see {log_path}'
+                        error = f'mib exited {app.returncode}; see {log_path}'
                 except Exception as exception:
                     error = str(exception)
                 finally:
                     if app.poll() is None:
                         app.kill()
                         app.wait()
-            jot = note.read_text()
+            mib = note.read_text()
             vim = run_vim(seed, case.get('vim_keys', case['keys']), folder)
             gap = case.get('status') == 'gap'
             if error:
                 result = 'ERROR'
-            elif jot == vim:
+            elif mib == vim:
                 result = 'FIXED' if gap else 'PASS'
             else:
                 result = 'GAP' if gap else 'FAIL'
@@ -265,7 +265,7 @@ def main():
             if error:
                 print('      ' + error)
             if result == 'FAIL' or (result == 'GAP' and args.show):
-                print(diff(vim, jot), end='')
+                print(diff(vim, mib), end='')
             if result == 'FIXED':
                 print('      Now matches Vim: remove `status = "gap"` from this case.')
             if not error and result in ('PASS', 'FIXED'):

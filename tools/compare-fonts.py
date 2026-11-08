@@ -1,6 +1,6 @@
 """Optional visual QA: custom rasterizer versus FreeType using the same font.
 Requires Pillow, a C compiler, pkg-config, and FreeType development files.
-FreeType is used only by the standalone reference tool, never by jot.
+FreeType is used only by the standalone reference tool, never by mib.
 """
 from pathlib import Path
 import shlex

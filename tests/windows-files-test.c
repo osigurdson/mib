@@ -25,7 +25,7 @@ int main(void)
 {
     wchar_t temp[MAX_PATH], directory[1024], path[1024], collision[1024];
     assert(GetTempPathW(MAX_PATH, temp));
-    swprintf(directory, 1024, L"%lsjot-files-%lu-%lu", temp, (unsigned long)GetCurrentProcessId(),
+    swprintf(directory, 1024, L"%lsmib-files-%lu-%lu", temp, (unsigned long)GetCurrentProcessId(),
              (unsigned long)GetTickCount());
     assert(CreateDirectoryW(directory, NULL));
     swprintf(path, 1024, L"%ls\\caf\u00e9-\u6587\u4ef6-\U0001f4dd.txt", directory);
@@ -41,7 +41,7 @@ int main(void)
 
     /* A failed CREATE_NEW must never delete somebody else's temporary file. */
     for (unsigned i = 1; i <= 32; ++i) {
-        swprintf(collision, 1024, L"%ls\\.jot-%08lx-%08lx.tmp", directory,
+        swprintf(collision, 1024, L"%ls\\.mib-%08lx-%08lx.tmp", directory,
                  (unsigned long)GetCurrentProcessId(), (unsigned long)i);
         HANDLE file = CreateFileW(collision, GENERIC_WRITE, 0, NULL, CREATE_NEW, 0, NULL);
         assert(file != INVALID_HANDLE_VALUE);
@@ -49,7 +49,7 @@ int main(void)
     }
     assert(!platform_file_write_atomic(utf8, "new", 3, error, sizeof(error)));
     for (unsigned i = 1; i <= 32; ++i) {
-        swprintf(collision, 1024, L"%ls\\.jot-%08lx-%08lx.tmp", directory,
+        swprintf(collision, 1024, L"%ls\\.mib-%08lx-%08lx.tmp", directory,
                  (unsigned long)GetCurrentProcessId(), (unsigned long)i);
         assert(GetFileAttributesW(collision) != INVALID_FILE_ATTRIBUTES);
         assert(DeleteFileW(collision));
@@ -147,7 +147,7 @@ int main(void)
         *wcsrchr(directory, L'\\') = 0;
     }
     assert(wcslen(directory) == end);
-    swprintf(path, 1024, L"%ls\\.jot-*", directory);
+    swprintf(path, 1024, L"%ls\\.mib-*", directory);
     WIN32_FIND_DATAW found;
     HANDLE scan = FindFirstFileW(path, &found);
     assert(scan == INVALID_HANDLE_VALUE);

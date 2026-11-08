@@ -1,4 +1,4 @@
-"""Install Jot's desktop entry with the final executable path (without DESTDIR)."""
+"""Install mib's desktop entry with the final executable path (without DESTDIR)."""
 from pathlib import Path
 import sys
 
@@ -10,8 +10,8 @@ for character in ('\\', '"', '`', '$'):
     quoted = quoted.replace(character, '\\' + character)
 command = ('"' + quoted + '"').replace('\\', '\\\\')
 command = command.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
-source = Path(__file__).resolve().parent.parent / 'packaging/dev.jot.Jot.desktop'
-entry = source.read_text().replace('Exec=jot', 'Exec=' + command)
+source = Path(__file__).resolve().parent.parent / 'packaging/io.github.osigurdson.mib.desktop'
+entry = source.read_text().replace('Exec=mib', 'Exec=' + command)
 target = Path(destination)
 target.write_text(entry)
 target.chmod(0o644)

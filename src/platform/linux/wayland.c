@@ -186,7 +186,7 @@ static bool draw(struct wayland_client *client)
     int width = (int)physical_width, height = (int)physical_height;
     int stride = width * 4;
     int size = stride * height;
-    int fd = memfd_create("jot", MFD_CLOEXEC);
+    int fd = memfd_create("mib", MFD_CLOEXEC);
     if (fd < 0) {
         perror("memfd_create");
         return false;
@@ -1053,8 +1053,8 @@ int platform_run(struct app *app)
         zxdg_toplevel_decoration_v1_set_mode(client->decoration,
                                              ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     }
-    xdg_toplevel_set_title(client->toplevel, "Jot");
-    xdg_toplevel_set_app_id(client->toplevel, "dev.jot.Jot");
+    xdg_toplevel_set_title(client->toplevel, "mib");
+    xdg_toplevel_set_app_id(client->toplevel, "io.github.osigurdson.mib");
     if (app->maximized)
         xdg_toplevel_set_maximized(client->toplevel);
 

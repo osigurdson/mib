@@ -34,7 +34,7 @@ static void offered(struct wl_client *c, struct wl_resource *r, const char *mime
     struct test_source *s = wl_resource_get_user_data(r);
     if (!strcmp(mime, "image/png"))
         s->png = true;
-    if (!strcmp(mime, "application/x-jot-fragment"))
+    if (!strcmp(mime, "application/x-mib-fragment"))
         s->fragment = true;
     if (!strcmp(mime, "text/plain;charset=utf-8"))
         s->text = true;
@@ -262,8 +262,8 @@ static void pump_sends(struct wayland_client *c)
 int main(void)
 {
     signal(SIGPIPE, SIG_IGN);
-    setenv("JOT_OCR", "0", 1);
-    char directory[] = "/tmp/jot-clipboard-XXXXXX";
+    setenv("MIB_OCR", "0", 1);
+    char directory[] = "/tmp/mib-clipboard-XXXXXX";
     assert(mkdtemp(directory));
     char path[1024];
     snprintf(path, sizeof(path), "%s/input.png", directory);

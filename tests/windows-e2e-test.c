@@ -16,14 +16,14 @@ static BOOL CALLBACK find_window(HWND window, LPARAM param)
     GetWindowThreadProcessId(window, &pid);
     wchar_t klass[64];
     GetClassNameW(window, klass, 64);
-    if (pid == app->process.dwProcessId && !wcscmp(klass, L"JotWindow"))
+    if (pid == app->process.dwProcessId && !wcscmp(klass, L"MibWindow"))
         app->window = window;
     return TRUE;
 }
-/* Start jot.exe on the notes folder; it reads JOT_DIR from the inherited environment. */
+/* Start mib.exe on the notes folder; it reads MIB_DIR from the inherited environment. */
 static struct launched launch(const wchar_t *exe, const wchar_t *notes)
 {
-    assert(SetEnvironmentVariableW(L"JOT_DIR", notes));
+    assert(SetEnvironmentVariableW(L"MIB_DIR", notes));
     wchar_t command[4096];
     swprintf(command, 4096, L"\"%ls\"", exe);
     STARTUPINFOW startup = {0};
@@ -94,19 +94,19 @@ int main(void)
     wchar_t exe[2048], temp[MAX_PATH], root[1024], notes[2048], page[2048], other[2048],
         other_page[2048];
     assert(GetModuleFileNameW(NULL, exe, 2048));
-    wcscpy(wcsrchr(exe, L'\\') + 1, L"jot.exe");
+    wcscpy(wcsrchr(exe, L'\\') + 1, L"mib.exe");
     assert(GetTempPathW(MAX_PATH, temp));
-    swprintf(root, 1024, L"%lsjot-e2e-%lu-%lu", temp, (unsigned long)GetCurrentProcessId(),
+    swprintf(root, 1024, L"%lsmib-e2e-%lu-%lu", temp, (unsigned long)GetCurrentProcessId(),
              (unsigned long)GetTickCount());
     assert(CreateDirectoryW(root, NULL));
-    /* Jot inherits these, keeping its settings and positions out of the Wine profile. */
+    /* mib inherits these, keeping its settings and positions out of the Wine profile. */
     wchar_t config[1100], state[1100];
     swprintf(config, 1100, L"%ls\\config", root);
     swprintf(state, 1100, L"%ls\\state", root);
     assert(SetEnvironmentVariableW(L"APPDATA", config));
     assert(SetEnvironmentVariableW(L"LOCALAPPDATA", state));
     swprintf(notes, 2048, L"%ls\\caf\u00e9 \u6587\u4ef6 \U0001f4dd", root);
-    swprintf(page, 2048, L"%ls\\1\\jot.md", notes);
+    swprintf(page, 2048, L"%ls\\1\\page.md", notes);
     struct launched app = launch(exe, notes);
     type(&app, L"ihello\rworld\x1b:w\r");
     expect(page, "hello\nworld");
@@ -124,13 +124,13 @@ int main(void)
     expect(page, "Xhello\nworld");
 
     swprintf(other, 2048, L"%ls\\unicode \U0001f4dd", root);
-    swprintf(other_page, 2048, L"%ls\\1\\jot.md", other);
+    swprintf(other_page, 2048, L"%ls\\1\\page.md", other);
     app = launch(exe, other);
     type(&app, L"iUTF-8: \u00e9 \U0001f4dd\x1b:wq\r");
     exited(&app);
     expect(other_page, "UTF-8: \xc3\xa9 \xf0\x9f\x93\x9d");
 
-    /* A page edited outside Jot with Windows CRLF line ends keeps them on save. */
+    /* A page edited outside mib with Windows CRLF line ends keeps them on save. */
     FILE *dos = _wfopen(page, L"wb");
     assert(dos);
     assert(fwrite("a\r\nb\r\n", 1, 6, dos) == 6);

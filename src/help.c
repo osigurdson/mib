@@ -8,7 +8,7 @@ static const struct {
     unsigned char kind;
     const char *keys, *action;
 } lines[] = {
-    {HELP_TITLE, "Jot: Vim keys for Markdown notes", ""},
+    {HELP_TITLE, "mib: Vim keys for Markdown notes", ""},
     {HELP_SECTION, "Views", ""},
     {HELP_ROW, ":set view=normal", "styled Markdown (default)"},
     {HELP_ROW, ":set view=source", "plain source"},

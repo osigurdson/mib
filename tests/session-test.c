@@ -47,7 +47,7 @@ static void remove_notes(const char *root)
 {
     char path[1300];
     for (unsigned page = 1; page <= 9; ++page) {
-        const char *inside[] = {"/jot.md", "/assets", ""};
+        const char *inside[] = {"/page.md", "/assets", ""};
         for (unsigned i = 0; i < 3; ++i) {
             snprintf(path, sizeof(path), "%s/%u%s", root, page, inside[i]);
             remove_file(path);
@@ -90,7 +90,7 @@ static void pages(const char *parent)
     assert(app_open(&app) && session_open(&app, directory) == 1);
     editor_command(&app.editor, "set view=source");
     type(&app, "ione\ntwo\x1b");
-    assert(app.current == 0 && strstr(app.editor.filename, "jot.md"));
+    assert(app.current == 0 && strstr(app.editor.filename, "page.md"));
     /* Alt+digit only switches from normal mode. */
     type(&app, "a");
     app_input(&app, KEY_PAGE, "3");
@@ -100,7 +100,7 @@ static void pages(const char *parent)
     app.editor.top = 4;
     app.follow_cursor = false;
     app_input(&app, KEY_PAGE, "3");
-    assert(app.current == 2 && app.editor.length == 0 && strstr(app.editor.filename, "/3/jot.md"));
+    assert(app.current == 2 && app.editor.length == 0 && strstr(app.editor.filename, "/3/page.md"));
     type(&app, "i# Groceries #\nmilk\x1b");
     /* Each page keeps its own text, cursor, scroll position and undo. */
     app_input(&app, KEY_PAGE, "1");
@@ -118,7 +118,7 @@ static void pages(const char *parent)
     app_request_close(&app);
     assert(app.running && strstr(app.editor.message, "page 3"));
     /* The map labels pages by their first H1, skipping fenced code. */
-    write_file(directory, "4/jot.md", "intro\n```\n# not this\n```\n#nospace\n# Real\n# Later\n");
+    write_file(directory, "4/page.md", "intro\n```\n# not this\n```\n#nospace\n# Real\n# Later\n");
     app_page_heading(&app, 2, heading, sizeof(heading));
     assert(!strcmp(heading, "Groceries"));
     app_page_heading(&app, 3, heading, sizeof(heading));
@@ -126,7 +126,7 @@ static void pages(const char *parent)
     app_page_heading(&app, 0, heading, sizeof(heading));
     assert(!heading[0]);
     app_page_heading(&app, 4, heading, sizeof(heading));
-    assert(!heading[0] && !exists(directory, "5/jot.md"));
+    assert(!heading[0] && !exists(directory, "5/page.md"));
     type(&app, ":ls\n");
     assert(app.page_map);
     uint32_t pixels[640 * 480];
@@ -202,7 +202,7 @@ static void pages(const char *parent)
     assert(!strstr(app.editor.text, "a.png") && !exists(page_assets, "a.png"));
     /* A hidden page picks up outside edits when shown again, unless it has its own. */
     app_input(&app, KEY_PAGE, "4");
-    write_file(directory, "4/jot.md", "# Changed\n");
+    write_file(directory, "4/page.md", "# Changed\n");
     app_input(&app, KEY_PAGE, "1");
     app_input(&app, KEY_PAGE, "4");
     assert(!strcmp(app.editor.text, "# Changed\n"));
@@ -213,7 +213,7 @@ static void pages(const char *parent)
     type(&app, "ggl");
     assert(app.editor.cursor == 1);
     app_close(&app);
-    /* Jot reopens on the page it closed on. */
+    /* mib reopens on the page it closed on. */
     assert(app_open(&app) && session_open(&app, directory) == 1);
     assert(app.current == 2 && !strcmp(app.editor.text, "# Groceries #\nmilk") &&
            app.editor.cursor == 1 && app.follow_cursor);
@@ -221,7 +221,7 @@ static void pages(const char *parent)
     assert(!strcmp(app.editor.text, "one\ntwo") && app.editor.cursor == 0);
     app_input(&app, KEY_PAGE, "3");
     assert(app.editor.cursor == 1);
-    /* A page saved with :w keeps the position it was saved at, even if Jot never closes
+    /* A page saved with :w keeps the position it was saved at, even if mib never closes
      * cleanly; the file holds one line per page. */
     type(&app, "G:w\n");
     char *folder = session_state_directory(), positions[1200];
@@ -231,9 +231,9 @@ static void pages(const char *parent)
     char *saved = session_read(positions, 1 << 20, &length);
     /* Positions are keyed by the platform's absolute path. */
 #ifdef _WIN32
-    const char *third = "\\3\\jot.md\n", *first = "\\1\\jot.md\n";
+    const char *third = "\\3\\page.md\n", *first = "\\1\\page.md\n";
 #else
-    const char *third = "/3/jot.md\n", *first = "/1/jot.md\n";
+    const char *third = "/3/page.md\n", *first = "/1/page.md\n";
 #endif
     assert(saved && !strncmp(saved, "1 0 0 ", 6) && strstr(saved, third));
     char *second_line = strchr(saved, '\n') + 1;
@@ -242,7 +242,7 @@ static void pages(const char *parent)
     app_close(&app);
     /* Saved pages come back after a restart; unsaved, untouched pages leave no file. A page
      * with no remembered position opens at its end. */
-    write_file(directory, "6/jot.md", "six\nlines\n");
+    write_file(directory, "6/page.md", "six\nlines\n");
     assert(app_open(&app) && session_open(&app, directory) == 1);
     app_input(&app, KEY_PAGE, "6");
     assert(app.editor.cursor == app.editor.length);
@@ -259,7 +259,7 @@ static void pages(const char *parent)
     assert(!strstr(app.editor.text, "new") && app.editor.cursor == strlen("# Groceries #\n"));
     app_input(&app, KEY_PAGE, "6");
     assert(app.editor.cursor == 0);
-    assert(!exists(directory, "5/jot.md") && !exists(directory, "2/jot.md"));
+    assert(!exists(directory, "5/page.md") && !exists(directory, "2/page.md"));
     app_close(&app);
     /* :wa saves every page with changes and leaves the shown one as it was; :wqa saves and
      * quits, and :qa is :q. */
@@ -277,10 +277,10 @@ static void pages(const char *parent)
     assert(app.current == 2 && app.editor.cursor == cursor && !app.editor.modified);
     assert(!app_page_modified(&app) && strstr(app.editor.message, "Saved all pages"));
     char *page_text =
-        session_read(strcat(strcpy(positions, directory), "/1/jot.md"), 1 << 20, &length);
+        session_read(strcat(strcpy(positions, directory), "/1/page.md"), 1 << 20, &length);
     assert(page_text && !strncmp(page_text, "first\n", 6));
     free(page_text);
-    page_text = session_read(strcat(strcpy(positions, directory), "/6/jot.md"), 1 << 20, &length);
+    page_text = session_read(strcat(strcpy(positions, directory), "/6/page.md"), 1 << 20, &length);
     assert(page_text && !strncmp(page_text, "sixth\n", 6));
     free(page_text);
     app_input(&app, KEY_PAGE, "1");
@@ -289,7 +289,7 @@ static void pages(const char *parent)
     app_input(&app, KEY_PAGE, "6");
     type(&app, "dd:wqa\n");
     assert(!app.running && !app_page_modified(&app) && !app.editor.modified);
-    page_text = session_read(strcat(strcpy(positions, directory), "/6/jot.md"), 1 << 20, &length);
+    page_text = session_read(strcat(strcpy(positions, directory), "/6/page.md"), 1 << 20, &length);
     assert(page_text && !strcmp(page_text, "six\nlines\n"));
     free(page_text);
     app_close(&app);
@@ -309,24 +309,24 @@ static void set_env(const char *name, const char *value)
         unsetenv(name);
 #endif
 }
-/* Jot opens $JOT_DIR on the page shown when it last closed, page 1 at first. */
+/* mib opens $MIB_DIR on the page shown when it last closed, page 1 at first. */
 static void last_page(const char *parent)
 {
     char directory[1100];
     snprintf(directory, sizeof(directory), "%s/remembered", parent);
-    set_env("JOT_DIR", directory);
+    set_env("MIB_DIR", directory);
     char *folder = session_state_directory(), page[1200];
     snprintf(page, sizeof(page), "%s/page", folder);
     free(folder);
     remove_file(page);
     struct app app;
     assert(app_open(&app) && session_open(&app, NULL) == 1);
-    assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
+    assert(app.current == 0 && strstr(app.editor.filename, "/1/page.md"));
     app_input(&app, KEY_PAGE, "6");
-    assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
+    assert(app.current == 5 && strstr(app.editor.filename, "/6/page.md"));
     app_close(&app);
     assert(app_open(&app) && session_open(&app, NULL) == 1);
-    assert(app.current == 5 && strstr(app.editor.filename, "/6/jot.md"));
+    assert(app.current == 5 && strstr(app.editor.filename, "/6/page.md"));
     /* :wqa saves other pages by swapping them in, and still remembers the shown one. */
     type(&app, "isix\x1b");
     app_input(&app, KEY_PAGE, "3");
@@ -336,14 +336,14 @@ static void last_page(const char *parent)
     assert(!app.running);
     app_close(&app);
     assert(app_open(&app) && session_open(&app, NULL) == 1);
-    assert(app.current == 1 && strstr(app.editor.filename, "/2/jot.md"));
+    assert(app.current == 1 && strstr(app.editor.filename, "/2/page.md"));
     app_input(&app, KEY_PAGE, "1");
     app_close(&app);
     assert(app_open(&app) && session_open(&app, NULL) == 1);
-    assert(app.current == 0 && strstr(app.editor.filename, "/1/jot.md"));
+    assert(app.current == 0 && strstr(app.editor.filename, "/1/page.md"));
     app_close(&app);
-    set_env("JOT_DIR", NULL);
-    assert(exists(directory, "6/jot.md"));
+    set_env("MIB_DIR", NULL);
+    assert(exists(directory, "6/page.md"));
     remove_notes(directory);
 }
 int main(void)
@@ -353,7 +353,7 @@ int main(void)
     char temp[MAX_PATH];
     assert(GetTempPathA(MAX_PATH, temp));
     /* Wine reuses process IDs, so the tick count keeps runs apart. */
-    snprintf(directory, sizeof(directory), "%sjot-session-%lu-%lu", temp,
+    snprintf(directory, sizeof(directory), "%smib-session-%lu-%lu", temp,
              (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount());
     snprintf(config, sizeof(config), "%s-config", directory);
     SetEnvironmentVariableA("APPDATA", config);
@@ -365,7 +365,7 @@ int main(void)
     snprintf(setting, sizeof(setting), "LOCALAPPDATA=%s", state_home);
     _putenv(setting);
 #else
-    snprintf(directory, sizeof(directory), "/tmp/jot-session-XXXXXX");
+    snprintf(directory, sizeof(directory), "/tmp/mib-session-XXXXXX");
     assert(mkdtemp(directory));
     snprintf(config, sizeof(config), "%s-config", directory);
     setenv("XDG_CONFIG_HOME", config, 1);
@@ -381,9 +381,9 @@ int main(void)
     assert(app_open(&second));
     assert(session_open(&second, directory) == 1);
     app_close(&second);
-    /* Pages live in 1/ to 9/, and Jot writes nothing else into the folder. */
-    char *page = session_path(&app, "jot.md");
-    assert(page && strstr(page, "/1/jot.md"));
+    /* Pages live in 1/ to 9/, and mib writes nothing else into the folder. */
+    char *page = session_path(&app, "page.md");
+    assert(page && strstr(page, "/1/page.md"));
     assert(!exists(directory, "AGENTS.md") && !exists(directory, "CLAUDE.md"));
     size_t n;
     char *text;
@@ -449,7 +449,7 @@ int main(void)
     assert(app.gutter == 6 * app.cell);
     assert(app.font_size == 23 && app.width == 900 && app.height == 600 && app.maximized);
     assert(!strcmp(app.editor.text, "another\n")); /* close did not save local edits */
-    assert(!app.editor.light && app.editor.colorscheme == COLOR_JOT);
+    assert(!app.editor.light && app.editor.colorscheme == COLOR_MIB);
     editor_command(&app.editor, "set background=light");
     assert(app.editor.light && !app.editor.modified);
     app_close(&app);
@@ -538,7 +538,7 @@ int main(void)
                                           error, sizeof(error)));
         assert(app_open(&app));
         assert(session_open(&app, directory) == 1);
-        assert(app.editor.colorscheme == COLOR_JOT && app.editor.light);
+        assert(app.editor.colorscheme == COLOR_MIB && app.editor.light);
         app_close(&app);
     }
 
