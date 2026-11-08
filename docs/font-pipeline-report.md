@@ -36,7 +36,7 @@ runtime still dominates the client.
 
 ## Font-library accounting
 
-- Before: `readelf -d jot` lists Wayland, xkbcommon, and libc. FreeType was
+- Before: `readelf -d mib` lists Wayland, xkbcommon, and libc. FreeType was
   loaded with `dlopen` only while rendering, from a separate 717,472-byte private
   build. Its code was not embedded in the executable, and it contributed zero
   idle mapped pages in the pre-change samples. The client contained its own

@@ -4,22 +4,22 @@ Status: not started (written 2026-11-06).
 
 ## Goal
 
-Separate Jot into two parts:
+Separate mib into two parts:
 
 - a **shell** that owns the window, input, clipboard and putting pixels on screen
-- a **client** (Jot) that draws frames and reacts to events.
+- a **client** (mib) that draws frames and reacts to events.
 
 When it's done, a second small tool should be able to link the same shell. Nothing should
-change for Jot users, and the binary should stay the same size (within about 1 KB).
+change for mib users, and the binary should stay the same size (within about 1 KB).
 
 Non-goals: widgets, layout, plugins, runtime backend selection, or a general GUI library.
 The shell passes pixels, events and timers and does nothing more.
 
 ## Why
 
-- Today `wayland.c` and `windows/window.c` include `app.h` and read and write Jot fields
+- Today `wayland.c` and `windows/window.c` include `app.h` and read and write mib fields
   directly: `dirty`, `title_hover`, `title_pressed`, `image_drag`, `drag_corner`,
-  `context_menu`, `editor`, `service`. They also call Jot-specific functions like
+  `context_menu`, `editor`, `service`. They also call mib-specific functions like
   `app_image_corner()` and `app_title_hit()`. Nothing in `app.h` marks which fields
   belong to the backends.
 - Each backend turns raw keys into `enum editor_key` (Vim meanings such as `KEY_CTRL_O`
@@ -65,7 +65,7 @@ struct shell_pointer {
 };
 enum shell_cursor { SC_DEFAULT, SC_TEXT, SC_POINTER, SC_RESIZE_NWSE, SC_RESIZE_NESW };
 
-/* Client side: Jot implements these. */
+/* Client side: mib implements these. */
 bool     client_paint(const struct shell_window *, uint32_t *px, int w, int h, int stride);
 void     client_key(const struct shell_key *);
 void     client_pointer(const struct shell_pointer *);
@@ -104,7 +104,7 @@ Decisions behind it:
    `digit` keeps today's layout-independent Alt+1..9 behaviour (evdev codes 2 to 11 and
    the keypad with Num Lock off, see `wayland.c` `handle_key`).
 3. **Pointer events reach the client unprocessed, with a click count.** The shell counts
-   double clicks (Windows can use `GetDoubleClickTime`). Jot decides what Ctrl+click,
+   double clicks (Windows can use `GetDoubleClickTime`). mib decides what Ctrl+click,
    double click, right click and image corner drags do. Backends stop checking
    `image_drag` and `context_menu`.
 4. **The client chooses the cursor shape** with `client_cursor`. Resize edges stay in the
@@ -122,14 +122,14 @@ Each step is one commit on `main`. Before each commit, `make test`, `make window
 `make vim-compare` must pass, and `make install` must run (see CLAUDE.md). Behaviour
 doesn't change at any step.
 
-0. **Baseline.** Record the stripped binary size (`ls -l ~/.local/bin/jot`, currently
+0. **Baseline.** Record the stripped binary size (`ls -l ~/.local/bin/mib`, currently
    216,856 bytes) and the Windows `.exe` size. Run the manual checklist below once so
    there is something to compare against.
 1. **Window state struct.** Add `src/shell.h` containing only `struct shell_window`. Embed
    it in `struct app` and move `width`, `height`, `scale120`, `maximized`, `tiled`,
    `client_decorated` and `title_height` into it. This is a mechanical rename.
 2. **Key normalization (do this first if doing only one step).** Add `struct shell_key`,
-   write `src/input.c` with Jot's key bindings, and reduce `handle_key` in `wayland.c` and
+   write `src/input.c` with mib's key bindings, and reduce `handle_key` in `wayland.c` and
    the `WM_KEYDOWN`/`WM_CHAR`/`WM_SYSKEYDOWN` handling in `window.c` to filling in a
    `shell_key`. Add a table-driven unit test for `input.c`. Remove the "both platform
    files" rule from CLAUDE.md.
@@ -157,7 +157,7 @@ doesn't change at any step.
 9. **Docs.** Update `docs/platforms.md`, the CLAUDE.md layout section and README.md.
    Delete this plan or mark it as done.
 
-Optional later work: make the Jot-specific editor hooks optional (`image_resize`,
+Optional later work: make the mib-specific editor hooks optional (`image_resize`,
 `page_target`, `other_modified`, `ED_PAGE_*`, `ED_HELP`), so `editor.c`, `keys.c`, `ex.c`,
 `history.c` and `substitute.c` can be reused as a Vim text engine on their own.
 

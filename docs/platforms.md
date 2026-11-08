@@ -74,7 +74,7 @@ Linux convenience build:
 ```sh
 make
 make test
-./.build/linux/jot
+./.build/linux/mib
 ```
 
 CMake, on Linux:
@@ -83,7 +83,7 @@ CMake, on Linux:
 cmake -S . -B .build/cmake -DCMAKE_BUILD_TYPE=MinSizeRel
 cmake --build .build/cmake
 ctest --test-dir .build/cmake --output-on-failure
-./.build/cmake/jot
+./.build/cmake/mib
 ```
 
 Windows builds, cross-compilation, Wine commands, coverage, and limitations are

@@ -1,4 +1,4 @@
-# Jot
+# mib
 
 A small C notes editor with Vim-style modal editing and native Wayland and Windows backends.
 README.md covers building and testing; docs/keys.md is the user-facing key reference.
@@ -13,7 +13,7 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
   `src/render.c` shares through `src/render-internal.h`. `src/help.c` draws the `:help` card the
   same way.
 - `src/pages.c`: the nine pages `1/` to `9/` in the notes folder (`app.root`), each with
-  `jot.md` and `assets/`. The shown page lives in `app.editor`, `app.media` and
+  `page.md` and `assets/`. The shown page lives in `app.editor`, `app.media` and
   `app.directory`; switching swaps the per-document editor fields (text, cursor, undo, marks)
   and media state with `app.pages[]`. `src/session.c` resolves the folder.
 - `src/platform/linux/wayland.c` and `src/platform/windows/window.c` map keys to `enum editor_key`.
@@ -33,13 +33,13 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
   Tesseract), by driving the real editor (`tools/demo-frames.c`) through the pages and keys at
   the top of `tools/demo.py`. Run it after visible UI changes and check the frames it keeps in
   `.build/linux/demo-frames/` and `.build/linux/demo-ocr-frames/`.
-- `make vim-compare`: types each case in `tests/vim-compare.toml` into the real Jot binary (in a
+- `make vim-compare`: types each case in `tests/vim-compare.toml` into the real mib binary (in a
   private headless Mutter session) and into Vim, then compares the saved files.
 
 ## Change workflow
 
 For each change: implement it with the checks above passing, commit it on `main`, then run
-`make install` so `~/.local/bin/jot` is the build the user tries. Restart Jot to pick up a
+`make install` so `~/.local/bin/mib` is the build the user tries. Restart mib to pick up a
 new install; an open window keeps the old binary and owns its page.
 
 ## Vim parity workflow
@@ -54,15 +54,15 @@ Use `make vim-compare` when adding or changing Vim behaviour:
 3. Implement, then run `make vim-compare ARGS="--only REGEX"` while iterating and the full run at
    the end. A gap that now matches is reported as FIXED and fails the run until you remove its
    `status` line; a passing case that stops matching is a FAIL with a diff.
-4. The Vim reference runs `vim -u NONE -es` with Jot's conventions (4-space `expandtab`,
+4. The Vim reference runs `vim -u NONE -es` with mib's conventions (4-space `expandtab`,
    `autoindent`, `ignorecase smartcase`, `nojoinspaces`, `textwidth=79`). If a difference is a
-   deliberate Jot choice, keep it as a gap with a `note`.
+   deliberate mib choice, keep it as a gap with a `note`.
 5. `:normal` differs from typing in a few ways: it drops the remaining keys after a failing
    command (typed Vim beeps and continues), `u` undoes everything since `:normal` started, and
    `q` can't record. Give such cases a `vim_keys` field with what interactive Vim effectively
    runs. A case that passes because both sides did nothing is worth a second look.
 
-Failing runs keep each case's Jot file, Vim file and client log under
+Failing runs keep each case's mib file, Vim file and client log under
 `.build/linux/vim-compare/run-*/`.
 
 The `status = "gap"` cases double as the list of known missing Vim features (macros, visual

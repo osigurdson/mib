@@ -1,4 +1,4 @@
-# Jot feature port and footprint report
+# Port from the original Jot: features and footprint
 
 Reference: [osigurdson/jot](https://github.com/osigurdson/jot) at
 `4cdc1ccb336dab9237f97394b70bd8704c1758b3` (README, key reference, implementation
@@ -28,7 +28,7 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
 - Conservative Markdown colors/weight with visible syntax, fenced code,
   headings/links/lists/quotes/checked items, wrapping, mouse selection and scroll.
 - Optional, sequential Tesseract child jobs producing private `.png.txt` and
-  `.png.tsv` files. Existing sidecars work without Tesseract. `JOT_OCR=0`
+  `.png.tsv` files. Existing sidecars work without Tesseract. `MIB_OCR=0`
   disables automatic jobs. No OCR library remains loaded in the editor.
 
 See [the key reference](keys.md). The reference excludes dot repeat, macros,
@@ -37,14 +37,14 @@ compatibility. This port has since added dot repeat, marks with the jump list,
 named/yank/black-hole registers, case operators and `gq`; the rest remain outside
 it. `tests/vim-compare.toml` lists the known differences from Vim.
 
-Jot opens only its notes folder, `$JOT_DIR` or `~/Documents/jot` (`~/jot` without
+mib opens only its notes folder, `$MIB_DIR` or `~/Documents/mib` (`~/mib` without
 Documents), holding pages `1/` to `9/`, and shows the page shown when it last closed.
-Opening an arbitrary file was removed: Jot is a scratchpad, not a general Markdown
+Opening an arbitrary file was removed: mib is a scratchpad, not a general Markdown
 editor. Named pages are replaced by the nine numbered ones.
 
 ## Image deletion and saving
 
-Image deletion changes the buffer first. After a successful save, Jot removes
+Image deletion changes the buffer first. After a successful save, mib removes
 tracked images whose asset paths no longer appear anywhere in the note, and
 removes their `.txt`/`.tsv` OCR sidecars. An active OCR job for a removed image is
 stopped before cleanup. Failed saves leave assets and undo history alone.
@@ -87,8 +87,8 @@ swept. A crash after saving but before cleanup may leave an unused asset behind.
 - Mixed clipboard fragments refer to the original page's persistent asset
   files until pasted. Those files must still exist. Single-image PNG clipboard
   copies are self-contained. Unsupported rich clipboard formats use plain text.
-- Preferences are shared by all pages in `~/.config/jot/config`. Linux uses the literal Documents directory
-  when present; use `JOT_DIR` for a different root. Several windows may share the
+- Preferences are shared by all pages in `~/.config/mib/config`. Linux uses the literal Documents directory
+  when present; use `MIB_DIR` for a different root. Several windows may share the
   notes folder; a save refuses to overwrite a page changed on disk since it was read.
 
 The stb source is pinned under `third_party/stb/` with its license. Image codecs
@@ -146,7 +146,7 @@ python3 tools/measure-memory.py --binary /path/to/baseline
 Mutter compositor, private D-Bus session, and isolated runtime/config/data
 folders. Test-only Python/Gio code creates a virtual keyboard and owns a PNG or
 text clipboard in that compositor. It does not inject keys into the user's
-desktop, replace the user's clipboard, or add automation hooks to Jot.
+desktop, replace the user's clipboard, or add automation hooks to mib.
 
 Ten real-app workflows check End-key insertion, Unicode/CRLF text clipboard,
 search with `n`/`N`, undo/redo, image paste/typing/navigation, save/reopen,
@@ -169,7 +169,7 @@ covers release of one frame followed by shutdown with the other still pending.
 
 All nine Linux Make tests, all nine Windows/Wine tests, and all ten Linux
 ASan/UBSan CTest tests (including the native workflows) passed. For CMake, opt
-in with `-DJOT_LINUX_E2E=ON`; the native test timeout is 120 seconds. The optional
+in with `-DMIB_LINUX_E2E=ON`; the native test timeout is 120 seconds. The optional
 suite requires `mutter`, `dbus-run-session`, Python PyGObject/Gio, and a working
 headless Mutter/EGL setup (verified with Mutter 51.1). Use `make test-linux-e2e ARGS=--quick` to skip the large
 note. Logs and fixture notes remain in `.build/linux/e2e/run-*` (CMake uses its

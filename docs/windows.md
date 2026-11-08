@@ -14,11 +14,11 @@ Visual Studio developer terminal:
 cmake -S . -B build-windows
 cmake --build build-windows --config MinSizeRel
 ctest --test-dir build-windows -C MinSizeRel --output-on-failure
-.\build-windows\MinSizeRel\jot.exe
+.\build-windows\MinSizeRel\mib.exe
 ```
 
 With a single-configuration generator, the executable is directly in the build
-directory. `jot.exe` is a GUI program, so starting it opens no console window. It keeps
+directory. `mib.exe` is a GUI program, so starting it opens no console window. It keeps
 the Unicode `wmain` entry point (`/ENTRY:wmainCRTStartup` with MSVC, `-municode` with
 MinGW and Zig), and shows usage and startup errors in a message box. Desktop packaging
 (Start menu entry, icon) is not provided by this build.
@@ -32,7 +32,7 @@ CMake detects Wine as the cross-compiling emulator for tests.
 The Makefile wraps configuration, building and Wine launch:
 
 ```sh
-make windows                         # build .build/windows/jot.exe
+make windows                         # build .build/windows/mib.exe
 make run-windows                     # build and open the Windows editor
 make test-windows                    # build and run the Wine test suite
 ```
@@ -49,7 +49,7 @@ cmake -S . -B .build/windows -G Ninja \
   -DCMAKE_BUILD_TYPE=MinSizeRel -DBUILD_TESTING=ON
 cmake --build .build/windows --parallel 4
 ./tools/test-wine.sh
-WINEPREFIX="$PWD/.build/wine-prefix" wine .build/windows/jot.exe
+WINEPREFIX="$PWD/.build/wine-prefix" wine .build/windows/mib.exe
 ```
 
 The test script creates/uses `.build/wine-prefix`, independently of an existing
@@ -105,7 +105,7 @@ Nine tests pass under Wine. The original platform checks cover:
    read-only/locked save failures, temporary-name collisions, and CRLF handling.
 4. Win32 window messages, key repeat, surrogate pairs, close protection, failed
    `:wq`, four DPI paint paths, and GDI rendering into a captured bitmap.
-5. The actual `jot.exe`, launched with `CreateProcessW`, driven through its
+5. The actual `mib.exe`, launched with `CreateProcessW`, driven through its
    real window: new/load/edit/`:w`/`:q`/`:wq`, filename spaces/BMP/non-BMP Unicode,
    UTF-8 text, close rejection for unsaved changes, and CRLF round-trip.
 

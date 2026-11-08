@@ -1,12 +1,12 @@
-# Jot key reference
+# mib key reference
 
 The source and normal views show line numbers by default (`:set nonu` hides them, `:set rnu`
 counts lines from the cursor). The gutter reserves four digits and grows for longer notes,
 with two character cells between the numbers and text. Scratch
 pages and files open in normal mode with the cursor where you left it, saved on `:w` and
-when Jot closes. Closing with unsaved changes keeps the position from the last save. A page
+when mib closes. Closing with unsaved changes keeps the position from the last save. A page
 with no remembered position opens at the end, and a file at the beginning. Positions live in
-`~/.local/state/jot/positions` (`$XDG_STATE_HOME/jot`, or `%LOCALAPPDATA%\jot` on Windows). The bottom line shows the line and column, plus `SOURCE` or
+`~/.local/state/mib/positions` (`$XDG_STATE_HOME/mib`, or `%LOCALAPPDATA%\mib` on Windows). The bottom line shows the line and column, plus `SOURCE` or
 `READING` outside the normal view, and messages.
 
 Counts work with motions and operators, such as `3w`, `5j`, `d3j` and `2dd`.
@@ -136,7 +136,7 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | `Ctrl+Shift+C` | Copy the image's text |
 
 Resizing stores the width in logical pixels with Obsidian's syntax, `![|480](assets/x.png)`,
-so Obsidian shows the same size. Jot also reads `![alt|480x300](...)` and `![480](...)`,
+so Obsidian shows the same size. mib also reads `![alt|480x300](...)` and `![480](...)`,
 keeps any alt text, and ignores the height so the image keeps its shape. Images never grow
 past the text area. Resizes are one undo step each, and `.` repeats `+`, `-` and `=`.
 
@@ -159,7 +159,7 @@ Right-clicking an image also offers **Copy Text from Image** and **Open Image**.
 ## Pages
 
 The notes folder holds nine pages, `1/` to `9/`, each its own Markdown scratchpad with its
-own `jot.md` and `assets/`. Pages are Jot's buffers, so `:ls` and `:b` work as in Vim. Jot
+own `page.md` and `assets/`. Pages are mib's buffers, so `:ls` and `:b` work as in Vim. mib
 opens on the page shown when it last closed.
 
 | Keys | Action |
@@ -219,7 +219,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:set nu`, `:set nonu`, `:set nu!` | Show, hide or toggle line numbers (`number`; on by default) |
 | `:set rnu`, `:set nornu`, `:set rnu!` | Show, hide or toggle relative line numbers (`relativenumber`) |
 | `:set nu?`, `:set rnu?` | Show the option; `inv` toggles, `&` restores the default, and several options can follow one `:set` |
-| `:colorscheme {name}`, `:colo {name}` | Choose jot, tokyonight, catppuccin, kanagawa, or everforest |
+| `:colorscheme {name}`, `:colo {name}` | Choose mib, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
 | `:res[ize] {n}`, `:resize {n}%` | Set the image under the cursor to n pixels wide, or n% of its original width |
 | `:resize +{n}`, `:resize -{n}`, `:resize +{n}%` | Widen or narrow the image under the cursor |
@@ -231,7 +231,7 @@ Press `:` to open it. Up and Down browse your history.
 Ranges can use `%`, `.`, `$`, line numbers, `'<,'>` and `+n` or `-n`.
 
 The view, background, colorscheme, zoom and window size are shared by every page and file,
-and kept in `~/.config/jot/config` (`$XDG_CONFIG_HOME/jot/config`, or `%APPDATA%\jot\config` on
+and kept in `~/.config/mib/config` (`$XDG_CONFIG_HOME/mib/config`, or `%APPDATA%\mib\config` on
 Windows). Closing a window writes back only the settings it changed, so you can also edit the
 file by hand:
 
@@ -245,7 +245,7 @@ height = 560
 maximized = false
 ```
 
-The first time Jot runs without this file, it copies the opened page's old per-page settings
+The first time mib runs without this file, it copies the opened page's old per-page settings
 into it. An old `render = raw|normal|polish` line still works and is rewritten as `view`.
 In the reading view, movement,
 search, visual selection, copying, saving and link/image opening remain available.

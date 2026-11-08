@@ -1,24 +1,29 @@
-<img src="packaging/dev.jot.Jot.svg" alt="The mib icon: a cream lowercase mib with an orange bar underneath" align="right" width="128">
+<h1 align="center">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/brand/wordmark-dark.svg">
+<img src="docs/brand/wordmark-light.svg" alt="mib: Markdown under a mebibyte" width="360">
+</picture>
+</h1>
 
-# Jot
+<p align="center"><img src="docs/brand/badge.svg" alt="mib: under 1 MiB" height="28"></p>
 
-A 300KiB, vim-inspired Markdown scratchpad with inline images. It's a local, single binary desktop app with no Electron or WebView dependencies. Jot loads instantly (<50ms), is CPU efficient and uses less than 1MiB of memory on startup (99% less than some Electron based markdown tools). 
+A 300KiB, vim-inspired Markdown scratchpad with inline images. It's a local, single binary desktop app with no Electron or WebView dependencies. mib loads instantly (<50ms), is CPU efficient and uses less than 1MiB of memory on startup (99% less than some Electron based markdown tools). 
 
 ## Nine pages, no file management
-With Jot, there are no files to manage, just 9 scratch pages that you switch between as needed. 
+With mib, there are no files to manage, just 9 scratch pages that you switch between as needed. 
 
-Why nine? Jot's focus is on working notes, not building an archive. This is more than enough to manage a few threads (e.g meeting notes, screen captures and notes on a bug you are working on, preliminary ideas on how to improve things, etc.). Anything more permanent usually lands in a git repo or wiki anyway.
+Why nine? mib's focus is on working notes, not building an archive. This is more than enough to manage a few threads (e.g meeting notes, screen captures and notes on a bug you are working on, preliminary ideas on how to improve things, etc.). Anything more permanent usually lands in a git repo or wiki anyway.
 
-<img src="docs/demo.svg" width="640" alt="Jot in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
+<img src="docs/demo.svg" width="640" alt="mib in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
 
 ## Optional OCR and integrated image search
-If tesseract is available on your machine, Jot will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below.
+If tesseract is available on your machine, mib will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below.
 
-<img src="docs/demo-ocr.svg" width="640" alt="Jot searching for invoice: the search steps through two matches in a release checklist, then into a pasted screenshot of a monitoring dashboard, where it highlights POST /invoice in the graph legend">
+<img src="docs/demo-ocr.svg" width="640" alt="mib searching for invoice: the search steps through two matches in a release checklist, then into a pasted screenshot of a monitoring dashboard, where it highlights POST /invoice in the graph legend">
 
 ## Build and run (Linux, Wayland)
 
-Jot runs in a Wayland session (GNOME, KDE Plasma, Hyprland, Sway and so on). There is no
+mib runs in a Wayland session (GNOME, KDE Plasma, Hyprland, Sway and so on). There is no
 X11 support.
 
 You need a C compiler, Make, pkg-config, Python 3, and the Wayland, libxkbcommon and
@@ -43,10 +48,10 @@ Build and run:
 
 ```sh
 make
-./.build/linux/jot
+./.build/linux/mib
 ```
 
-Install to `~/.local/bin/jot`, with a **Jot** launcher entry and icon:
+Install to `~/.local/bin/mib`, with a **mib** launcher entry and icon:
 
 ```sh
 make install
@@ -60,15 +65,15 @@ packaging. `make clean` removes the build.
 There is also an experimental Windows build; see
 [Appendix: Windows (experimental)](#appendix-windows-experimental).
 
-## Using Jot
+## Using mib
 
-Run `jot`. It opens on the page you were last using, in normal mode.
+Run `mib`. It opens on the page you were last using, in normal mode.
 
 - `Alt+1` to `Alt+9` switch pages, and `Alt+0` or `:ls` lists them.
 - Editing is Vim-style: normal, insert and visual modes, motions, operators, text
   objects, counts, registers, search and `:s`.
 - Paste a screenshot or drop an image file to add it to the page.
-- `:w` or `Ctrl+S` saves, and `:q` closes; Jot won't close with unsaved changes.
+- `:w` or `Ctrl+S` saves, and `:q` closes; mib won't close with unsaved changes.
 - `:help` shows a short card. `:set view=source`, `normal` or `reading` changes how
   Markdown is shown, and `:colorscheme` picks from five color schemes, each with light and
   dark backgrounds.
@@ -77,13 +82,13 @@ The [key reference](docs/keys.md) lists every key and command.
 
 ## File Organization
 
-Your notes live in `~/Documents/jot` (`~/jot` if there is no Documents folder), or in
-`$JOT_DIR` if you set it:
+Your notes live in `~/Documents/mib` (`~/mib` if there is no Documents folder), or in
+`$MIB_DIR` if you set it:
 
 ```
-~/Documents/jot/
+~/Documents/mib/
 ├── 1/
-│   ├── jot.md                                  page 1, as plain Markdown
+│   ├── page.md                                  page 1, as plain Markdown
 │   └── assets/
 │       ├── 20261030-142211-a1b2c3d4.png        a screenshot
 │       ├── 20261030-142211-a1b2c3d4.png.txt    its text, read by OCR
@@ -93,25 +98,25 @@ Your notes live in `~/Documents/jot` (`~/jot` if there is no Documents folder), 
 └── 9/
 ```
 
-A page's folder appears the first time you open that page. On Linux, Jot makes the folders
+A page's folder appears the first time you open that page. On Linux, mib makes the folders
 private (`0700`) and new files private (`0600`).
 
-You can grep the folder, edit a `jot.md` in another editor, or keep it all in git. If you
-edit a page elsewhere, Jot reloads it when you switch back, as long as you have no unsaved
+You can grep the folder, edit a `page.md` in another editor, or keep it all in git. If you
+edit a page elsewhere, mib reloads it when you switch back, as long as you have no unsaved
 typing in it. `:Ex` opens the page's folder in your file manager.
 
 Settings (color scheme, view, font size, window size, line numbers) are kept in
-`~/.config/jot/config`, and the last page and cursor positions in `~/.local/state/jot`.
+`~/.config/mib/config`, and the last page and cursor positions in `~/.local/state/mib`.
 
 ## How it differs from Vim
 
-Jot isn't meant to replace Vim or Neovim, but the keys and flow should feel the same:
+mib isn't meant to replace Vim or Neovim, but the keys and flow should feel the same:
 motions, counts, operators, text objects, visual mode, `.` repeat, marks, named registers,
 `/` search and `:s` all work. The main differences:
 
 - `y`, `d` and `p` use the system clipboard, like `clipboard=unnamedplus`. Named registers
   work as in Vim.
-- `Ctrl+V` pastes instead of starting block visual mode, which Jot doesn't have.
+- `Ctrl+V` pastes instead of starting block visual mode, which mib doesn't have.
 - Macros, `Ctrl-A`/`Ctrl-X`, insert-mode counts, `:g`, `:sort`, `:m`, `:t` and `:normal`
   aren't implemented.
 - `:s` supports a small, Vim-like subset of regular expressions, so unusual patterns may
@@ -134,7 +139,7 @@ for the parity check:
 
 ```sh
 make test-linux-e2e  # real keyboard and clipboard input, large notes, undo/redo
-make vim-compare     # type each case in tests/vim-compare.toml into Jot and Vim, compare
+make vim-compare     # type each case in tests/vim-compare.toml into mib and Vim, compare
 ```
 
 More detail:
@@ -150,8 +155,8 @@ More detail:
 The bundled font is a subset of JetBrains Mono Nerd Font, under the SIL Open Font License
 (`fonts/OFL.txt`, `fonts/NERD-FONTS-LICENSE.txt`). PNG and JPEG decoding uses
 [stb](third_party/stb). The color schemes are adapted from Tokyo Night, Catppuccin,
-Kanagawa and Everforest; their licenses are in [third_party/](third_party). The logo comes
-from the [original GTK version of Jot](https://github.com/osigurdson/jot).
+Kanagawa and Everforest; their licenses are in [third_party/](third_party). mib started
+as a port of the [original GTK version of Jot](https://github.com/osigurdson/jot).
 
 ## License
 
@@ -163,13 +168,13 @@ The Windows version uses the same editor with a native Win32 window. It builds a
 its tests under Wine, but hasn't been tried on a real Windows machine yet. Windows 10
 version 1703 or newer is the target.
 
-To cross-build `jot.exe` from Linux, you need CMake, Ninja, Zig and Python 3 (Wine to run
+To cross-build `mib.exe` from Linux, you need CMake, Ninja, Zig and Python 3 (Wine to run
 it there):
 
 ```sh
-make windows       # writes .build/windows/jot.exe
+make windows       # writes .build/windows/mib.exe
 make run-windows   # build, then open it under Wine
 ```
 
-Copy `.build/windows/jot.exe` to a Windows machine and run it; it needs no other files.
+Copy `.build/windows/mib.exe` to a Windows machine and run it; it needs no other files.
 [docs/windows.md](docs/windows.md) has the details and what has been verified.

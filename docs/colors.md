@@ -1,7 +1,7 @@
 # Colors
 
 ```vim
-:colorscheme jot
+:colorscheme mib
 :colorscheme tokyonight
 :colorscheme catppuccin
 :colorscheme kanagawa
@@ -16,20 +16,20 @@ scheme and `:set background?` to show the background option.
 
 | Scheme | Dark variant | Light variant |
 |---|---|---|
-| jot (default) | Original Jot dark | Original Jot light |
+| mib (default) | Original Jot dark | Original Jot light |
 | tokyonight | Night | Day |
 | catppuccin | Mocha | Latte |
 | kanagawa | Wave | Lotus |
 | everforest | Medium contrast | Medium contrast |
 
-The scheme and background are shared by every page, in `~/.config/jot/config`,
-independently of saving the note. The Jot palettes are unchanged. A removed scheme
-(`default`, `desert`, `evening`, `peachpuff`) falls back to Jot, preserving the
+The scheme and background are shared by every page, in `~/.config/mib/config`,
+independently of saving the note. The mib palettes are unchanged. A removed scheme
+(`default`, `desert`, `evening`, `peachpuff`) falls back to mib, preserving the
 background setting.
 
 ## Upstream colors and licenses
 
-These are compiled color tables adapted to Jot's existing Markdown and native UI
+These are compiled color tables adapted to mib's existing Markdown and native UI
 roles. No Lua, Vimscript, plugin code, or theme files are loaded at runtime.
 
 | Theme | Pinned source | License |
@@ -39,7 +39,7 @@ roles. No Lua, Vimscript, plugin code, or theme files are loaded at runtime.
 | Kanagawa, by Tommaso Laurenzi | [kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim/tree/bb85e4bfc8d89b0e62c8fa53ccdd13d12e2f77b3) | [MIT](../third_party/kanagawa-LICENSE) |
 | Everforest, by sainnhe | [everforest](https://github.com/sainnhe/everforest/tree/85a86eb62409e3ec88713bff3d1b9d7374e112e4) | [MIT](../third_party/everforest-LICENSE) |
 
-| Jot role | Upstream highlight |
+| mib role | Upstream highlight |
 |---|---|
 | Body | Normal |
 | Gutter / markers | LineNr |
@@ -53,15 +53,15 @@ roles. No Lua, Vimscript, plugin code, or theme files are loaded at runtime.
 | Context menu | Pmenu / PmenuSel |
 | Cursor | Cursor |
 
-Window controls have Jot-specific colors derived from Normal. Heading sizes,
-Markdown styling and the renderer remain Jot's. The Jot palettes retain all their
+Window controls have mib-specific colors derived from Normal. Heading sizes,
+Markdown styling and the renderer remain mib's. The mib palettes retain all their
 original colors.
 
 ## Footprint and regeneration
 
 The ten palettes are fixed read-only tables of 25 32-bit colors: **1,000 bytes**
 total. Choosing a theme adds no per-document allocations, render buffers, or font
-caches. The selected scheme is stored by name in `~/.config/jot/config`.
+caches. The selected scheme is stored by name in `~/.config/mib/config`.
 
 `tools/import-colors.py` exports upstream highlights through an isolated headless
 Neovim process and generates `src/theme-palettes.h`. To regenerate, check out the
