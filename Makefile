@@ -43,7 +43,7 @@ CLANG_FORMAT ?= clang-format
 # Every C file mib owns; third_party/ keeps its upstream formatting.
 FORMAT_FILES = $(shell git ls-files '*.c' '*.h' '*.inc' ':!third_party')
 
-.PHONY: FORCE all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font mib editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test page-preview font-preview demo-frames demo
+.PHONY: FORCE all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font mib editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test image-test page-preview font-preview demo-frames demo
 all: mib
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -125,6 +125,15 @@ client-test: $(TEST_BIN)/client-test
 $(TEST_BIN)/client-test: tests/client-test.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(TEST_BIN)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/client-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(shell $(PKG_CONFIG) --libs wayland-server) $(LDLIBS)
 
+image-test: $(TEST_BIN)/image-test
+
+# Assertions off and AddressSanitizer on: the build in which an encoder that ignores a failed
+# allocation would write out of bounds.
+IMAGE_TEST_FLAGS ?= -DNDEBUG -fsanitize=address,undefined -fno-sanitize-recover=all
+
+$(TEST_BIN)/image-test: tests/image-test.c src/image.c $(HEADERS) | $(TEST_BIN)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(IMAGE_TEST_FLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/image-test.c $(LDLIBS)
+
 font-test: $(TEST_BIN)/font-test
 
 $(TEST_BIN)/font-test: tests/font-test.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY) | $(TEST_BIN)
@@ -165,9 +174,10 @@ OPTIONAL_OCR_TEST := $(if $(shell command -v tesseract 2>/dev/null),ocr-test)
 # Tests keep mib's shared settings file away from the user's own ~/.config/mib.
 test: export XDG_CONFIG_HOME = $(abspath $(TEST_BIN))/config
 test: export XDG_STATE_HOME = $(abspath $(TEST_BIN))/state
-test: editor-test client-test font-test app-test modal-test session-test media-test clipboard-test $(OPTIONAL_OCR_TEST)
+test: editor-test client-test font-test app-test modal-test session-test media-test clipboard-test image-test $(OPTIONAL_OCR_TEST)
 	rm -rf "$(abspath $(TEST_BIN))/config" "$(abspath $(TEST_BIN))/state"
 	$(if $(OPTIONAL_OCR_TEST),cd "$(TEST_BIN)" && ./ocr-test,true)
+	cd "$(TEST_BIN)" && ./image-test
 	cd "$(TEST_BIN)" && ./clipboard-test
 	cd "$(TEST_BIN)" && ./media-test
 	cd "$(TEST_BIN)" && ./session-test
