@@ -548,6 +548,86 @@ static void resize_test(const char *root, const unsigned char *png, size_t bytes
     assert(app_paint(&app, pixels, 800, 560, 800) && !app.image_box);
     app_close(&app);
 }
+/* Opening the image or link under the cursor refuses what the desktop would run instead of
+ * show: images that aren't PNG or JPEG files named as such, and links to programs, scripts,
+ * shortcuts or launchers, by name or by content. */
+static void open_test(const char *root, const unsigned char *png, size_t bytes)
+{
+    struct app app;
+    assert(app_open(&app));
+    char folder[1200];
+    snprintf(folder, sizeof(folder), "%s/open", root);
+    app.directory = malloc(strlen(folder) + 1);
+    assert(app.directory);
+    strcpy(app.directory, folder);
+    char *assets = session_path(&app, "assets");
+    assert(assets && session_mkdir(assets));
+    const struct {
+        const char *name, *data;
+    } files[] = {
+        {"assets/real.png", NULL},
+        {"assets/real.bat", NULL},
+        {"assets/fake.png", "not an image"},
+        {"notes.txt", "plain text"},
+        {"tool.exe", "plain text"},
+        {"data.bin", "MZ\x90"},
+        {"launcher.txt", "# A note\n[Desktop Entry]\nExec=true\n"},
+        {"script", "#!/bin/sh\ntrue\n"},
+        {"program", "\177ELF"},
+    };
+    const unsigned file_count = sizeof(files) / sizeof(*files);
+    for (unsigned i = 0; i < file_count; ++i) {
+        char *path = session_path(&app, files[i].name);
+        assert(path && session_write_new(path, files[i].data ? files[i].data : (const char *)png,
+                                         files[i].data ? strlen(files[i].data) : bytes));
+        free(path);
+    }
+    const struct {
+        const char *text, *at;
+        bool opens;
+    } cases[] = {
+        {"![](assets/real.png)\n", "!", true},
+        {"![](assets/real.bat)\n", "!", false},
+        {"![](assets/fake.png)\n", "!", false},
+        {"![](assets/missing.png)\n", "!", false},
+        {"[n](notes.txt)\n", "n", true},
+        {"[t](tool.exe)\n", "t", false},
+        {"[t](tool.EXE. )\n", "t", false},
+        {"[t](setup.Msi)\n", "t", false},
+        {"[t](../other/run.desktop)\n", "t", false},
+        {"[d](data.bin)\n", "d", false},
+        {"[l](launcher.txt)\n", "l", false},
+        {"[s](script)\n", "s", false},
+        {"[p](program)\n", "p", false},
+        {"[w](https://example.com/setup.exe)\n", "w", true},
+        {"see https://example.com/run.bat here\n", "https", true},
+        {"[m](mailto:someone@example.com)\n", "m", true},
+#ifdef _WIN32
+        {"[a](notes.txt:stream)\n", "a", false},
+#endif
+    };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+        const char *text = cases[i].text;
+        assert(editor_replace(&app.editor, 0, app.editor.length, text, strlen(text)));
+        app.editor.cursor = (size_t)(strstr(text, cases[i].at) - text);
+        app.editor.message[0] = 0;
+        char *target = media_open_target(&app);
+        if (cases[i].opens != (target != NULL))
+            fprintf(stderr, "open_test: %s", text);
+        assert(cases[i].opens == (target != NULL));
+        assert(cases[i].opens || strstr(app.editor.message, "Not opening"));
+        free(target);
+    }
+    for (unsigned i = 0; i < file_count; ++i) {
+        char *path = session_path(&app, files[i].name);
+        assert(path && platform_file_remove(path));
+        free(path);
+    }
+    remove_dir(assets);
+    remove_dir(folder);
+    free(assets);
+    app_close(&app);
+}
 #ifndef _WIN32
 static void write_text(const char *path, const char *text)
 {
@@ -756,6 +836,7 @@ int main(int argc, char **argv)
     cleanup_test(directory, png, bytes);
     pages_test(directory, png, bytes);
     close_test(directory, png, bytes);
+    open_test(directory, png, bytes);
 #ifndef _WIN32
     fifo_test(directory);
     publish_test(directory);

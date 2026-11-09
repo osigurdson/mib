@@ -317,7 +317,7 @@ static void linux_service(struct app *app, unsigned requests, void *context)
     struct editor *ed = &app->editor;
     if (requests & (ED_OPEN | ED_OPEN_DIRECTORY)) {
         char *path = requests & ED_OPEN_DIRECTORY ? (app->directory ? session_path(app, "") : NULL)
-                                                  : media_target(app);
+                                                  : media_open_target(app);
         linux_open(path);
         free(path);
     }

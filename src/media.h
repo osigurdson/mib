@@ -33,7 +33,12 @@ void media_display_size(struct app *app, const struct media_entry *entry, int av
 bool media_resize(struct editor *ed, size_t position, const char *spec, void *data);
 bool media_pixels(struct app *app, const struct media_entry *entry, struct image *image);
 char *media_clipboard_image(struct app *app, size_t *length);
+/* The path or URL of the image or link under the cursor, or NULL. */
 char *media_target(struct app *app);
+/* media_target, for the desktop to open: NULL with a message instead when the image isn't a
+ * PNG or JPEG named as one, or a link names a file that opening could run (a program, script,
+ * shortcut, installer or desktop launcher). http, https and mailto links always pass. */
+char *media_open_target(struct app *app);
 char *media_ocr_text(struct app *app, size_t *length);
 bool media_paste_image(struct app *app, const unsigned char *data, size_t length);
 char *media_fragment(struct app *app, size_t *length);

@@ -550,6 +550,142 @@ char *media_target(struct app *app)
     }
     return NULL;
 }
+/* Kinds of file that the desktop's open action runs, installs, mounts or follows elsewhere
+ * instead of showing. Windows goes by the name alone; Linux desktops also look inside, which
+ * looks_runnable covers. */
+static const char launch_types[] =
+    " ade adp app appimage appinstaller application appref-ms appx appxbundle bas bat chm cmd"
+    " com command cpl csh deb desktop diagcab exe fxp gadget grp hlp hta img inf ins iso isp its"
+    " jar jnlp js jse ksh library-ms lnk mad maf mag mam maq mar mas mat mau mav maw mcf mda mdb"
+    " mde mdt mdw mdz mht mhtml msc msh msh1 msh1xml msh2 msh2xml mshxml msi msix msixbundle msp"
+    " mst msu ops osd pcd pif pl plg prf prg printerexport ps1 ps1xml ps2 ps2xml psc1 psc2 psd1"
+    " psdm1 psm1 py pyc pyo pyw pyz pyzw reg rpm run scf scr sct search-ms searchconnector-ms"
+    " settingcontent-ms sh shb shs theme themepack url vb vbe vbp vbs vhd vhdx vsmacros vsw"
+    " website ws wsb wsc wsf wsh xbap xll xnk ";
+/* Whether A (N bytes) and B (M bytes) are the same text, ignoring ASCII case. */
+static bool same_span(const char *a, size_t n, const char *b, size_t m)
+{
+    if (n != m)
+        return false;
+    for (size_t i = 0; i < n; ++i)
+        if (tolower((unsigned char)a[i]) != tolower((unsigned char)b[i]))
+            return false;
+    return true;
+}
+static bool same_text(const char *a, size_t n, const char *b)
+{
+    return same_span(a, n, b, strlen(b));
+}
+/* PATH's last name's extension without its dot, as Windows sees it: trailing dots and spaces
+ * are dropped, so "x.exe. " is x.exe. Sets *length; NULL when there is none. */
+static const char *extension(const char *path, size_t *length)
+{
+    const char *name = path;
+    for (const char *p = path; *p; ++p)
+        if (*p == '/' || *p == '\\')
+            name = p + 1;
+    size_t n = strlen(name);
+    while (n && (name[n - 1] == '.' || name[n - 1] == ' '))
+        --n;
+    for (size_t i = n; i-- > 0;)
+        if (name[i] == '.') {
+            *length = n - i - 1;
+            return name + i + 1;
+        }
+    return NULL;
+}
+/* Whether the file starts like a program, a script or a desktop launcher, which some Linux
+ * desktops recognise whatever the name. */
+static bool looks_runnable(const char *path)
+{
+    bool missing;
+    char error[128];
+    FILE *file = platform_file_open_read(path, &missing, error, sizeof(error));
+    if (!file)
+        return false;
+    char head[513];
+    size_t n = fread(head, 1, sizeof(head) - 1, file);
+    fclose(file);
+    head[n] = 0;
+    for (size_t i = 0; i < n; ++i)
+        if (!head[i])
+            head[i] = ' ';
+    return (n >= 2 && (!memcmp(head, "MZ", 2) || !memcmp(head, "#!", 2))) ||
+           (n >= 4 && !memcmp(head, "\177ELF", 4)) || strstr(head, "[Desktop Entry]") ||
+           strstr(head, "[Desktop Action") || strstr(head, "[KDE Desktop Entry]");
+}
+static bool launches(const char *path)
+{
+#ifdef _WIN32
+    /* A colon after the drive names an alternate stream, which Windows can run. */
+    const char *rest = !strncmp(path, "\\\\?\\", 4) ? path + 4 : path;
+    if (isalpha((unsigned char)rest[0]) && rest[1] == ':')
+        rest += 2;
+    if (strchr(rest, ':'))
+        return true;
+#endif
+    size_t n;
+    const char *ext = extension(path, &n);
+    for (const char *p = launch_types; ext && n && (p = strchr(p, ' ')) && p[1]; ++p) {
+        size_t length = strcspn(p + 1, " ");
+        if (same_span(ext, n, p + 1, length))
+            return true;
+    }
+#ifdef _WIN32
+    char *list = platform_getenv("PATHEXT");
+    const char *types = list ? list : ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC";
+    bool found = false;
+    for (const char *p = types; ext && *p && !found;) {
+        const char *end = strchr(p, ';');
+        size_t length = end ? (size_t)(end - p) : strlen(p);
+        found = length > 1 && p[0] == '.' && same_span(ext, n, p + 1, length - 1);
+        p = end ? end + 1 : p + length;
+    }
+    free(list);
+    if (found)
+        return true;
+#endif
+    return looks_runnable(path);
+}
+char *media_open_target(struct app *app)
+{
+    const struct media_entry *e = media_at(app, app->editor.cursor);
+    char *target = media_target(app);
+    if (!target)
+        return NULL;
+    const char *refusal = NULL;
+    if (e) {
+        /* Only open what really is an image, and is named as one, so the viewer opens it. */
+        size_t n;
+        const char *ext = extension(target, &n);
+        bool named = ext && (same_text(ext, n, "png") || same_text(ext, n, "jpg") ||
+                             same_text(ext, n, "jpeg"));
+        bool missing, image = false;
+        char error[128];
+        FILE *file = named ? platform_file_open_read(target, &missing, error, sizeof(error)) : NULL;
+        if (file) {
+            unsigned char *header = malloc(65536);
+            size_t count = header ? fread(header, 1, 65536, file) : 0;
+            int w, h;
+            image = header && image_info(header, count, &w, &h);
+            free(header);
+            fclose(file);
+        }
+        if (!image)
+            refusal = "it isn't a PNG or JPEG image";
+    } else if (strncmp(target, "https://", 8) && strncmp(target, "http://", 7) &&
+               strncmp(target, "mailto:", 7) && launches(target))
+        refusal = "it could run a program";
+    if (!refusal)
+        return target;
+    const char *slash = strrchr(target, '/'), *backslash = strrchr(target, '\\');
+    const char *name = slash > backslash ? slash + 1 : backslash ? backslash + 1 : target;
+    snprintf(app->editor.message, sizeof(app->editor.message), "Not opening %.80s: %s", name,
+             refusal);
+    app->dirty = true;
+    free(target);
+    return NULL;
+}
 static bool ensure_directory(struct app *app)
 {
     app->media_scanned = false;

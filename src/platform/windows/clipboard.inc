@@ -140,7 +140,7 @@ static void windows_service(struct app *app, unsigned requests, void *context)
     if (requests & (ED_OPEN | ED_OPEN_DIRECTORY)) {
         char *target = requests & ED_OPEN_DIRECTORY
                            ? (app->directory ? session_path(app, "") : NULL)
-                           : media_target(app);
+                           : media_open_target(app);
         windows_open(target);
         free(target);
     }

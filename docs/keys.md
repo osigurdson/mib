@@ -135,6 +135,11 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | `p`, `Ctrl+V` | Paste a screenshot from the clipboard |
 | `Ctrl+Shift+C` | Copy the image's text |
 
+Opening hands the file to your desktop, so mib only opens images that are PNG or JPEG files
+named as such, and won't open a link to a program, script, shortcut, installer or desktop
+launcher: a note from someone else can't run anything when you click it. Web and `mailto:`
+links always open.
+
 Resizing stores the width in logical pixels with Obsidian's syntax, `![|480](assets/x.png)`,
 so Obsidian shows the same size. mib also reads `![alt|480x300](...)` and `![480](...)`,
 keeps any alt text, and ignores the height so the image keeps its shape. Images never grow
