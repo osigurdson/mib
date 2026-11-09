@@ -173,7 +173,7 @@ More detail:
 
 - [Platforms and source layout](docs/platforms.md)
 - [Windows build and Wine verification](docs/windows.md)
-- [Feature scope, limits and measurements](docs/jot-parity.md)
+- [Feature scope, limits and measurements](docs/scope.md)
 - [Font format and rasterizer](docs/font-format.md)
 - [Color schemes](docs/colors.md)
 

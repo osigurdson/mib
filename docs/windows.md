@@ -117,7 +117,7 @@ and saved preferences, image codecs/inline rendering/OCR sidecars, and private
 clipboard Unicode/PNG/DIB/file/fragment serialization. The private clipboard
 store prevents the test from replacing the desktop clipboard. Native Linux
 checks additionally exercise a private Wayland data-device server and a real
-Tesseract child when installed. See [the feature/footprint report](jot-parity.md).
+Tesseract child when installed. See [the feature/footprint report](scope.md).
 
 ## Observed Wine limitation and remaining native testing
 

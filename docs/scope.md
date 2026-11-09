@@ -1,12 +1,9 @@
-# Port from the original Jot: features and footprint
+# Feature scope, limits and measurements
 
-Reference: [osigurdson/jot](https://github.com/osigurdson/jot) at
-`4cdc1ccb336dab9237f97394b70bd8704c1758b3` (README, key reference, implementation
-and tests). The port uses native C/Wayland and Win32/GDI, the existing bundled
-outline font, and CPU rendering. No GTK, SDL, Pango, FreeType, HarfBuzz or
-Fontconfig dependencies were added. Native presentation differs from GTK.
+mib uses native C/Wayland and Win32/GDI, a bundled outline font, and CPU rendering, with no
+GTK, SDL, Pango, FreeType, HarfBuzz or Fontconfig dependencies.
 
-## Delivered behavior
+## Features
 
 - Normal, insert, visual and visual-line modes; counts, documented motions,
   operators, text objects, replace/case/join/indent operations and grouped undo.
@@ -36,16 +33,14 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
   Tesseract. `MIB_OCR=0` disables automatic jobs. No OCR library remains loaded
   in the editor.
 
-See [the key reference](keys.md). The reference excludes dot repeat, macros,
-marks, named registers, block visual mode, plugins/config and exact Vim regex
-compatibility. This port has since added dot repeat, marks with the jump list,
-named/yank/black-hole registers, case operators and `gq`; the rest remain outside
-it. `tests/vim-compare.toml` lists the known differences from Vim.
+See [the key reference](keys.md). Dot repeat, marks with the jump list,
+named/yank/black-hole registers, case operators and `gq` are supported; macros, block
+visual mode, plugins and exact Vim regex compatibility are not.
+`tests/vim-compare.toml` lists the known differences from Vim.
 
 mib opens only its notes folder, `$MIB_DIR` or `~/Documents/mib` (`~/mib` without
 Documents), holding pages `1/` to `9/`, and shows the page shown when it last closed.
-Opening an arbitrary file was removed: mib is a scratchpad, not a general Markdown
-editor. Named pages are replaced by the nine numbered ones.
+It doesn't open arbitrary files: mib is a scratchpad, not a general Markdown editor.
 
 ## Image deletion and saving
 
@@ -104,18 +99,8 @@ use a capped allocator, run only when needed and add no runtime library.
 
 ## Measured size
 
-Before is main commit `3edb4c5`; after is this port. Linux stripped baseline is
-from the saved pre-change executable. The Windows baseline was rebuilt from that
-Git tree with the same Zig toolchain. Sizes are bytes, not compressed downloads.
-
-| Executable | Before | After |
-| --- | ---: | ---: |
-| Linux Make `-Os -g` | 161,056 | 677,616 |
-| Linux stripped | 60,416 | 159,320 |
-| Windows x64 MinSizeRel | 98,304 | 246,272 |
-
-The Linux CMake MinSizeRel executable before stripping is 180,992 bytes. All
-executables, including the Linux debug build, remain below 1 MiB. Linux imports
+All executables, including the Linux debug build, remain below 1 MiB; the dated
+sections below record the sizes measured at each change. Linux imports
 only Wayland client, libxkbcommon, libm and libc. Windows uses system/CRT DLLs;
 Shell32 is loaded only for an external open action. No external font is needed.
 
@@ -125,10 +110,9 @@ Three real Wayland launches per fixture on this host, after the first paint:
 
 | Fixture | Idle PSS (KiB) | Idle RSS (KiB) | Private (KiB) | RSS high-water (KiB) |
 | --- | ---: | ---: | ---: | ---: |
-| Before: empty explicit file | 684–687 | 2,828 | 552–556 | 6,176–6,276 |
-| After: empty explicit file | 771–772 | 2,872 | 660 | 6,164–6,176 |
-| After: empty scratch page | 777–792 | 2,936–3,000 | 660–664 | 6,196–6,308 |
-| After: 2880×1800 inline image | 805–824 | 2,968–3,032 | 692 | 41,656–41,940 |
+| Empty explicit file | 771–772 | 2,872 | 660 | 6,164–6,176 |
+| Empty scratch page | 777–792 | 2,936–3,000 | 660–664 | 6,196–6,308 |
+| 2880×1800 inline image | 805–824 | 2,968–3,032 | 692 | 41,656–41,940 |
 
 Empty-page **PSS and private memory are below 1 MiB**. RSS includes shared
 libraries and exceeds 1 MiB; it must not be confused with private/PSS figures.
