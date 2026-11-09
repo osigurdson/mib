@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "platform.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -9,8 +10,10 @@
 FILE *platform_file_open_read(const char *path, bool *missing, char *error, size_t error_size)
 {
     *missing = false;
-    FILE *file = fopen(path, "rb");
-    if (!file) {
+    /* Open without blocking, so a FIFO with no writer can't hang the UI before fstat rejects
+     * it, then restore blocking reads for the regular file. */
+    int fd = open(path, O_RDONLY | O_NONBLOCK | O_NOCTTY | O_CLOEXEC);
+    if (fd < 0) {
         if (errno == ENOENT)
             *missing = true;
         else
@@ -18,10 +21,16 @@ FILE *platform_file_open_read(const char *path, bool *missing, char *error, size
         return NULL;
     }
     struct stat st;
-    if (fstat(fileno(file), &st) < 0 || !S_ISREG(st.st_mode)) {
+    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode)) {
         snprintf(error, error_size, "Only regular text files are supported");
-        fclose(file);
+        close(fd);
         return NULL;
+    }
+    int flags = fcntl(fd, F_GETFL);
+    FILE *file = flags < 0 || fcntl(fd, F_SETFL, flags & ~O_NONBLOCK) < 0 ? NULL : fdopen(fd, "rb");
+    if (!file) {
+        snprintf(error, error_size, "Open: %s", strerror(errno));
+        close(fd);
     }
     return file;
 }

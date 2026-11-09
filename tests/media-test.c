@@ -10,6 +10,7 @@
 #ifdef _WIN32
 #include "platform/windows/win32.h"
 #else
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 static bool exists(const char *path)
@@ -546,6 +547,30 @@ static void resize_test(const char *root, const unsigned char *png, size_t bytes
     assert(app_paint(&app, pixels, 800, 560, 800) && !app.image_box);
     app_close(&app);
 }
+#ifndef _WIN32
+/* A FIFO with no writer is rejected at once rather than blocking the UI thread in open.
+ * alarm's default action fails the test if anything blocks. */
+static void fifo_test(const char *root)
+{
+    char fifo[1200];
+    snprintf(fifo, sizeof(fifo), "%s/pipe.png", root);
+    assert(!mkfifo(fifo, 0600));
+    alarm(5);
+    bool missing = true;
+    char error[128] = "";
+    assert(!platform_file_open_read(fifo, &missing, error, sizeof(error)));
+    assert(!missing && error[0]);
+    size_t n;
+    assert(!session_read(fifo, 1024, &n));
+    struct app app;
+    assert(app_open(&app));
+    media_import_file(&app, fifo);
+    assert(!app.editor.length);
+    app_close(&app);
+    alarm(0);
+    assert(!unlink(fifo));
+}
+#endif
 int main(int argc, char **argv)
 {
     char directory[1024];
@@ -587,6 +612,9 @@ int main(int argc, char **argv)
     cleanup_test(directory, png, bytes);
     pages_test(directory, png, bytes);
     close_test(directory, png, bytes);
+#ifndef _WIN32
+    fifo_test(directory);
+#endif
     int w, h;
     assert(image_info(png, bytes, &w, &h) && w == 320 && h == 180);
     struct image image = {0};
