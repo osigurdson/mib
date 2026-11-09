@@ -978,6 +978,30 @@ char *media_fragment(struct app *app, size_t *length)
     free(directory);
     return (char *)bytes;
 }
+/* Whether a pasted fragment's source folder may be read: any app can put a fragment on the
+ * clipboard, so it must name an absolute local folder. On Windows, reading from a network path
+ * would have Windows connect to whatever server the fragment names and offer it the user's
+ * credentials, so only this window's own notes folder may be on one. */
+static bool fragment_folder(const struct app *app, const char *directory)
+{
+#ifdef _WIN32
+    const char *p = directory;
+    if (!strncmp(p, "\\\\?\\", 4) && strncmp(p + 4, "UNC\\", 4))
+        p += 4;
+    if (isalpha((unsigned char)p[0]) && p[1] == ':' && (p[2] == '\\' || p[2] == '/'))
+        return true;
+    const char *notes = app->root ? app->root : app->directory;
+    char *own = notes ? session_absolute(notes) : NULL;
+    size_t n = own ? strlen(own) : 0;
+    bool ok = n && !strncmp(directory, own, n) &&
+              (!directory[n] || directory[n] == '\\' || directory[n] == '/');
+    free(own);
+    return ok;
+#else
+    (void)app;
+    return directory[0] == '/';
+#endif
+}
 bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t length)
 {
     if (!editor_can_edit(&app->editor)) {
@@ -1000,6 +1024,11 @@ bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t le
     }
     memcpy(directory, bytes + 16, directory_length);
     directory[directory_length] = 0;
+    if (!fragment_folder(app, directory)) {
+        free(directory);
+        free(text);
+        return false;
+    }
     memcpy(text, bytes + 16 + directory_length, text_length);
     text[text_length] = 0;
     struct editor input = {.text = text, .length = text_length}, output = {0};

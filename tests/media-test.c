@@ -628,6 +628,34 @@ static void open_test(const char *root, const unsigned char *png, size_t bytes)
     free(assets);
     app_close(&app);
 }
+/* Any app can put a fragment on the clipboard. Its source folder must be an absolute local
+ * one: reading from a network path would have Windows connect to the server it names. */
+static void fragment_test(void)
+{
+    const char *refused[] = {
+        "relative/notes",
+#ifdef _WIN32
+        "\\\\attacker\\share", "//attacker/share", "\\\\?\\UNC\\attacker\\share",
+        "\\\\.\\pipe\\notes",  "C:relative",
+#endif
+    };
+    const char *text = "![](assets/shot.png)\n";
+    struct app app;
+    assert(app_open(&app));
+    for (unsigned i = 0; i < sizeof(refused) / sizeof(*refused); ++i) {
+        size_t n = strlen(refused[i]), m = strlen(text);
+        unsigned char bytes[256] = "MIBFRG1";
+        for (unsigned b = 0; b < 4; ++b) {
+            bytes[8 + b] = (unsigned char)(n >> (8 * b));
+            bytes[12 + b] = (unsigned char)(m >> (8 * b));
+        }
+        memcpy(bytes + 16, refused[i], n);
+        memcpy(bytes + 16 + n, text, m);
+        assert(!media_paste_fragment(&app, bytes, 16 + n + m));
+        assert(!app.editor.length);
+    }
+    app_close(&app);
+}
 #ifndef _WIN32
 static void write_text(const char *path, const char *text)
 {
@@ -966,6 +994,7 @@ int main(int argc, char **argv)
     pages_test(directory, png, bytes);
     close_test(directory, png, bytes);
     open_test(directory, png, bytes);
+    fragment_test();
 #ifndef _WIN32
     fifo_test(directory);
     publish_test(directory);
