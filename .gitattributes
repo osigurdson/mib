@@ -1,0 +1,2 @@
+# GitHub counts .inc files as C++ by default; these are C.
+*.inc linguist-language=C
