@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Build the download page into a folder for GitHub Pages.
 
-Fills site/index.html with the latest GitHub release: its version, the commit it was built
-from, each file with its size and SHA-256, and how to verify and install them. Release data
-comes from the gh CLI (GH_TOKEN and GH_REPO in the Pages workflow). Without a release, or
-without gh, the page says how to build from source instead.
+Fills site/index.html with the latest GitHub release: how to install it on Linux, notes on
+Windows and macOS, then where the files come from (the commit, each file's size and SHA-256,
+and how to check its build provenance). It also writes install.sh with that release built
+in. Release data comes from the gh CLI (GH_TOKEN and GH_REPO in the Pages workflow). Without
+a release, or without gh, the page says how to build from source instead.
 
     python3 tools/site.py OUT [--release release.json]
 
@@ -23,6 +24,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = os.environ.get("GH_REPO", "osigurdson/mib")
+REPO_URL = f"https://github.com/{REPO}"
 
 
 def gh(*args):
@@ -50,70 +52,81 @@ def size(n):
     return f"{n / 1024:.0f} KiB" if n < 1024 * 1024 else f"{n / 1024 / 1024:.1f} MiB"
 
 
-def release_html(r):
-    e = html.escape
-    repo = f"https://github.com/{REPO}"
-    tag, commit = r["tag"], r["commit"]
-    files = [a for a in r["assets"] if a["name"].startswith("mib-")]
-    linux = next((a["name"] for a in files if "linux" in a["name"]), "mib-linux.tar.gz")
+def page_html(r):
+    """Linux install, Windows, macOS, then how a release is built and checked (with a release)."""
+    files = [a for a in r["assets"] if a["name"].startswith("mib-")] if r else []
     windows = next((a["name"] for a in files if "windows" in a["name"]), None)
-    rows = "".join(
-        f'<tr><td><a href="{e(a["url"])}">{e(a["name"])}</a>'
-        f'<code class="sum">sha256 {e(a["sha256"])}</code></td>'
-        f'<td class="size">{size(a["size"])}</td></tr>' for a in files)
-    sums = next((a for a in r["assets"] if a["name"] == "SHA256SUMS"), None)
-    sums_link = f' and <a href="{e(sums["url"])}">SHA256SUMS</a>' if sums else ""
-    return f"""<h2>Download mib {e(tag)}</h2>
-<p class="meta">Released {e(r["date"])}. Built by GitHub Actions from commit
-<a href="{repo}/commit/{e(commit)}"><code>{e(commit[:12])}</code></a>, the commit tagged
-<a href="{repo}/tree/{e(tag)}">{e(tag)}</a>. <a href="{e(r["url"])}">Release notes</a>.</p>
-<table class="files">{rows}</table>
+    return linux_html(r) + windows_html(windows) + MACOS_HTML + (checking_html(r, files) if r else "")
 
-<h3>Check what you downloaded</h3>
-<p>Each file has a signed <a href="{repo}/attestations">build provenance attestation</a> that
-ties it to the commit and the workflow run that built it{sums_link}.</p>
-<pre>sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify {e(linux)} --repo {e(REPO)}
-mib --version     # mib {e(tag)}, commit {e(commit[:12])}…</pre>
 
-<h3>Install on Linux</h3>
-<p>x86_64 with a Wayland desktop (GNOME, KDE Plasma, Hyprland, Sway…) and glibc 2.39 or newer,
-as in Ubuntu 24.04, Fedora 40, Debian 13 and Arch. This installs to <code>~/.local</code>, with
-no sudo, after checking the download's checksum. Run it again to upgrade.</p>
+def linux_html(r):
+    if not r:
+        return f"""<h2>Install on Linux</h2>
+<p>There is no release yet. Build it from source:</p>
+<pre>git clone {REPO_URL}
+cd mib
+make install</pre>
+<p>See the <a href="{REPO_URL}#build-and-run-linux-wayland">README</a> for the packages you
+need.</p>
+"""
+    e = html.escape
+    return f"""<h2>Install on Linux</h2>
 <pre>curl -fsSL https://osigurdson.github.io/mib/install.sh | sh</pre>
-<p>To read <a href="install.sh">the script</a> first:</p>
-<pre>curl -fsSLO https://osigurdson.github.io/mib/install.sh
-less install.sh
-sh install.sh</pre>
-<p>Or by hand, from the tarball above:</p>
-<pre>tar xzf {e(linux)}
-install -Dm755 mib/mib ~/.local/bin/mib
-install -Dm644 mib/io.github.osigurdson.mib.desktop -t ~/.local/share/applications
-install -Dm644 mib/io.github.osigurdson.mib.svg -t ~/.local/share/icons/hicolor/scalable/apps</pre>
-{windows_html(windows)}"""
+<p>This installs mib {e(r["tag"])} (released {e(r["date"])}, <a href="{e(r["url"])}">release
+notes</a>) to <code>~/.local</code>, with no sudo; run it again to upgrade. It needs x86_64, a
+Wayland desktop (GNOME, KDE Plasma, Hyprland, Sway…) and glibc 2.39 or newer, as in
+Ubuntu 24.04, Fedora 40, Debian 13 and Arch. Elsewhere,
+<a href="{REPO_URL}#build-and-run-linux-wayland">build from source</a>.</p>
+"""
 
 
 def windows_html(name):
     if not name:
-        return """
-<h3>Windows</h3>
+        return f"""
+<h2>Windows</h2>
 <p>The Windows build is experimental and not released yet; see
-<a href="https://github.com/osigurdson/mib#appendix-windows-experimental">building it</a>.</p>
+<a href="{REPO_URL}#appendix-windows-experimental">building it</a>.</p>
 """
     return f"""
-<h3>Windows</h3>
-<p>Download <code>{html.escape(name)}</code> and run it; there is no installer. Windows 10
+<h2>Windows</h2>
+<p>Download <code>{html.escape(name)}</code> below and run it; there is no installer. Windows 10
 (1703) or newer. The file isn't code-signed yet, so SmartScreen may ask you to confirm.</p>
 """
 
 
-SOURCE_HTML = """<h2>Get mib</h2>
-<p>There is no release yet. Build it from source on Linux:</p>
-<pre>git clone https://github.com/osigurdson/mib
-cd mib
-make install</pre>
-<p>See the <a href="https://github.com/osigurdson/mib#build-and-run-linux-wayland">README</a>
-for the packages you need.</p>
+MACOS_HTML = f"""
+<h2>macOS</h2>
+<p>Not supported yet. If you'd use it, say so in
+<a href="{REPO_URL}/issues">an issue</a>; that decides whether it happens.</p>
+"""
+
+
+def checking_html(r, files):
+    e = html.escape
+    tag, commit = r["tag"], r["commit"]
+    linux = next((a["name"] for a in files if "linux" in a["name"]), "mib-linux.tar.gz")
+    rows = "".join(
+        f'<tr><td><a href="{e(a["url"])}">{e(a["name"])}</a>'
+        f'<code class="sum">sha256 {e(a["sha256"])}</code></td>'
+        f'<td class="size">{size(a["size"])}</td></tr>' for a in files)
+    return f"""
+<h2>Where the files come from</h2>
+<p>Nobody builds a release on their own computer. Pushing the tag {e(tag)} made GitHub Actions
+build commit <a href="{REPO_URL}/commit/{e(commit)}"><code>{e(commit[:12])}</code></a> on
+GitHub's servers, run the tests and publish the files below. Two things let you check that
+what you have is what that run built:</p>
+<ul>
+<li><strong>Checksum.</strong> Each file's SHA-256 is listed below. The install script has the
+Linux one built in and refuses a download that doesn't match.</li>
+<li><strong>Build provenance.</strong> GitHub also signs a statement for each file naming the
+repository, commit and workflow run that produced it. A file built anywhere else, or changed
+afterwards, fails the check. With the <a href="https://cli.github.com">GitHub CLI</a>:
+<pre>gh attestation verify {e(linux)} --repo {e(REPO)}</pre></li>
+</ul>
+<table class="files">{rows}</table>
+<p><code>mib --version</code> shows the release and commit you're running. All
+<a href="{REPO_URL}/releases">releases</a> and their
+<a href="{REPO_URL}/attestations">attestations</a> are on GitHub.</p>
 """
 
 
@@ -137,7 +150,7 @@ def main():
     args = parser.parse_args()
     release = json.loads(args.release.read_text()) if args.release else latest_release()
     page = (ROOT / "site/index.html").read_text()
-    page = page.replace("<!-- RELEASE -->", release_html(release) if release else SOURCE_HTML)
+    page = page.replace("<!-- RELEASE -->", page_html(release))
     assets = args.out / "assets"
     assets.mkdir(parents=True, exist_ok=True)
     (args.out / "index.html").write_text(page)

@@ -16,8 +16,8 @@ curl -fsSL https://osigurdson.github.io/mib/install.sh | sh
 ```
 
 This installs the latest release to `~/.local` after checking its checksum; run it again to
-upgrade. The [download page](https://osigurdson.github.io/mib/) has the release files, how to
-verify them and how to install by hand, or you can
+upgrade. The [download page](https://osigurdson.github.io/mib/) has the release files and
+how to check where they came from, or you can
 [build from source](#build-and-run-linux-wayland). `mib --version` shows the release and
 commit you're running.
 
