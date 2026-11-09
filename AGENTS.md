@@ -33,6 +33,9 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
   Tesseract), by driving the real editor (`tools/demo-frames.c`) through the pages and keys at
   the top of `tools/demo.py`. Run it after visible UI changes and check the frames it keeps in
   `.build/linux/demo-frames/` and `.build/linux/demo-ocr-frames/`.
+- `make fuzz`: libFuzzer (clang) on image files, page text drawn in every view and pasted
+  fragments, for `FUZZ_TIME` seconds (default 60); run it after touching those parsers. Crashes
+  land in `.build/linux/fuzz/` as `crash-*`; rerun one with `.build/linux/fuzz/mib-fuzz FILE`.
 - `make vim-compare`: types each case in `tests/vim-compare.toml` into the real mib binary (in a
   private headless Mutter session) and into Vim, then compares the saved files.
 

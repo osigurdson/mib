@@ -43,7 +43,7 @@ CLANG_FORMAT ?= clang-format
 # Every C file mib owns; third_party/ keeps its upstream formatting.
 FORMAT_FILES = $(shell git ls-files '*.c' '*.h' '*.inc' ':!third_party')
 
-.PHONY: FORCE all compile-commands format format-check run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font mib editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test image-test page-preview font-preview demo-frames demo
+.PHONY: FORCE all compile-commands format format-check fuzz run install windows run-windows test-windows test-linux-e2e vim-compare clean test memory subset-font mib editor-test client-test font-test app-test modal-test session-test media-test ocr-test clipboard-test image-test page-preview font-preview demo-frames demo
 all: mib
 
 $(LINUX_BUILD_DIR) $(TEST_BIN) $(TOOL_BIN) $(GEN):
@@ -186,6 +186,31 @@ test: editor-test client-test font-test app-test modal-test session-test media-t
 	cd "$(TEST_BIN)" && ./client-test
 	cd "$(TEST_BIN)" && ./font-test
 	cd "$(TEST_BIN)" && ./app-test
+
+# Optional fuzzing of image files, page text in every view and pasted fragments (libFuzzer,
+# so clang). Runs for FUZZ_TIME seconds, keeping its corpus in the build folder; crashes are
+# written there as crash-*. ARGS passes more libFuzzer options.
+FUZZ_CC ?= clang
+FUZZ_TIME ?= 60
+FUZZ_DIR := $(LINUX_BUILD_DIR)/fuzz
+
+$(FUZZ_DIR) $(FUZZ_DIR)/corpus:
+	mkdir -p $@
+
+$(FUZZ_DIR)/mib-fuzz: tests/fuzz.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(FUZZ_DIR)
+	$(FUZZ_CC) -g -O1 -std=c11 -fsanitize=fuzzer,address,undefined -fno-sanitize-recover=undefined $(INCLUDES) -o $@ tests/fuzz.c $(CORE) $(MEMORY) $(FILES) -lm
+
+# The first byte of an input picks its target, so each seed starts with it: 0 image, 1 page
+# text, 2 fragment. ImageMagick, when present, adds a JPEG seed.
+$(FUZZ_DIR)/corpus/seeded: docs/map.png README.md | $(FUZZ_DIR)/corpus
+	{ printf '\000'; cat docs/map.png; } > $(FUZZ_DIR)/corpus/seed-png
+	if command -v magick >/dev/null; then { printf '\000'; magick docs/map.png -resize 96x jpg:-; } > $(FUZZ_DIR)/corpus/seed-jpeg; fi
+	{ printf '\001'; cat README.md; } > $(FUZZ_DIR)/corpus/seed-page
+	printf '\002MIBFRG1\000\004\000\000\000\022\000\000\000/tmp![](assets/x.png)\n' > $(FUZZ_DIR)/corpus/seed-fragment
+	touch $@
+
+fuzz: $(FUZZ_DIR)/mib-fuzz $(FUZZ_DIR)/corpus/seeded
+	cd "$(FUZZ_DIR)" && MIB_OCR=0 ./mib-fuzz -max_total_time=$(FUZZ_TIME) -max_len=65536 -artifact_prefix=./ corpus $(ARGS)
 
 # Optional native workflows in an isolated GNOME/Mutter compositor.
 test-linux-e2e: mib
