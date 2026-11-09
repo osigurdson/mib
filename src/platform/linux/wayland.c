@@ -57,6 +57,7 @@ struct wayland_client {
     struct clipboard_offer *pending_offer, *selection_offer, *drag_offer, *receive_offer;
     struct clipboard_source *sources;
     int receive_fd, receive_kind;
+    bool receive_text; /* whether a uri-list being received may paste text files */
     char *receive_data;
     size_t receive_length, receive_capacity;
     struct xkb_context *xkb_context;

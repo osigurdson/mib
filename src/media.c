@@ -1058,9 +1058,19 @@ bool media_paste_fragment(struct app *app, const unsigned char *bytes, size_t le
         media_tick(app);
     return ok;
 }
-void media_import_file(struct app *app, const char *path)
+void media_import_file(struct app *app, const char *path, bool text)
 {
     if (!editor_can_edit(&app->editor)) {
+        app->dirty = true;
+        return;
+    }
+    int w, h;
+    bool other;
+    if (!text && !image_file(path, &w, &h, &other)) {
+        /* Not even read: the caller only trusts this path to name an image. */
+        if (other)
+            snprintf(app->editor.message, sizeof(app->editor.message),
+                     "Only images are pasted from links to files; drag text files in instead");
         app->dirty = true;
         return;
     }
@@ -1068,14 +1078,13 @@ void media_import_file(struct app *app, const char *path)
     char *data = session_read(path, FILE_LIMIT, &n);
     if (!data)
         return;
-    int w, h;
     if (image_info((unsigned char *)data, n, &w, &h))
         media_paste_image(app, (unsigned char *)data, n);
-    else if (!memchr(data, 0, n))
+    else if (text && !memchr(data, 0, n))
         media_paste_text(app, data, n);
     free(data);
 }
-void media_import_uris(struct app *app, const char *uris, size_t length)
+void media_import_uris(struct app *app, const char *uris, size_t length, bool text)
 {
     if (!editor_can_edit(&app->editor)) {
         app->dirty = true;
@@ -1114,7 +1123,7 @@ void media_import_uris(struct app *app, const char *uris, size_t length)
                     }
                     path[n] = 0;
                     if (n)
-                        media_import_file(app, path);
+                        media_import_file(app, path, text);
                     free(path);
                 }
             }

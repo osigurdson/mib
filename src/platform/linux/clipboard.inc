@@ -8,6 +8,8 @@ struct clipboard_offer {
     struct wl_data_offer *proxy;
     unsigned refs;
     bool text, plain, png, uris, drag, fragment;
+    bool files; /* a file manager copied files: it offers its own copied-files type too */
+    bool web;   /* dragged or copied from a web page, which picks its own uri-list */
 };
 struct clipboard_send {
     int fd;
@@ -30,15 +32,21 @@ static void offer_unref(struct clipboard_offer *offer)
         free(offer);
     }
 }
+/* Any app can put a uri-list on the clipboard, a web page's copy handler included, so it
+ * only wins over the text that comes with it when a file manager copied files. */
+static bool offer_files(const struct clipboard_offer *offer)
+{
+    return offer->uris && (offer->drag || offer->files || !(offer->text || offer->plain));
+}
 static const char *offer_mime(struct clipboard_offer *offer)
 {
-    return !offer            ? NULL
-           : offer->png      ? "image/png"
-           : offer->fragment ? "application/x-mib-fragment"
-           : offer->uris     ? "text/uri-list"
-           : offer->text     ? "text/plain;charset=utf-8"
-           : offer->plain    ? "text/plain"
-                             : NULL;
+    return !offer               ? NULL
+           : offer->png         ? "image/png"
+           : offer->fragment    ? "application/x-mib-fragment"
+           : offer_files(offer) ? "text/uri-list"
+           : offer->text        ? "text/plain;charset=utf-8"
+           : offer->plain       ? "text/plain"
+                                : NULL;
 }
 static void offer_type(void *data, struct wl_data_offer *proxy, const char *mime)
 {
@@ -54,6 +62,11 @@ static void offer_type(void *data, struct wl_data_offer *proxy, const char *mime
         offer->text = true;
     if (!strcmp(mime, "text/plain"))
         offer->plain = true;
+    if (!strcmp(mime, "x-special/gnome-copied-files") ||
+        !strcmp(mime, "x-special/KDE-copied-files") || !strcmp(mime, "application/x-kde4-urilist"))
+        offer->files = true;
+    if (!strcmp(mime, "chromium/x-renderer-taint") || !strcmp(mime, "text/x-moz-url"))
+        offer->web = true;
 }
 static void offer_actions(void *data, struct wl_data_offer *offer, uint32_t actions)
 {
@@ -98,7 +111,7 @@ static void receive_end(struct wayland_client *c, bool apply)
         else if (c->receive_kind == 1)
             media_paste_image(c->app, (unsigned char *)c->receive_data, c->receive_length);
         else if (c->receive_kind == 2)
-            media_import_uris(c->app, c->receive_data, c->receive_length);
+            media_import_uris(c->app, c->receive_data, c->receive_length, c->receive_text);
         else
             media_paste_text(c->app, c->receive_data, c->receive_length);
     }
@@ -127,7 +140,9 @@ static bool receive_start(struct wayland_client *c, struct clipboard_offer *offe
     c->receive_fd = pipes[0];
     c->receive_offer = offer;
     ++offer->refs;
-    c->receive_kind = offer->png ? 1 : offer->fragment ? 3 : offer->uris ? 2 : 0;
+    c->receive_kind = offer->png ? 1 : offer->fragment ? 3 : offer_files(offer) ? 2 : 0;
+    /* Text files only from a drop, or a copy in a file manager, and never from a web page. */
+    c->receive_text = !offer->web && (offer->drag || offer->files);
     return true;
 }
 static void receive_ready(struct wayland_client *c)

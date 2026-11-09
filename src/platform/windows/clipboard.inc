@@ -64,7 +64,7 @@ static void import_drop(struct app *app, HGLOBAL handle)
                 break;
             char *path = windows_utf8(p);
             if (path) {
-                media_import_file(app, path);
+                media_import_file(app, path, true); /* web pages can't make CF_HDROP */
                 free(path);
             }
             p += n + 1;

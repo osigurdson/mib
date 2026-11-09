@@ -123,6 +123,10 @@ static void external_offer(bool drag)
     wl_resource_set_implementation(r, &offer_impl, drag ? &server : NULL, NULL);
     wl_data_device_send_data_offer(server.device, r);
     wl_data_offer_send_offer(r, drag ? "text/uri-list" : "text/plain");
+    /* Any app can add a uri-list to what it copies, such as file:///home/me/.ssh/id_ed25519
+     * from a web page; without a file manager's copied-files type, the text is pasted. */
+    if (!drag)
+        wl_data_offer_send_offer(r, "text/uri-list");
     if (drag) {
         wl_data_offer_send_source_actions(r, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
         wl_data_device_send_enter(server.device, 7, server.surface, wl_fixed_from_int(50),

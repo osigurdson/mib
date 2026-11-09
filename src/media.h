@@ -46,8 +46,12 @@ bool media_paste_fragment(struct app *app, const unsigned char *data, size_t len
 /* Move insert-mode typing onto a text line when the cursor is on an image. */
 bool media_prepare_insert(struct app *app);
 void media_paste_text(struct app *app, const char *text, size_t length);
-void media_import_uris(struct app *app, const char *uris, size_t length);
-void media_import_file(struct app *app, const char *path);
+/* Paste the files a text/uri-list names, or one file: an image as an image, and a text file's
+ * text only when TEXT is set. Leave TEXT unset when the list may not come from the user's own
+ * choice of files, such as any app's clipboard, so a link to a private file can't have its
+ * contents pasted into a note; such a file isn't even read. */
+void media_import_uris(struct app *app, const char *uris, size_t length, bool text);
+void media_import_file(struct app *app, const char *path, bool text);
 size_t media_search(const struct editor *ed, size_t origin, bool forward, void *context);
 /* Highlight matching OCR words in an already displayed image. */
 void media_highlight(struct app *app, const struct media_entry *entry, uint32_t *pixels, int width,

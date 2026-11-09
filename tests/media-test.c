@@ -870,6 +870,37 @@ static void ocr_link_test(const char *root, const unsigned char *png, size_t byt
     remove_dir(assets);
     remove_dir(folder);
 }
+/* File links from a source mib can't trust to be the user's own choice, such as the clipboard,
+ * paste images but never read a text file into the note. */
+static void import_test(const char *root, const unsigned char *png, size_t bytes)
+{
+    char secret[1200], image[1200], uris[2600];
+    snprintf(secret, sizeof(secret), "%s/id_ed25519", root);
+    snprintf(image, sizeof(image), "%s/shot.png", root);
+    write_text(secret, "PRIVATE KEY");
+    FILE *f = fopen(image, "wb");
+    assert(f && fwrite(png, 1, bytes, f) == bytes && !fclose(f));
+    snprintf(uris, sizeof(uris), "file://%s\r\nfile://%s\r\n", secret, image);
+    char folder[1200];
+    snprintf(folder, sizeof(folder), "%s/import", root);
+    struct app app;
+    remember_first_page();
+    assert(app_open(&app) && session_open(&app, folder) == 1);
+    media_import_uris(&app, uris, strlen(uris), false);
+    assert(!strstr(app.editor.text, "PRIVATE KEY") && strstr(app.editor.text, "![](assets/"));
+    assert(strstr(app.editor.message, "Only images"));
+    assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
+    media_import_uris(&app, uris, strlen(uris), true); /* a drop or a file manager's copy */
+    assert(strstr(app.editor.text, "PRIVATE KEY") && strstr(app.editor.text, "![](assets/"));
+    assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
+    app_close(&app); /* removes the unsaved pastes */
+    assert(!unlink(secret) && !unlink(image));
+    const char *leftovers[] = {"1/page.md", "1/assets", "1", ""};
+    for (unsigned i = 0; i < 4; ++i) {
+        snprintf(uris, sizeof(uris), "%s/%s", folder, leftovers[i]);
+        assert(i ? !rmdir(uris) : !unlink(uris));
+    }
+}
 /* A FIFO with no writer is rejected at once rather than blocking the UI thread in open.
  * alarm's default action fails the test if anything blocks. */
 static void fifo_test(const char *root)
@@ -886,7 +917,7 @@ static void fifo_test(const char *root)
     assert(!session_read(fifo, 1024, &n));
     struct app app;
     assert(app_open(&app));
-    media_import_file(&app, fifo);
+    media_import_file(&app, fifo, true);
     assert(!app.editor.length);
     app_close(&app);
     alarm(0);
@@ -939,6 +970,7 @@ int main(int argc, char **argv)
     fifo_test(directory);
     publish_test(directory);
     linked_assets_test(directory, png, bytes);
+    import_test(directory, png, bytes);
     find_program_test(directory);
     ocr_link_test(directory, png, bytes);
 #endif
@@ -959,8 +991,8 @@ int main(int argc, char **argv)
     editor_command(&app.editor, "set view=reading");
     assert(!media_paste_image(&app, png, bytes));
     media_paste_text(&app, "cannot paste", 12);
-    media_import_file(&app, "unused.png");
-    media_import_uris(&app, "file:///unused.png", 18);
+    media_import_file(&app, "unused.png", true);
+    media_import_uris(&app, "file:///unused.png", 18, true);
     assert(app.editor.revision == original_revision && app.editor.length == original_length);
     editor_command(&app.editor, "set view=source");
     uint32_t raw_pixels[320 * 200];
