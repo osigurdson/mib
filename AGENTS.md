@@ -48,8 +48,10 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - Pushing a `v*` tag runs `release.yml`, which reuses that CI tarball, adds SHA256SUMS and
   build provenance attestations, creates the release and redeploys the download page.
 - `site/index.html` is the download page; `tools/site.py OUT [--release JSON]` fills it with
-  the latest release. `site/install.sh` is the `curl | sh` installer published beside it;
-  test changes with `MIB_PREFIX=/tmp/x sh site/install.sh` against a real release. `tools/version.py` stamps `mib --version` with `git describe` and the
+  the latest release. `site/install.sh` is the `curl | sh` installer published beside it,
+  with that release's tag and Linux tarball SHA-256 filled in, so it only installs the latest
+  release. Test changes on the filled copy: `tools/site.py OUT --release JSON` (or real `gh`
+  data), then `MIB_PREFIX=/tmp/x sh OUT/install.sh`. `tools/version.py` stamps `mib --version` with `git describe` and the
   commit.
 - Actions are pinned by commit SHA with the version in a comment; keep it that way when
   updating them.

@@ -16,6 +16,7 @@ import argparse
 import html
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -80,7 +81,7 @@ mib --version     # mib {e(tag)}, commit {e(commit[:12])}…</pre>
 as in Ubuntu 24.04, Fedora 40, Debian 13 and Arch. This installs to <code>~/.local</code>, with
 no sudo, after checking the download's checksum. Run it again to upgrade.</p>
 <pre>curl -fsSL https://osigurdson.github.io/mib/install.sh | sh</pre>
-<p>To read <a href="{repo}/blob/main/site/install.sh">the script</a> first:</p>
+<p>To read <a href="install.sh">the script</a> first:</p>
 <pre>curl -fsSLO https://osigurdson.github.io/mib/install.sh
 less install.sh
 sh install.sh</pre>
@@ -116,6 +117,19 @@ for the packages you need.</p>
 """
 
 
+def installer(release):
+    """site/install.sh with the release and its Linux tarball's SHA-256 filled in. Without a
+    release, the placeholders stay and the script says so when run."""
+    script = (ROOT / "site/install.sh").read_text()
+    if not release:
+        return script
+    name = f"mib-{release['tag']}-linux-x86_64.tar.gz"
+    digest = next((a["sha256"] for a in release["assets"] if a["name"] == name), "")
+    if not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise SystemExit(f"site.py: release {release['tag']} has no SHA-256 for {name}")
+    return script.replace("@VERSION@", release["tag"]).replace("@SHA256@", digest)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("out", type=Path)
@@ -130,7 +144,7 @@ def main():
     for name in ("wordmark-dark.svg", "wordmark-light.svg", "icon-small.svg", "social-preview.png"):
         shutil.copy(ROOT / "docs/brand" / name, assets / name)
     shutil.copy(ROOT / "docs/demo.svg", assets / "demo.svg")
-    shutil.copy(ROOT / "site/install.sh", args.out / "install.sh")
+    (args.out / "install.sh").write_text(installer(release))
     print("wrote", args.out / "index.html", "for", release["tag"] if release else "no release")
 
 

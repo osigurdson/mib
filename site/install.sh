@@ -1,19 +1,21 @@
 #!/bin/sh
-# Install mib, Markdown under a mebibyte, from its GitHub releases:
+# Install mib, Markdown under a mebibyte, from its latest GitHub release:
 #
 #   curl -fsSL https://osigurdson.github.io/mib/install.sh | sh
 #
 # Installs the binary, desktop entry and icon under ~/.local (no sudo), after checking the
-# download against the release's SHA256SUMS, and its build provenance too when the GitHub
-# CLI is signed in. Run it again to upgrade.
+# download against the SHA-256 below. Run it again to upgrade.
 #
-#   MIB_VERSION=v0.1.0   install that release instead of the latest
-#   MIB_PREFIX=DIR       install under DIR instead of ~/.local
+#   MIB_PREFIX=DIR   install under DIR instead of ~/.local
 #
-# Source: https://github.com/osigurdson/mib/blob/main/site/install.sh
+# tools/site.py fills in the release and its SHA-256 when it publishes this script, so the
+# copy in the repository doesn't run on its own. For an older release, download its tarball
+# from https://github.com/osigurdson/mib/releases and install it by hand.
 set -eu
 
 REPO=osigurdson/mib
+VERSION=@VERSION@
+SHA256=@SHA256@
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'mib install: %s\n' "$*" >&2; exit 1; }
@@ -21,46 +23,26 @@ need() { command -v "$1" >/dev/null 2>&1 || fail "needs $1; install it and try a
 
 # Everything runs from main, so a partly downloaded script does nothing.
 main() {
+    case $VERSION in v*) ;; *) fail "this copy of the script names no release; use https://osigurdson.github.io/mib/install.sh or build from https://github.com/$REPO" ;; esac
     [ "$(uname -s)" = Linux ] || fail "prebuilt binaries are for Linux; see https://github.com/$REPO to build elsewhere"
     [ "$(uname -m)" = x86_64 ] || fail "prebuilt binaries are for x86_64, not $(uname -m); see https://github.com/$REPO to build from source"
     for tool in curl tar sha256sum install sed mktemp; do need "$tool"; done
 
-    glibc=$(getconf GNU_LIBC_VERSION 2>/dev/null | cut -d' ' -f2 || true)
-    [ -n "$glibc" ] || fail "the prebuilt binary needs glibc (musl systems such as Alpine aren't supported)"
-    case $glibc in
-        2.[0-9] | 2.[0-9].* | 2.[0-2][0-9] | 2.[0-2][0-9].* | 2.3[0-8] | 2.3[0-8].*)
-            fail "the prebuilt binary needs glibc 2.39 or newer, and this system has $glibc; build from source instead" ;;
-    esac
-
-    version=${MIB_VERSION:-}
-    if [ -z "$version" ]; then
-        # The latest release page redirects to .../releases/tag/vX.Y.Z.
-        url=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") ||
-            fail "couldn't reach GitHub to find the latest release"
-        version=${url##*/}
-        case $version in v*) ;; *) fail "couldn't find the latest release (got $url)" ;; esac
-    fi
-
-    file="mib-$version-linux-x86_64.tar.gz"
-    base="https://github.com/$REPO/releases/download/$version"
+    file="mib-$VERSION-linux-x86_64.tar.gz"
+    url="https://github.com/$REPO/releases/download/$VERSION/$file"
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT INT TERM
 
-    say "Downloading mib $version"
-    curl -fsSL -o "$tmp/$file" "$base/$file" || fail "couldn't download $base/$file"
-    curl -fsSL -o "$tmp/SHA256SUMS" "$base/SHA256SUMS" || fail "couldn't download $base/SHA256SUMS"
-
-    grep "  $file\$" "$tmp/SHA256SUMS" >"$tmp/expected" || fail "SHA256SUMS has no entry for $file"
-    (cd "$tmp" && sha256sum -c --quiet expected) || fail "checksum mismatch for $file; not installing it"
+    say "Downloading mib $VERSION"
+    curl -fsSL -o "$tmp/$file" "$url" || fail "couldn't download $url"
+    (cd "$tmp" && printf '%s  %s\n' "$SHA256" "$file" | sha256sum -c --quiet -) >/dev/null 2>&1 ||
+        fail "checksum mismatch for $file; not installing it"
     say "Checksum OK"
 
-    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-        gh attestation verify "$tmp/$file" --repo "$REPO" >/dev/null 2>&1 ||
-            fail "build provenance check failed for $file; not installing it"
-        say "Build provenance OK"
-    fi
-
     tar -xzf "$tmp/$file" -C "$tmp"
+    "$tmp/mib/mib" --version >/dev/null 2>&1 ||
+        fail "the prebuilt binary doesn't run here: it needs glibc 2.39 or newer, libwayland-client and libxkbcommon; see https://github.com/$REPO to build from source"
+
     prefix=${MIB_PREFIX:-$HOME/.local}
     bin="$prefix/bin"
     apps="$prefix/share/applications"
