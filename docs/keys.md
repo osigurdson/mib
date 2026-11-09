@@ -273,8 +273,18 @@ right-click the title for the compositor's window menu. Floating windows with
 client-side controls have rounded corners. They become square when maximized,
 tiled, or fullscreen; server-decorated windows follow the compositor's styling.
 
-Search selects an image containing OCR matches and highlights matching OCR words. The font
-subset, ASCII case handling and bounded regex subset are intentional limitations.
+Search selects an image containing OCR matches and highlights matching OCR words.
+
+Limits, by design:
+
+- A page opens only up to 64 MiB.
+- Images are PNG or JPEG (not animated), up to 8 megapixels; a page shows at most 256 inline.
+- Undo keeps up to 2 MiB of changes; a single larger change clears undo instead.
+- Case-insensitive search and case operators handle ASCII letters only. The bundled font
+  covers a subset of Unicode ([font-format.md](font-format.md)), and there is no IME.
+- Substitution supports a subset of Vim regex: literals, `.`, anchors, classes, `*`, `\+`,
+  `\?`, `\(groups\)`, `\|`, `\<`/`\>`, and `&` and `\1`–`\9` in the replacement.
+
 Unsaved changes on any page block quitting. Use `:w` or
 `Ctrl+S` to save, `:wa` to save every page, `:wq` or `:wqa` to save and quit, or `:q!` to
 discard edits.

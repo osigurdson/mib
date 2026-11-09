@@ -29,7 +29,7 @@ Why nine? mib's focus is on working notes, not building an archive. This is more
 <img src="docs/demo.svg" width="640" alt="mib in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
 
 ## Optional OCR and integrated image search
-If tesseract is available on your machine, mib will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below.
+If tesseract is available on your machine, mib will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below. Set `MIB_OCR=0` to turn it off.
 
 <img src="docs/demo-ocr.svg" width="640" alt="mib searching for invoice: the search steps through two matches in a release checklist, then into a pasted screenshot of a monitoring dashboard, where it highlights POST /invoice in the graph legend">
 
@@ -143,6 +143,8 @@ make format        # apply .clang-format (make format-check to check)
 make windows       # check the Windows build still compiles
 make test-windows  # run the Windows tests under Wine
 make demo          # re-record the README demos from the real editor (script in tools/demo.py)
+make memory        # launch mib and measure its idle memory (needs a Wayland session)
+make page-preview  # build .build/linux/tools/page-preview, which renders a page to a PPM
 ```
 
 Optional checks drive the real app in a private headless Mutter session and leave your
@@ -173,7 +175,6 @@ More detail:
 
 - [Platforms and source layout](docs/platforms.md)
 - [Windows build and Wine verification](docs/windows.md)
-- [Feature scope, limits and measurements](docs/scope.md)
 - [Font format and rasterizer](docs/font-format.md)
 - [Color schemes](docs/colors.md)
 
