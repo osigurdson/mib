@@ -34,6 +34,8 @@ struct media {
     uint64_t revision;
     bool ocr_unavailable;
     char job_name[256];
+    char *job_output;    /* the private folder tesseract writes out.txt and out.tsv in */
+    char *job_directory; /* the folder job_name is relative to, where the results go */
 #ifdef _WIN32
     HANDLE job;
 #else
@@ -62,21 +64,64 @@ static void track_asset(struct app *app, const char *name)
     m->assets = a;
     ++m->asset_count;
 }
+static char *join(const char *folder, const char *name)
+{
+    size_t n = strlen(folder) + strlen(name) + 2;
+    char *path = malloc(n);
+    if (path)
+        snprintf(path, n, "%s/%s", folder, name);
+    return path;
+}
+static const char *const ocr_outputs[] = {"out.txt", "out.tsv"};
+/* Remove tesseract's private output folder. */
+static void discard_output(struct media *m)
+{
+    if (m->job_output) {
+        for (unsigned i = 0; i < 2; ++i) {
+            char *path = join(m->job_output, ocr_outputs[i]);
+            if (path)
+                platform_file_remove(path);
+            free(path);
+        }
+        platform_directory_remove(m->job_output);
+    }
+    free(m->job_output);
+    free(m->job_directory);
+    m->job_output = m->job_directory = NULL;
+}
+/* Tesseract writes into a private folder, and mib copies the results next to the image
+ * itself: platform_file_publish replaces a link planted at a sidecar's name instead of
+ * writing through it. The text file goes last, as search reads it. */
+static void publish_output(struct media *m)
+{
+    const char *suffixes[] = {".txt", ".tsv"};
+    for (unsigned i = 2; i-- > 0;) {
+        char *from = join(m->job_output, ocr_outputs[i]), relative[272];
+        size_t n;
+        char *data = from ? session_read(from, 2 * 1024 * 1024, &n) : NULL;
+        snprintf(relative, sizeof(relative), "%s%s", m->job_name, suffixes[i]);
+        if (data)
+            platform_file_publish(m->job_directory, relative, data, n);
+        free(data);
+        free(from);
+    }
+}
 static void stop_job(struct media *m)
 {
-    if (!m->job)
-        return;
+    if (m->job) {
 #ifdef _WIN32
-    TerminateProcess(m->job, 0);
-    WaitForSingleObject(m->job, INFINITE);
-    CloseHandle(m->job);
-    m->job = NULL;
+        TerminateProcess(m->job, 0);
+        WaitForSingleObject(m->job, INFINITE);
+        CloseHandle(m->job);
+        m->job = NULL;
 #else
-    kill(m->job, SIGTERM);
-    while (waitpid(m->job, NULL, 0) < 0 && errno == EINTR) {
-    }
-    m->job = 0;
+        kill(m->job, SIGTERM);
+        while (waitpid(m->job, NULL, 0) < 0 && errno == EINTR) {
+        }
+        m->job = 0;
 #endif
+    }
+    discard_output(m);
 }
 void media_saved(void *context)
 {
@@ -891,59 +936,113 @@ void media_import_uris(struct app *app, const char *uris, size_t length)
             ++p;
     }
 }
+#ifdef _WIN32
+static bool absolute_windows_path(const char *path)
+{
+    return (isalpha((unsigned char)path[0]) && path[1] == ':' &&
+            (path[2] == '\\' || path[2] == '/')) ||
+           (path[0] == '\\' && path[1] == '\\');
+}
+/* tesseract.exe from an absolute PATH folder, or where the UB Mannheim installer puts it
+ * (it doesn't add itself to PATH). Not SearchPathW, which also looks in the current folder. */
+static char *find_tesseract(void)
+{
+    char *found = platform_find_program("tesseract.exe");
+    const char *places[][2] = {{"ProgramFiles", "Tesseract-OCR/tesseract.exe"},
+                               {"LOCALAPPDATA", "Programs/Tesseract-OCR/tesseract.exe"}};
+    for (unsigned i = 0; !found && i < 2; ++i) {
+        char *root = platform_getenv(places[i][0]);
+        char *path = root && absolute_windows_path(root) ? join(root, places[i][1]) : NULL;
+        bool missing;
+        char error[128];
+        FILE *file = path ? platform_file_open_read(path, &missing, error, sizeof(error)) : NULL;
+        if (file) {
+            fclose(file);
+            found = path;
+        } else
+            free(path);
+        free(root);
+    }
+    return found;
+}
+#endif
 static bool spawn_ocr(struct app *app, const struct media_entry *e)
 {
-    char *path = session_path(app, e->name);
-    if (!path)
-        return false;
+    struct media *m = app->media;
 #ifdef _WIN32
-    wchar_t executable[32768];
-    DWORD found = SearchPathW(NULL, L"tesseract.exe", NULL, 32768, executable, NULL);
-    wchar_t *w = windows_path(path);
-    free(path);
-    if (!found || found >= 32768 || !w) {
-        free(w);
-        app->media->ocr_unavailable = true;
-        return false;
-    }
-    size_t n = wcslen(w) * 2 + 64;
-    wchar_t *command = malloc(n * sizeof(wchar_t));
-    if (!command) {
-        free(w);
-        return false;
-    }
-    swprintf(command, n, L"tesseract.exe \"%ls\" \"%ls\" txt tsv", w, w);
-    free(w);
-    STARTUPINFOW startup = {.cb = sizeof(startup)};
-    PROCESS_INFORMATION process;
-    bool ok = CreateProcessW(executable, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL,
-                             &startup, &process) != 0;
-    free(command);
-    if (ok) {
-        CloseHandle(process.hThread);
-        app->media->job = process.hProcess;
-    }
+    char *program = find_tesseract();
 #else
-    char *arguments[] = {"tesseract", path, path, "txt", "tsv", NULL};
-    pid_t pid;
-    posix_spawn_file_actions_t actions;
-    posix_spawn_file_actions_init(&actions);
-    posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", 0, 0);
-    posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", 1, 0);
-    posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", 1, 0);
-    mode_t previous_umask = umask(0077);
-    int error = posix_spawnp(&pid, "tesseract", &actions, NULL, arguments, environ);
-    umask(previous_umask);
-    posix_spawn_file_actions_destroy(&actions);
-    free(path);
-    bool ok = error == 0;
-    if (ok)
-        app->media->job = pid;
-    else
-        app->media->ocr_unavailable = true;
+    char *program = platform_find_program("tesseract");
 #endif
-    if (ok)
-        strcpy(app->media->job_name, e->name);
+    if (!program) {
+        m->ocr_unavailable = true;
+        return false;
+    }
+    char *image = session_path(app, e->name);
+    char *output = image ? platform_private_directory() : NULL;
+    char *base = output ? join(output, "out") : NULL;
+    char *directory = NULL;
+    if (base && (directory = malloc(strlen(app->directory) + 1)))
+        strcpy(directory, app->directory);
+    bool ok = false, started = false;
+#ifdef _WIN32
+    /* The program and working folder stay plain absolute paths for CreateProcessW. */
+    wchar_t *wprogram = directory ? windows_utf16(program) : NULL;
+    wchar_t *wimage = wprogram ? windows_path(image) : NULL;
+    wchar_t *wbase = wimage ? windows_path(base) : NULL;
+    wchar_t *wfolder = wbase ? windows_utf16(output) : NULL;
+    size_t n = wfolder ? wcslen(wprogram) + wcslen(wimage) + wcslen(wbase) + 32 : 0;
+    wchar_t *command = n ? malloc(n * sizeof(wchar_t)) : NULL;
+    if (command) {
+        swprintf(command, n, L"\"%ls\" \"%ls\" \"%ls\" txt tsv", wprogram, wimage, wbase);
+        STARTUPINFOW startup = {.cb = sizeof(startup)};
+        PROCESS_INFORMATION process;
+        started = true;
+        ok = CreateProcessW(wprogram, command, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, wfolder,
+                            &startup, &process) != 0;
+        if (ok) {
+            CloseHandle(process.hThread);
+            m->job = process.hProcess;
+        }
+    }
+    free(command);
+    free(wfolder);
+    free(wbase);
+    free(wimage);
+    free(wprogram);
+#else
+    if (directory) {
+        char *arguments[] = {"tesseract", image, base, "txt", "tsv", NULL};
+        pid_t pid;
+        posix_spawn_file_actions_t actions;
+        posix_spawn_file_actions_init(&actions);
+        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", 0, 0);
+        posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", 1, 0);
+        posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", 1, 0);
+        mode_t previous_umask = umask(0077);
+        started = true;
+        ok = posix_spawn(&pid, program, &actions, NULL, arguments, environ) == 0;
+        umask(previous_umask);
+        posix_spawn_file_actions_destroy(&actions);
+        if (ok)
+            m->job = pid;
+    }
+#endif
+    free(program);
+    free(image);
+    free(base);
+    if (ok) {
+        strcpy(m->job_name, e->name);
+        m->job_output = output;
+        m->job_directory = directory;
+    } else {
+        if (output)
+            platform_directory_remove(output);
+        free(output);
+        free(directory);
+        if (started)
+            m->ocr_unavailable = true;
+    }
     return ok;
 }
 void media_tick(struct app *app)
@@ -955,15 +1054,18 @@ void media_tick(struct app *app)
         return;
     if (m->job) {
 #ifdef _WIN32
+        DWORD code = 1;
         bool done = WaitForSingleObject(m->job, 0) != WAIT_TIMEOUT;
+        bool succeeded = done && GetExitCodeProcess(m->job, &code) && code == 0;
         if (done) {
             CloseHandle(m->job);
             m->job = NULL;
         }
 #else
-        int status;
+        int status = 0;
         pid_t result = waitpid(m->job, &status, WNOHANG);
         bool done = result > 0 || (result < 0 && errno != EINTR);
+        bool succeeded = result > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
         if (done)
             m->job = 0;
 #endif
@@ -971,6 +1073,9 @@ void media_tick(struct app *app)
             app->work_at = session_now() + 100;
             return;
         }
+        if (succeeded)
+            publish_output(m);
+        discard_output(m);
         for (unsigned i = 0; i < m->count; ++i)
             if (!strcmp(m->entries[i].name, m->job_name))
                 m->entries[i].ocr_done = true;

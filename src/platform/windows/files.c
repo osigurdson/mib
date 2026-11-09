@@ -4,7 +4,9 @@
 #include <io.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <wchar.h>
+#include <wctype.h>
 
 static bool regular(HANDLE file, BY_HANDLE_FILE_INFORMATION *info)
 {
@@ -212,4 +214,156 @@ char *platform_getenv(const char *name)
     free(value);
     free(wide);
     return text;
+}
+
+static bool plain_name(const char *name)
+{
+    return *name && strcmp(name, ".") && strcmp(name, "..") && !strchr(name, ':');
+}
+
+static wchar_t *join_wide(const wchar_t *folder, const wchar_t *name)
+{
+    size_t n = wcslen(folder) + wcslen(name) + 2;
+    wchar_t *path = malloc(n * sizeof(*path));
+    if (path)
+        swprintf(path, n, L"%ls%ls%ls", folder,
+                 *folder && folder[wcslen(folder) - 1] == L'\\' ? L"" : L"\\", name);
+    return path;
+}
+
+bool platform_file_publish(const char *directory, const char *relative, const char *data,
+                           size_t length)
+{
+    /* Each folder in RELATIVE is opened without following reparse points and held without
+     * delete sharing, so it can't be swapped for a link before the rename below. */
+    HANDLE folders[8];
+    unsigned held = 0;
+    char *copy = _strdup(relative), *name = copy;
+    wchar_t *folder = copy ? windows_path(directory) : NULL, *target = NULL, *temporary = NULL;
+    bool ok = folder != NULL;
+    for (char *slash; ok && (slash = strpbrk(name, "/\\")); name = slash + 1) {
+        *slash = 0;
+        wchar_t *part = plain_name(name) && held < 8 ? windows_utf16(name) : NULL;
+        wchar_t *next = part ? join_wide(folder, part) : NULL;
+        free(part);
+        free(folder);
+        folder = next;
+        HANDLE h =
+            folder ? CreateFileW(folder, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                 NULL, OPEN_EXISTING,
+                                 FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL)
+                   : INVALID_HANDLE_VALUE;
+        BY_HANDLE_FILE_INFORMATION info;
+        ok = h != INVALID_HANDLE_VALUE;
+        if (ok) {
+            folders[held++] = h;
+            ok = GetFileInformationByHandle(h, &info) &&
+                 (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+                 !(info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
+        }
+    }
+    wchar_t *wide_name = ok && plain_name(name) ? windows_utf16(name) : NULL;
+    target = wide_name ? join_wide(folder, wide_name) : NULL;
+    free(wide_name);
+    HANDLE output = INVALID_HANDLE_VALUE;
+    static volatile LONG sequence;
+    for (int attempt = 0; target && attempt < 32 && output == INVALID_HANDLE_VALUE; ++attempt) {
+        wchar_t unique[64];
+        swprintf(unique, 64, L".mib-%08lx-%08lx.tmp", (unsigned long)GetCurrentProcessId(),
+                 (unsigned long)InterlockedIncrement(&sequence));
+        free(temporary);
+        temporary = join_wide(folder, unique);
+        output = temporary ? CreateFileW(temporary, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                                         FILE_ATTRIBUTE_NORMAL, NULL)
+                           : INVALID_HANDLE_VALUE;
+        DWORD code = GetLastError();
+        if (output == INVALID_HANDLE_VALUE && code != ERROR_FILE_EXISTS &&
+            code != ERROR_ALREADY_EXISTS)
+            break;
+    }
+    bool created = output != INVALID_HANDLE_VALUE;
+    ok = created;
+    for (size_t written = 0; ok && written < length;) {
+        DWORD count = (DWORD)(length - written > 65536 ? 65536 : length - written), done;
+        ok = WriteFile(output, data + written, count, &done, NULL) && done;
+        written += ok ? done : 0;
+    }
+    if (created && !CloseHandle(output))
+        ok = false;
+    /* Renaming over a link replaces the link itself. */
+    if (ok)
+        ok = MoveFileExW(temporary, target, MOVEFILE_REPLACE_EXISTING) != 0;
+    if (!ok && created)
+        DeleteFileW(temporary);
+    while (held)
+        CloseHandle(folders[--held]);
+    free(temporary);
+    free(target);
+    free(folder);
+    free(copy);
+    return ok;
+}
+
+char *platform_private_directory(void)
+{
+    wchar_t temp[MAX_PATH + 1];
+    DWORD n = GetTempPathW(MAX_PATH + 1, temp);
+    if (!n || n > MAX_PATH)
+        return NULL;
+    static volatile LONG sequence;
+    for (int attempt = 0; attempt < 32; ++attempt) {
+        wchar_t path[MAX_PATH + 64];
+        swprintf(path, MAX_PATH + 64, L"%lsmib-%08lx-%08lx-%08lx", temp,
+                 (unsigned long)GetCurrentProcessId(), (unsigned long)GetTickCount(),
+                 (unsigned long)InterlockedIncrement(&sequence));
+        /* The user's temporary folder is private to them, and the new folder inherits that. */
+        if (CreateDirectoryW(path, NULL))
+            return windows_utf8(path);
+        if (GetLastError() != ERROR_ALREADY_EXISTS)
+            return NULL;
+    }
+    return NULL;
+}
+
+bool platform_directory_remove(const char *path)
+{
+    wchar_t *wide = windows_path(path);
+    if (!wide)
+        return false;
+    bool ok = RemoveDirectoryW(wide) != 0;
+    DWORD code = GetLastError();
+    free(wide);
+    return ok || code == ERROR_FILE_NOT_FOUND || code == ERROR_PATH_NOT_FOUND;
+}
+
+char *platform_find_program(const char *name)
+{
+    DWORD count = GetEnvironmentVariableW(L"PATH", NULL, 0);
+    wchar_t *list = count > 1 ? malloc((size_t)count * sizeof(*list)) : NULL;
+    wchar_t *wide_name = windows_utf16(name);
+    char *found = NULL;
+    if (list && wide_name && GetEnvironmentVariableW(L"PATH", list, count) == count - 1) {
+        for (wchar_t *entry = list, *end; entry && !found; entry = end ? end + 1 : NULL) {
+            if ((end = wcschr(entry, L';')))
+                *end = 0;
+            size_t n = wcslen(entry);
+            if (n >= 2 && entry[0] == L'"' && entry[n - 1] == L'"') {
+                entry[n - 1] = 0;
+                ++entry;
+            }
+            bool drive =
+                iswalpha(entry[0]) && entry[1] == L':' && (entry[2] == L'\\' || entry[2] == L'/');
+            bool unc = entry[0] == L'\\' && entry[1] == L'\\';
+            if (!drive && !unc)
+                continue;
+            wchar_t *path = join_wide(entry, wide_name);
+            DWORD attributes = path ? GetFileAttributesW(path) : INVALID_FILE_ATTRIBUTES;
+            if (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY))
+                found = windows_utf8(path);
+            free(path);
+        }
+    }
+    free(wide_name);
+    free(list);
+    return found;
 }

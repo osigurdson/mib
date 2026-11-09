@@ -11,6 +11,7 @@
 #include "platform/windows/win32.h"
 #else
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #endif
 static bool exists(const char *path)
@@ -548,6 +549,149 @@ static void resize_test(const char *root, const unsigned char *png, size_t bytes
     app_close(&app);
 }
 #ifndef _WIN32
+static void write_text(const char *path, const char *text)
+{
+    FILE *f = fopen(path, "wb");
+    assert(f && fwrite(text, 1, strlen(text), f) == strlen(text) && !fclose(f));
+}
+static bool has_text(const char *path, const char *text)
+{
+    size_t n;
+    char *data = session_read(path, 1 << 20, &n);
+    bool same = data && n == strlen(text) && !memcmp(data, text, n);
+    free(data);
+    return same;
+}
+static bool regular_file(const char *path)
+{
+    struct stat st;
+    return !lstat(path, &st) && S_ISREG(st.st_mode);
+}
+/* Writes into the notes folder replace a link planted at the name instead of following it,
+ * and refuse a linked folder on the way. */
+static void publish_test(const char *root)
+{
+    char folder[1200], assets[1300], outside[1300], victim[1400], link[1400], path[1400];
+    snprintf(folder, sizeof(folder), "%s/publish", root);
+    snprintf(assets, sizeof(assets), "%s/assets", folder);
+    snprintf(outside, sizeof(outside), "%s/outside", root);
+    snprintf(victim, sizeof(victim), "%s/victim.txt", outside);
+    assert(!mkdir(folder, 0700) && !mkdir(assets, 0700) && !mkdir(outside, 0700));
+    write_text(victim, "DO NOT OVERWRITE");
+    snprintf(link, sizeof(link), "%s/probe.png.txt", assets);
+    assert(!symlink(victim, link));
+    assert(platform_file_publish(folder, "assets/probe.png.txt", "ocr text", 8));
+    assert(has_text(victim, "DO NOT OVERWRITE"));
+    assert(regular_file(link) && has_text(link, "ocr text"));
+    /* Replacing an ordinary file works too. */
+    assert(platform_file_publish(folder, "assets/probe.png.txt", "again", 5));
+    assert(has_text(link, "again"));
+    /* A folder that is a link to somewhere else is refused. */
+    snprintf(path, sizeof(path), "%s/linked", folder);
+    assert(!symlink(outside, path));
+    assert(!platform_file_publish(folder, "linked/victim.txt", "x", 1));
+    assert(!platform_file_publish(folder, "assets/../linked/victim.txt", "x", 1));
+    assert(!platform_file_publish(folder, "assets/..", "x", 1));
+    assert(has_text(victim, "DO NOT OVERWRITE"));
+    assert(!unlink(path) && !unlink(link) && !unlink(victim));
+    remove_dir(outside);
+    remove_dir(assets);
+    remove_dir(folder);
+}
+/* Programs are only found in PATH's absolute folders, never the current folder. */
+static void find_program_test(const char *root)
+{
+    char bin[1200], program[1300], previous[4096];
+    snprintf(bin, sizeof(bin), "%s/bin", root);
+    snprintf(program, sizeof(program), "%s/mib-test-program", bin);
+    assert(!mkdir(bin, 0700));
+    write_text(program, "#!/bin/sh\n");
+    assert(!chmod(program, 0700));
+    const char *path = getenv("PATH");
+    snprintf(previous, sizeof(previous), "%s", path ? path : "");
+    assert(getcwd(previous + strlen(previous) + 1, sizeof(previous) - strlen(previous) - 1));
+    assert(!chdir(bin));
+    setenv("PATH", ":.:bin:./", 1);
+    assert(!platform_find_program("mib-test-program"));
+    setenv("PATH", ":.:", 1);
+    assert(!platform_find_program("mib-test-program"));
+    char list[2600];
+    snprintf(list, sizeof(list), ".:/nonexistent:%s", bin);
+    setenv("PATH", list, 1);
+    char *found = platform_find_program("mib-test-program");
+    assert(found && !strcmp(found, program));
+    free(found);
+    assert(!chdir(previous + strlen(previous) + 1));
+    setenv("PATH", previous, 1);
+    assert(!unlink(program));
+    remove_dir(bin);
+}
+/* OCR doesn't write through a sidecar link planted in the notes folder: a stand-in tesseract
+ * writes into its private folder, and mib replaces the link with the result. */
+static void ocr_link_test(const char *root, const unsigned char *png, size_t bytes)
+{
+    char folder[1200], assets[1300], bin[1200], runtime[1200], script[1300], image[1400],
+        victim[1300], text[1500], tsv[1500], previous[4096];
+    snprintf(folder, sizeof(folder), "%s/ocr", root);
+    snprintf(assets, sizeof(assets), "%s/assets", folder);
+    snprintf(bin, sizeof(bin), "%s/ocr-bin", root);
+    snprintf(runtime, sizeof(runtime), "%s/ocr-runtime", root);
+    snprintf(script, sizeof(script), "%s/tesseract", bin);
+    snprintf(image, sizeof(image), "%s/probe.png", assets);
+    snprintf(victim, sizeof(victim), "%s/victim.txt", root);
+    snprintf(text, sizeof(text), "%s.txt", image);
+    snprintf(tsv, sizeof(tsv), "%s.tsv", image);
+    assert(!mkdir(folder, 0700) && !mkdir(assets, 0700) && !mkdir(bin, 0700) &&
+           !mkdir(runtime, 0700));
+    write_text(script, "#!/bin/sh\nprintf 'NUMBAT\\n' > \"$2.txt\"\n"
+                       "printf 'level\\ttext\\n5\\tNUMBAT\\n' > \"$2.tsv\"\n");
+    assert(!chmod(script, 0700));
+    FILE *f = fopen(image, "wb");
+    assert(f && fwrite(png, 1, bytes, f) == bytes && !fclose(f));
+    write_text(victim, "DO NOT OVERWRITE");
+    assert(!symlink(victim, text));
+    const char *path = getenv("PATH"), *runtime_dir = getenv("XDG_RUNTIME_DIR");
+    snprintf(previous, sizeof(previous), "%s", path ? path : "");
+    char *saved_runtime = runtime_dir ? strdup(runtime_dir) : NULL;
+    setenv("PATH", bin, 1);
+    setenv("XDG_RUNTIME_DIR", runtime, 1);
+    unsetenv("MIB_OCR");
+
+    struct app app;
+    assert(app_open(&app));
+    app.directory = strdup(folder);
+    assert(app.directory);
+    const char *note = "![](assets/probe.png)\n";
+    assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+    media_tick(&app);
+    assert(app.work_at);
+    for (uint64_t deadline = session_now() + 5000; app.work_at && session_now() < deadline;) {
+        struct timespec delay = {.tv_nsec = 10000000};
+        nanosleep(&delay, NULL);
+        media_tick(&app);
+    }
+    assert(!app.work_at);
+    assert(has_text(victim, "DO NOT OVERWRITE"));
+    assert(regular_file(text) && has_text(text, "NUMBAT\n"));
+    assert(regular_file(tsv) && has_text(tsv, "level\ttext\n5\tNUMBAT\n"));
+    struct stat st;
+    assert(!stat(text, &st) && (st.st_mode & 0777) == 0600);
+    app_close(&app);
+    /* The private output folder is gone. */
+    remove_dir(runtime);
+
+    setenv("PATH", previous, 1);
+    if (saved_runtime)
+        setenv("XDG_RUNTIME_DIR", saved_runtime, 1);
+    else
+        unsetenv("XDG_RUNTIME_DIR");
+    free(saved_runtime);
+    setenv("MIB_OCR", "0", 1);
+    assert(!unlink(text) && !unlink(tsv) && !unlink(image) && !unlink(victim) && !unlink(script));
+    remove_dir(bin);
+    remove_dir(assets);
+    remove_dir(folder);
+}
 /* A FIFO with no writer is rejected at once rather than blocking the UI thread in open.
  * alarm's default action fails the test if anything blocks. */
 static void fifo_test(const char *root)
@@ -614,6 +758,9 @@ int main(int argc, char **argv)
     close_test(directory, png, bytes);
 #ifndef _WIN32
     fifo_test(directory);
+    publish_test(directory);
+    find_program_test(directory);
+    ocr_link_test(directory, png, bytes);
 #endif
     int w, h;
     assert(image_info(png, bytes, &w, &h) && w == 320 && h == 180);

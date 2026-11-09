@@ -21,6 +21,18 @@ bool platform_file_write_atomic(const char *path, const char *data, size_t lengt
                                 size_t error_size);
 /* Remove a file; an already missing file counts as success. */
 bool platform_file_remove(const char *path);
+/* Write DIRECTORY/RELATIVE in full under a temporary name, then rename it into place. A link
+ * already at that name is replaced, not followed, and a link among RELATIVE's folders makes it
+ * fail, so a crafted notes folder can't redirect the write. Missing folders aren't created. */
+bool platform_file_publish(const char *directory, const char *relative, const char *data,
+                           size_t length);
+/* A new, empty folder that only this user can use, for a helper process's output, or NULL.
+ * The caller frees the path; platform_directory_remove removes the folder once it's empty. */
+char *platform_private_directory(void);
+bool platform_directory_remove(const char *path);
+/* The absolute path of the program NAME in one of PATH's absolute folders, or NULL. Relative
+ * and empty entries, which would mean the current folder, are skipped. The caller frees it. */
+char *platform_find_program(const char *name);
 /* An environment variable as UTF-8, or NULL when unset or empty. The caller frees it. */
 char *platform_getenv(const char *name);
 #endif

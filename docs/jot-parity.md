@@ -28,8 +28,13 @@ Fontconfig dependencies were added. Native presentation differs from GTK.
 - Conservative Markdown colors/weight with visible syntax, fenced code,
   headings/links/lists/quotes/checked items, wrapping, mouse selection and scroll.
 - Optional, sequential Tesseract child jobs producing private `.png.txt` and
-  `.png.tsv` files. Existing sidecars work without Tesseract. `MIB_OCR=0`
-  disables automatic jobs. No OCR library remains loaded in the editor.
+  `.png.tsv` files. Each job writes into its own private temporary folder, and
+  mib then renames the results into place, so a link planted at a sidecar's
+  name is replaced rather than written through. `tesseract` is only looked up
+  in `PATH`'s absolute folders (on Windows, also the UB Mannheim install
+  folders), never the current folder. Existing sidecars work without
+  Tesseract. `MIB_OCR=0` disables automatic jobs. No OCR library remains loaded
+  in the editor.
 
 See [the key reference](keys.md). The reference excludes dot repeat, macros,
 marks, named registers, block visual mode, plugins/config and exact Vim regex
