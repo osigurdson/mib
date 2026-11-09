@@ -231,19 +231,30 @@ static wchar_t *join_wide(const wchar_t *folder, const wchar_t *name)
     return path;
 }
 
-bool platform_file_publish(const char *directory, const char *relative, const char *data,
-                           size_t length)
+/* Folders opened on the way to a file, held without delete sharing so they can't be swapped
+ * for a link while they're in use. */
+struct held_folders {
+    HANDLE handles[8];
+    unsigned count;
+};
+static void release_folders(struct held_folders *held)
 {
-    /* Each folder in RELATIVE is opened without following reparse points and held without
-     * delete sharing, so it can't be swapped for a link before the rename below. */
-    HANDLE folders[8];
-    unsigned held = 0;
-    char *copy = _strdup(relative), *name = copy;
-    wchar_t *folder = copy ? windows_path(directory) : NULL, *target = NULL, *temporary = NULL;
+    while (held->count)
+        CloseHandle(held->handles[--held->count]);
+}
+/* DIRECTORY/RELATIVE as a wide path, after opening each folder in RELATIVE (which this cuts
+ * up) without following reparse points; NULL if one is a link or missing. *missing says
+ * whether a folder on the way doesn't exist. */
+static wchar_t *walk(const char *directory, char *relative, struct held_folders *held,
+                     bool *missing)
+{
+    char *name = relative;
+    wchar_t *folder = windows_path(directory);
     bool ok = folder != NULL;
+    *missing = false;
     for (char *slash; ok && (slash = strpbrk(name, "/\\")); name = slash + 1) {
         *slash = 0;
-        wchar_t *part = plain_name(name) && held < 8 ? windows_utf16(name) : NULL;
+        wchar_t *part = plain_name(name) && held->count < 8 ? windows_utf16(name) : NULL;
         wchar_t *next = part ? join_wide(folder, part) : NULL;
         free(part);
         free(folder);
@@ -253,26 +264,55 @@ bool platform_file_publish(const char *directory, const char *relative, const ch
                                  NULL, OPEN_EXISTING,
                                  FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL)
                    : INVALID_HANDLE_VALUE;
+        if (h == INVALID_HANDLE_VALUE) {
+            DWORD code = GetLastError();
+            *missing = folder && (code == ERROR_FILE_NOT_FOUND || code == ERROR_PATH_NOT_FOUND);
+        }
         BY_HANDLE_FILE_INFORMATION info;
         ok = h != INVALID_HANDLE_VALUE;
         if (ok) {
-            folders[held++] = h;
+            held->handles[held->count++] = h;
             ok = GetFileInformationByHandle(h, &info) &&
                  (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
                  !(info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT);
         }
     }
     wchar_t *wide_name = ok && plain_name(name) ? windows_utf16(name) : NULL;
-    target = wide_name ? join_wide(folder, wide_name) : NULL;
+    wchar_t *target = wide_name ? join_wide(folder, wide_name) : NULL;
     free(wide_name);
+    free(folder);
+    return target;
+}
+
+static bool write_all(HANDLE output, const char *data, size_t length)
+{
+    for (size_t written = 0; written < length;) {
+        DWORD count = (DWORD)(length - written > 65536 ? 65536 : length - written), done;
+        if (!WriteFile(output, data + written, count, &done, NULL) || !done)
+            return false;
+        written += done;
+    }
+    return true;
+}
+
+bool platform_file_publish(const char *directory, const char *relative, const char *data,
+                           size_t length)
+{
+    struct held_folders held = {0};
+    bool missing;
+    char *copy = _strdup(relative);
+    wchar_t *target = copy ? walk(directory, copy, &held, &missing) : NULL, *temporary = NULL;
+    wchar_t *slash = target ? wcsrchr(target, L'\\') : NULL;
     HANDLE output = INVALID_HANDLE_VALUE;
     static volatile LONG sequence;
-    for (int attempt = 0; target && attempt < 32 && output == INVALID_HANDLE_VALUE; ++attempt) {
+    for (int attempt = 0; slash && attempt < 32 && output == INVALID_HANDLE_VALUE; ++attempt) {
         wchar_t unique[64];
         swprintf(unique, 64, L".mib-%08lx-%08lx.tmp", (unsigned long)GetCurrentProcessId(),
                  (unsigned long)InterlockedIncrement(&sequence));
+        *slash = 0;
         free(temporary);
-        temporary = join_wide(folder, unique);
+        temporary = join_wide(target, unique);
+        *slash = L'\\';
         output = temporary ? CreateFileW(temporary, GENERIC_WRITE, 0, NULL, CREATE_NEW,
                                          FILE_ATTRIBUTE_NORMAL, NULL)
                            : INVALID_HANDLE_VALUE;
@@ -282,12 +322,7 @@ bool platform_file_publish(const char *directory, const char *relative, const ch
             break;
     }
     bool created = output != INVALID_HANDLE_VALUE;
-    ok = created;
-    for (size_t written = 0; ok && written < length;) {
-        DWORD count = (DWORD)(length - written > 65536 ? 65536 : length - written), done;
-        ok = WriteFile(output, data + written, count, &done, NULL) && done;
-        written += ok ? done : 0;
-    }
+    bool ok = created && write_all(output, data, length);
     if (created && !CloseHandle(output))
         ok = false;
     /* Renaming over a link replaces the link itself. */
@@ -295,11 +330,49 @@ bool platform_file_publish(const char *directory, const char *relative, const ch
         ok = MoveFileExW(temporary, target, MOVEFILE_REPLACE_EXISTING) != 0;
     if (!ok && created)
         DeleteFileW(temporary);
-    while (held)
-        CloseHandle(folders[--held]);
+    release_folders(&held);
     free(temporary);
     free(target);
-    free(folder);
+    free(copy);
+    return ok;
+}
+
+bool platform_file_create_at(const char *directory, const char *relative, const char *data,
+                             size_t length)
+{
+    struct held_folders held = {0};
+    bool missing;
+    char *copy = _strdup(relative);
+    wchar_t *target = copy ? walk(directory, copy, &held, &missing) : NULL;
+    /* CREATE_NEW fails for anything already at the name, a link included. */
+    HANDLE output = target ? CreateFileW(target, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                                         FILE_ATTRIBUTE_NORMAL, NULL)
+                           : INVALID_HANDLE_VALUE;
+    bool created = output != INVALID_HANDLE_VALUE;
+    bool ok = created && write_all(output, data, length);
+    if (created && !CloseHandle(output))
+        ok = false;
+    if (!ok && created)
+        DeleteFileW(target);
+    release_folders(&held);
+    free(target);
+    free(copy);
+    return ok;
+}
+
+bool platform_file_remove_at(const char *directory, const char *relative)
+{
+    struct held_folders held = {0};
+    bool missing = false;
+    char *copy = _strdup(relative);
+    wchar_t *target = copy ? walk(directory, copy, &held, &missing) : NULL;
+    /* DeleteFileW removes a link itself, not what it points to. */
+    bool ok = target ? DeleteFileW(target) != 0 : missing;
+    DWORD code = GetLastError();
+    if (target && !ok)
+        ok = code == ERROR_FILE_NOT_FOUND || code == ERROR_PATH_NOT_FOUND;
+    release_folders(&held);
+    free(target);
     free(copy);
     return ok;
 }

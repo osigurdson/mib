@@ -84,6 +84,22 @@ static void ocr_helpers_test(const wchar_t *directory)
     assert(!platform_file_publish(page, "missing/probe.png.txt", "x", 1));
     assert(!platform_file_publish(page, "assets/../probe.png.txt", "x", 1));
     assert(!platform_file_publish(page, "assets/probe.png:stream", "x", 1));
+    /* Pasted images are created only where nothing is, and removed without following links;
+     * a missing file or folder counts as removed. */
+    char image[1400];
+    snprintf(image, sizeof(image), "%s\\new.png", assets);
+    assert(platform_file_create_at(page, "assets/new.png", "png", 3));
+    expect(image, "png", 3);
+    assert(!platform_file_create_at(page, "assets/new.png", "again", 5));
+    expect(image, "png", 3);
+    assert(!platform_file_create_at(page, "missing/new.png", "x", 1));
+    assert(!platform_file_create_at(page, "assets/../new.png", "x", 1));
+    assert(platform_file_remove_at(page, "assets/new.png"));
+    assert(!platform_file_remove_at(page, "assets/../victim.txt"));
+    assert(platform_file_remove_at(page, "assets/new.png"));
+    assert(platform_file_remove_at(page, "missing/new.png"));
+    bool missing;
+    assert(!platform_file_open_read(image, &missing, error, sizeof(error)) && missing);
     /* A link planted at the sidecar's name is replaced, not written through. */
     assert(platform_file_write_atomic(victim, "DO NOT OVERWRITE", 16, error, sizeof(error)));
     assert(platform_file_remove(sidecar));

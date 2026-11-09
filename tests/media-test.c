@@ -673,10 +673,108 @@ static void publish_test(const char *root)
     assert(!platform_file_publish(folder, "assets/../linked/victim.txt", "x", 1));
     assert(!platform_file_publish(folder, "assets/..", "x", 1));
     assert(has_text(victim, "DO NOT OVERWRITE"));
+    /* Creating refuses anything already at the name, a link included, and a linked folder;
+     * removing takes away a link itself, never its target, and refuses a linked folder. */
+    char planted[1400];
+    snprintf(planted, sizeof(planted), "%s/planted.png", assets);
+    assert(!symlink(victim, planted));
+    assert(!platform_file_create_at(folder, "assets/planted.png", "x", 1));
+    assert(!platform_file_create_at(folder, "linked/new.png", "x", 1));
+    assert(has_text(victim, "DO NOT OVERWRITE"));
+    assert(platform_file_remove_at(folder, "assets/planted.png"));
+    assert(!platform_file_remove_at(folder, "linked/victim.txt"));
+    assert(has_text(victim, "DO NOT OVERWRITE") && !regular_file(planted));
+    assert(platform_file_remove_at(folder, "assets/planted.png"));
+    assert(platform_file_remove_at(folder, "missing/planted.png"));
+    assert(platform_file_create_at(folder, "assets/new.png", "png", 3));
+    snprintf(planted, sizeof(planted), "%s/new.png", assets);
+    struct stat st;
+    assert(has_text(planted, "png") && !stat(planted, &st) && (st.st_mode & 0777) == 0600);
+    assert(platform_file_remove_at(folder, "assets/new.png") && !regular_file(planted));
     assert(!unlink(path) && !unlink(link) && !unlink(victim));
     remove_dir(outside);
     remove_dir(assets);
     remove_dir(folder);
+}
+/* Have the next session_open show page 1, as earlier tests leave another page remembered. */
+static void remember_first_page(void)
+{
+    char *state = session_state_directory(), path[1200], error[128];
+    assert(state && session_mkdir(state));
+    snprintf(path, sizeof(path), "%s/page", state);
+    assert(platform_file_write_atomic(path, "1\n", 2, error, sizeof(error)));
+    free(state);
+}
+/* A notes folder whose page folder or assets/ is a link to somewhere else: mib leaves the
+ * other folder's permissions alone, and image cleanup and pasting don't reach into it. */
+static void linked_assets_test(const char *root, const unsigned char *png, size_t bytes)
+{
+    for (unsigned linked_page = 0; linked_page < 2; ++linked_page) {
+        char notes[1200], page[1300], assets[1400], elsewhere[1200], victim[1600], made[1500];
+        snprintf(notes, sizeof(notes), "%s/linked-%u", root, linked_page);
+        snprintf(page, sizeof(page), "%s/1", notes);
+        snprintf(assets, sizeof(assets), "%s/assets", page);
+        snprintf(elsewhere, sizeof(elsewhere), "%s/elsewhere-%u", root, linked_page);
+        assert(!mkdir(notes, 0700) && !mkdir(elsewhere, 0755));
+        /* Either 1/ itself leads elsewhere, holding assets/, or 1/assets does. */
+        if (linked_page) {
+            snprintf(made, sizeof(made), "%s/assets", elsewhere);
+            assert(!mkdir(made, 0755) && !symlink(elsewhere, page));
+            snprintf(victim, sizeof(victim), "%s/victim.png", made);
+        } else {
+            assert(!mkdir(page, 0700) && !symlink(elsewhere, assets));
+            snprintf(made, sizeof(made), "%s", elsewhere);
+            snprintf(victim, sizeof(victim), "%s/victim.png", elsewhere);
+        }
+        FILE *f = fopen(victim, "wb");
+        assert(f && fwrite(png, 1, bytes, f) == bytes && !fclose(f));
+        struct app app;
+        remember_first_page();
+        assert(app_open(&app) && session_open(&app, notes) == 1);
+        struct stat st;
+        assert(!stat(elsewhere, &st) && (st.st_mode & 0777) == 0755);
+        assert(!stat(made, &st) && (st.st_mode & 0777) == 0755);
+        const char *note = "![](assets/victim.png)\n";
+        assert(editor_replace(&app.editor, 0, app.editor.length, note, strlen(note)));
+        media_sync(&app);
+        assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
+        app_input(&app, KEY_CTRL_S, "");
+        assert(regular_file(victim) && strstr(app.editor.message, "could not be removed"));
+        app.editor.message[0] = 0;
+        assert(!media_paste_image(&app, png, bytes));
+        assert(strstr(app.editor.message, "Could not save the image"));
+        app_close(&app);
+        assert(!unlink(victim) && !rmdir(made)); /* the paste left nothing behind */
+        snprintf(made, sizeof(made), "%s/page.md", linked_page ? elsewhere : page);
+        assert(!unlink(made));
+        if (linked_page)
+            assert(!unlink(page) && !rmdir(elsewhere));
+        else
+            assert(!unlink(assets) && !rmdir(page));
+        assert(!rmdir(notes));
+    }
+    /* Cleanup only removes images: a note naming another file in assets/ never deletes it. */
+    char folder[1200], other[1400];
+    snprintf(folder, sizeof(folder), "%s/not-images", root);
+    struct app app;
+    remember_first_page();
+    assert(app_open(&app) && session_open(&app, folder) == 1);
+    char *path = session_path(&app, "assets/thesis.docx");
+    assert(path && session_write_new(path, "my thesis", 9));
+    const char *note = "![](assets/thesis.docx)\n";
+    assert(editor_replace(&app.editor, 0, app.editor.length, note, strlen(note)));
+    media_sync(&app);
+    assert(editor_replace(&app.editor, 0, app.editor.length, "", 0));
+    app_input(&app, KEY_CTRL_S, "");
+    assert(has_text(path, "my thesis"));
+    app_close(&app);
+    assert(!unlink(path));
+    free(path);
+    const char *leftovers[] = {"1/page.md", "1/assets", "1", ""};
+    for (unsigned i = 0; i < 4; ++i) {
+        snprintf(other, sizeof(other), "%s/%s", folder, leftovers[i]);
+        assert(i ? !rmdir(other) : !unlink(other));
+    }
 }
 /* Programs are only found in PATH's absolute folders, never the current folder. */
 static void find_program_test(const char *root)
@@ -840,6 +938,7 @@ int main(int argc, char **argv)
 #ifndef _WIN32
     fifo_test(directory);
     publish_test(directory);
+    linked_assets_test(directory, png, bytes);
     find_program_test(directory);
     ocr_link_test(directory, png, bytes);
 #endif

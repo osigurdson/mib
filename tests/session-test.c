@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "app.h"
+#include "image.h"
 #include "platform.h"
 #include "session.h"
 #include <assert.h>
@@ -182,8 +183,19 @@ static void pages(const char *parent)
     char assets[1200], page_assets[1200];
     snprintf(assets, sizeof(assets), "%s/1/assets", directory);
     snprintf(page_assets, sizeof(page_assets), "%s/3/assets", directory);
-    write_file(assets, "a.png", "png");
-    write_file(page_assets, "a.png", "png");
+    /* Cleanup only removes real images. */
+    const unsigned char pixel[4] = {255, 0, 0, 255};
+    size_t png_length;
+    unsigned char *png = image_png(pixel, 1, 1, &png_length);
+    assert(png);
+    for (unsigned i = 0; i < 2; ++i) {
+        char path[1300], error[128];
+        snprintf(path, sizeof(path), "%s/a.png", i ? page_assets : assets);
+        assert(session_mkdir(i ? page_assets : assets));
+        assert(
+            platform_file_write_atomic(path, (const char *)png, png_length, error, sizeof(error)));
+    }
+    free(png);
     app_input(&app, KEY_PAGE, "3");
     char *image = session_path(&app, "assets/a.png");
     assert(image && strstr(image, "/3/assets/"));

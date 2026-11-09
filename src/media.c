@@ -35,7 +35,8 @@ struct media {
     bool ocr_unavailable;
     char job_name[256];
     char *job_output;    /* the private folder tesseract writes out.txt and out.tsv in */
-    char *job_directory; /* the folder job_name is relative to, where the results go */
+    char *job_directory; /* the folder that job_relative, the image's path, is below */
+    char job_relative[512];
 #ifdef _WIN32
     HANDLE job;
 #else
@@ -72,6 +73,55 @@ static char *join(const char *folder, const char *name)
         snprintf(path, n, "%s/%s", folder, name);
     return path;
 }
+/* Split PATH, a file in the shown page's folder, into the folder that file operations start
+ * from and the part below it, in which links are refused: from the notes folder for a page, so
+ * neither the page's folder nor its assets/ can lead elsewhere, else from the page's folder.
+ * Returns the part below and sets *base, which the caller frees; NULL when PATH is in neither. */
+static const char *below(const struct app *app, const char *path, char **base)
+{
+    const char *folders[] = {app->root, app->directory};
+    *base = NULL;
+    for (unsigned i = 0; path && i < 2; ++i) {
+        size_t n = folders[i] ? strlen(folders[i]) : 0;
+        if (n && !strncmp(path, folders[i], n) && (path[n] == '/' || path[n] == '\\') &&
+            path[n + 1]) {
+            if ((*base = malloc(n + 1)))
+                memcpy(*base, path, n);
+            if (!*base)
+                return NULL;
+            (*base)[n] = 0;
+            return path + n + 1;
+        }
+    }
+    return NULL;
+}
+/* Remove PATH, an asset or its OCR text, without following a link to its folder. */
+static bool remove_asset(const struct app *app, const char *path)
+{
+    char *base;
+    const char *relative = below(app, path, &base);
+    bool ok = relative && platform_file_remove_at(base, relative);
+    free(base);
+    return ok;
+}
+/* Whether PATH is an image mib can show, reading only its header for the size. *other says
+ * whether it is instead a file that could be read and isn't one. */
+static bool image_file(const char *path, int *width, int *height, bool *other)
+{
+    char error[128];
+    bool missing;
+    *other = false;
+    FILE *file = path ? platform_file_open_read(path, &missing, error, sizeof(error)) : NULL;
+    if (!file)
+        return false;
+    unsigned char *header = malloc(65536);
+    size_t n = header ? fread(header, 1, 65536, file) : 0;
+    fclose(file);
+    bool ok = header && image_info(header, n, width, height);
+    *other = header && !ok;
+    free(header);
+    return ok;
+}
 static const char *const ocr_outputs[] = {"out.txt", "out.tsv"};
 /* Remove tesseract's private output folder. */
 static void discard_output(struct media *m)
@@ -96,10 +146,10 @@ static void publish_output(struct media *m)
 {
     const char *suffixes[] = {".txt", ".tsv"};
     for (unsigned i = 2; i-- > 0;) {
-        char *from = join(m->job_output, ocr_outputs[i]), relative[272];
+        char *from = join(m->job_output, ocr_outputs[i]), relative[528];
         size_t n;
         char *data = from ? session_read(from, 2 * 1024 * 1024, &n) : NULL;
-        snprintf(relative, sizeof(relative), "%s%s", m->job_name, suffixes[i]);
+        snprintf(relative, sizeof(relative), "%s%s", m->job_relative, suffixes[i]);
         if (data)
             platform_file_publish(m->job_directory, relative, data, n);
         free(data);
@@ -139,6 +189,19 @@ void media_saved(void *context)
             link = &a->next;
             continue;
         }
+        /* Only remove images, which is all mib puts in assets/: a note naming some other file
+         * there doesn't get it deleted. */
+        char *file = session_path(app, a->name);
+        int width, height;
+        bool other;
+        image_file(file, &width, &height, &other);
+        free(file);
+        if (other) {
+            *link = a->next;
+            free(a);
+            --m->asset_count;
+            continue;
+        }
         if (m->job && !strcmp(m->job_name, a->name))
             stop_job(m); /* Do not let OCR recreate sidecars after cleanup. */
         bool removed = true;
@@ -147,7 +210,7 @@ void media_saved(void *context)
             char relative[272];
             snprintf(relative, sizeof(relative), "%s%s", a->name, suffixes[i]);
             char *path = session_path(app, relative);
-            bool ok = path && platform_file_remove(path);
+            bool ok = path && remove_asset(app, path);
             free(path);
             if (i == 0 && ok) {
                 cleaned = true;
@@ -266,18 +329,10 @@ void media_sync(struct app *app)
                     }
             if (!cached) {
                 char *path = session_path(app, name);
-                bool missing;
-                char error[128];
-                FILE *file =
-                    path ? platform_file_open_read(path, &missing, error, sizeof(error)) : NULL;
+                bool other;
+                if (!image_file(path, &e.width, &e.height, &other))
+                    e.width = e.height = 0;
                 free(path);
-                if (file) {
-                    unsigned char header[65536];
-                    size_t n = fread(header, 1, sizeof(header), file);
-                    fclose(file);
-                    if (!image_info(header, n, &e.width, &e.height))
-                        e.width = e.height = 0;
-                }
             }
             entries[count++] = e;
         }
@@ -660,18 +715,9 @@ char *media_open_target(struct app *app)
         const char *ext = extension(target, &n);
         bool named = ext && (same_text(ext, n, "png") || same_text(ext, n, "jpg") ||
                              same_text(ext, n, "jpeg"));
-        bool missing, image = false;
-        char error[128];
-        FILE *file = named ? platform_file_open_read(target, &missing, error, sizeof(error)) : NULL;
-        if (file) {
-            unsigned char *header = malloc(65536);
-            size_t count = header ? fread(header, 1, 65536, file) : 0;
-            int w, h;
-            image = header && image_info(header, count, &w, &h);
-            free(header);
-            fclose(file);
-        }
-        if (!image)
+        int w, h;
+        bool other;
+        if (!named || !image_file(target, &w, &h, &other))
             refusal = "it isn't a PNG or JPEG image";
     } else if (strncmp(target, "https://", 8) && strncmp(target, "http://", 7) &&
                strncmp(target, "mailto:", 7) && launches(target))
@@ -758,12 +804,15 @@ static bool store_image(struct app *app, const unsigned char *data, size_t lengt
         if (!path)
             break;
         bool missing;
-        char error[128];
+        char error[128], *base;
         FILE *file = platform_file_open_read(path, &missing, error, sizeof(error));
         if (file)
             fclose(file);
-        if (!file && missing)
-            written = session_write_exclusive(path, (const char *)data, bytes);
+        /* Never through a link to the page's folder or assets/. */
+        const char *relative = below(app, path, &base);
+        if (!file && missing && relative)
+            written = platform_file_create_at(base, relative, (const char *)data, bytes);
+        free(base);
         if (written) { /* remembered for media_close */
             char **imports = realloc(app->imports, (app->import_count + 1) * sizeof(*imports));
             if (imports) {
@@ -775,8 +824,11 @@ static bool store_image(struct app *app, const unsigned char *data, size_t lengt
         free(path);
     }
     free(encoded);
-    if (!written)
+    if (!written) {
+        snprintf(app->editor.message, sizeof(app->editor.message),
+                 "Could not save the image in assets/");
         return false;
+    }
     track_asset(app, name);
     return true;
 }
@@ -1117,9 +1169,14 @@ static bool spawn_ocr(struct app *app, const struct media_entry *e)
     char *image = session_path(app, e->name);
     char *output = image ? platform_private_directory() : NULL;
     char *base = output ? join(output, "out") : NULL;
-    char *directory = NULL;
-    if (base && (directory = malloc(strlen(app->directory) + 1)))
-        strcpy(directory, app->directory);
+    /* The results go next to the image, written from the notes folder down. */
+    char *directory = NULL, relative[sizeof(m->job_relative)] = "";
+    const char *image_relative = base ? below(app, image, &directory) : NULL;
+    if (!image_relative || strlen(image_relative) >= sizeof(relative)) {
+        free(directory);
+        directory = NULL;
+    } else
+        strcpy(relative, image_relative);
     bool ok = false, started = false;
 #ifdef _WIN32
     /* The program and working folder stay plain absolute paths for CreateProcessW. */
@@ -1169,6 +1226,7 @@ static bool spawn_ocr(struct app *app, const struct media_entry *e)
     free(base);
     if (ok) {
         strcpy(m->job_name, e->name);
+        strcpy(m->job_relative, relative);
         m->job_output = output;
         m->job_directory = directory;
     } else {
@@ -1312,7 +1370,7 @@ void media_close(struct app *app)
                 char path[4096];
                 int n = snprintf(path, sizeof(path), "%s%s", app->imports[i], suffixes[s]);
                 if (n > 0 && (size_t)n < sizeof(path))
-                    platform_file_remove(path);
+                    remove_asset(app, path);
             }
         }
         free(app->imports[i]);

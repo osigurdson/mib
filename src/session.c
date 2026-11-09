@@ -179,10 +179,6 @@ bool session_write_new(const char *path, const char *data, size_t length)
 {
     return write_new(path, data, length, true);
 }
-bool session_write_exclusive(const char *path, const char *data, size_t length)
-{
-    return write_new(path, data, length, false);
-}
 char *session_absolute(const char *path)
 {
 #ifdef _WIN32
@@ -597,6 +593,36 @@ static bool private_folder(const char *path)
 #endif
     return true;
 }
+/* Make the page folder NUMBER and its assets/ in the notes folder ROOT and keep them private.
+ * They may come from someone else, so the permissions are set walking down from ROOT without
+ * following links: whatever a link there points to keeps its own. */
+static bool private_page(const char *root, const char *number, const char *folder,
+                         const char *assets)
+{
+    if (!session_mkdir(folder) || !session_mkdir(assets))
+        return false;
+#ifndef _WIN32
+    int fd = open(root, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    const char *parts[] = {number, "assets"};
+    bool ok = fd >= 0;
+    for (unsigned i = 0; ok && fd >= 0 && i < 2; ++i) {
+        int next = openat(fd, parts[i], O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+        close(fd);
+        fd = next;
+        if (fd < 0)
+            ok = errno == ELOOP || errno == ENOTDIR; /* a link: leave it alone */
+        else
+            ok = fchmod(fd, 0700) == 0;
+    }
+    if (fd >= 0)
+        close(fd);
+    return ok;
+#else
+    (void)root;
+    (void)number;
+    return true;
+#endif
+}
 int session_open(struct app *app, const char *name)
 {
     app->directory = resolve(name);
@@ -623,7 +649,7 @@ int session_open(struct app *app, const char *name)
     free(app->directory);
     app->directory = folder;
     char *assets = session_path(app, "assets");
-    bool made = folder && private_folder(folder) && assets && private_folder(assets);
+    bool made = folder && assets && private_page(app->root, number, folder, assets);
     free(assets);
     if (!made)
         goto failed;

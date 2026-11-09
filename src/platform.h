@@ -26,6 +26,14 @@ bool platform_file_remove(const char *path);
  * fail, so a crafted notes folder can't redirect the write. Missing folders aren't created. */
 bool platform_file_publish(const char *directory, const char *relative, const char *data,
                            size_t length);
+/* Create DIRECTORY/RELATIVE as a new file only this user can read, failing if anything is
+ * already at that name, a link included. Like platform_file_publish, a link among RELATIVE's
+ * folders makes it fail. */
+bool platform_file_create_at(const char *directory, const char *relative, const char *data,
+                             size_t length);
+/* Remove DIRECTORY/RELATIVE, or a link at that name rather than its target; a link among
+ * RELATIVE's folders makes it fail. A missing file counts as success. */
+bool platform_file_remove_at(const char *directory, const char *relative);
 /* A new, empty folder that only this user can use, for a helper process's output, or NULL.
  * The caller frees the path; platform_directory_remove removes the folder once it's empty. */
 char *platform_private_directory(void);

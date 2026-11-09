@@ -106,22 +106,51 @@ static bool plain_name(const char *name)
     return *name && strcmp(name, ".") && strcmp(name, "..");
 }
 
+/* Open DIRECTORY, then each folder in RELATIVE (which this cuts up) without following links.
+ * Returns the last folder, or -1 with errno set, and points *name at RELATIVE's last part. */
+static int open_parent(const char *directory, char *relative, char **name)
+{
+    int folder = open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    *name = relative;
+    for (char *slash; folder >= 0 && (slash = strchr(*name, '/')); *name = slash + 1) {
+        *slash = 0;
+        int next = -1;
+        if (plain_name(*name))
+            next = openat(folder, *name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+        else
+            errno = EINVAL;
+        int saved = errno;
+        close(folder);
+        errno = saved;
+        folder = next;
+    }
+    if (folder >= 0 && !plain_name(*name)) {
+        close(folder);
+        errno = EINVAL;
+        folder = -1;
+    }
+    return folder;
+}
+
+static bool write_all(int fd, const char *data, size_t length)
+{
+    for (size_t written = 0; written < length;) {
+        ssize_t n = write(fd, data + written, length - written);
+        if (n < 0 && errno == EINTR)
+            continue;
+        if (n <= 0)
+            return false;
+        written += (size_t)n;
+    }
+    return true;
+}
+
 bool platform_file_publish(const char *directory, const char *relative, const char *data,
                            size_t length)
 {
-    char *copy = strdup(relative);
-    int folder = copy ? open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC) : -1;
-    char *name = copy;
-    /* Walk RELATIVE's folders one at a time, refusing links. */
-    for (char *slash; folder >= 0 && (slash = strchr(name, '/')); name = slash + 1) {
-        *slash = 0;
-        int next = plain_name(name)
-                       ? openat(folder, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-                       : -1;
-        close(folder);
-        folder = next;
-    }
-    bool ok = folder >= 0 && plain_name(name);
+    char *copy = strdup(relative), *name = NULL;
+    int folder = copy ? open_parent(directory, copy, &name) : -1;
+    bool ok = folder >= 0;
     char temporary[64];
     int fd = -1;
     struct timespec now;
@@ -134,16 +163,7 @@ bool platform_file_publish(const char *directory, const char *relative, const ch
         if (fd < 0 && errno != EEXIST)
             ok = false;
     }
-    ok = ok && fd >= 0;
-    for (size_t written = 0; ok && written < length;) {
-        ssize_t n = write(fd, data + written, length - written);
-        if (n < 0 && errno == EINTR)
-            continue;
-        if (n <= 0)
-            ok = false;
-        else
-            written += (size_t)n;
-    }
+    ok = ok && fd >= 0 && write_all(fd, data, length);
     if (fd >= 0 && close(fd) < 0)
         ok = false;
     /* rename replaces whatever is at NAME, a link included, without following it. */
@@ -151,6 +171,38 @@ bool platform_file_publish(const char *directory, const char *relative, const ch
         ok = renameat(folder, temporary, folder, name) == 0;
     if (!ok && fd >= 0)
         unlinkat(folder, temporary, 0);
+    if (folder >= 0)
+        close(folder);
+    free(copy);
+    return ok;
+}
+
+bool platform_file_create_at(const char *directory, const char *relative, const char *data,
+                             size_t length)
+{
+    char *copy = strdup(relative), *name = NULL;
+    int folder = copy ? open_parent(directory, copy, &name) : -1;
+    int fd = folder >= 0
+                 ? openat(folder, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600)
+                 : -1;
+    bool ok = fd >= 0 && write_all(fd, data, length);
+    if (fd >= 0 && close(fd) < 0)
+        ok = false;
+    if (!ok && fd >= 0)
+        unlinkat(folder, name, 0);
+    if (folder >= 0)
+        close(folder);
+    free(copy);
+    return ok;
+}
+
+bool platform_file_remove_at(const char *directory, const char *relative)
+{
+    char *copy = strdup(relative), *name = NULL;
+    int folder = copy ? open_parent(directory, copy, &name) : -1;
+    /* A missing folder on the way means the file is missing too. */
+    bool ok =
+        folder >= 0 ? unlinkat(folder, name, 0) == 0 || errno == ENOENT : copy && errno == ENOENT;
     if (folder >= 0)
         close(folder);
     free(copy);
