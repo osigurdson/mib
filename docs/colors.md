@@ -16,7 +16,7 @@ scheme and `:set background?` to show the background option.
 
 | Scheme | Dark variant | Light variant |
 |---|---|---|
-| mib (default) | Original Jot dark | Original Jot light |
+| mib (default) | mib dark | mib light |
 | tokyonight | Night | Day |
 | catppuccin | Mocha | Latte |
 | kanagawa | Wave | Lotus |

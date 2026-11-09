@@ -273,10 +273,8 @@ right-click the title for the compositor's window menu. Floating windows with
 client-side controls have rounded corners. They become square when maximized,
 tiled, or fullscreen; server-decorated windows follow the compositor's styling.
 
-This feature set follows [jot](https://github.com/osigurdson/jot), pinned in the
-[parity report](jot-parity.md). Native presentation differs. Search selects an
-image containing OCR matches and highlights matching OCR words. The font subset,
-ASCII case handling and bounded regex subset are intentional limitations.
+Search selects an image containing OCR matches and highlights matching OCR words. The font
+subset, ASCII case handling and bounded regex subset are intentional limitations.
 Unsaved changes on any page block quitting. Use `:w` or
 `Ctrl+S` to save, `:wa` to save every page, `:wq` or `:wqa` to save and quit, or `:q!` to
 discard edits.

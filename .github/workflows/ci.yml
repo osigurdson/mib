@@ -31,10 +31,14 @@ jobs:
       - name: Package
         run: |
           stage=.build/package/mib
-          mkdir -p "$stage"
+          mkdir -p "$stage/licenses"
           install -s -m 755 .build/linux/mib "$stage/mib"
           cp packaging/io.github.osigurdson.mib.desktop packaging/io.github.osigurdson.mib.svg \
-             LICENSE README.md "$stage/"
+             LICENSE "$stage/"
+          # The binary bundles the font and adapts these color schemes; their licenses go with it.
+          cp fonts/OFL.txt fonts/NERD-FONTS-LICENSE.txt third_party/tokyonight-LICENSE \
+             third_party/catppuccin-LICENSE third_party/kanagawa-LICENSE \
+             third_party/everforest-LICENSE "$stage/licenses/"
           tar -C .build/package -czf mib-linux-x86_64.tar.gz mib
           "$stage/mib" --version
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

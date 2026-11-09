@@ -182,8 +182,8 @@ More detail:
 The bundled font is a subset of JetBrains Mono Nerd Font, under the SIL Open Font License
 (`fonts/OFL.txt`, `fonts/NERD-FONTS-LICENSE.txt`). PNG and JPEG decoding uses
 [stb](third_party/stb). The color schemes are adapted from Tokyo Night, Catppuccin,
-Kanagawa and Everforest; their licenses are in [third_party/](third_party). mib started
-as a port of the [original GTK version of Jot](https://github.com/osigurdson/jot).
+Kanagawa and Everforest; their licenses are in [third_party/](third_party). Release
+tarballs carry these licenses in `licenses/`.
 
 ## License
 
