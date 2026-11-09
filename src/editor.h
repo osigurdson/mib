@@ -1,5 +1,7 @@
 #ifndef EDITOR_H
 #define EDITOR_H
+/* The largest file editor_open reads. */
+#define EDITOR_FILE_LIMIT (64u * 1024 * 1024)
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

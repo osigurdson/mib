@@ -66,6 +66,8 @@ session. Extra names or allocation failures conservatively leave files behind.
 Current-text reference checks cover the whole note, including raw/inline text
 and references beyond the inline image limit. Existing orphan files are not
 swept. A crash after saving but before cleanup may leave an unused asset behind.
+Cleanup only removes files that are images, and never through a page folder or
+`assets/` that is a link to somewhere else.
 
 ## Deliberate limits
 
@@ -76,6 +78,7 @@ swept. A crash after saving but before cleanup may leave an unused asset behind.
 - The bounded substitution VM supports literals, dot, anchors, classes/ranges,
   `*`, `\+`, `\?`, `\(groups\)`, `\|`, `\<`/`\>`, `&` and `\1`–`\9` replacements.
   No lookaround or complete Vim/PCRE syntax. Regex work/backtracking is bounded.
+- A page or file opens only up to 64 MiB.
 - Undo is lazy: at most 2 MiB of delta payload plus 1,024 record descriptors.
   An insert session is one transaction. An oversized transaction clears undo
   rather than retaining an incomplete undo step.

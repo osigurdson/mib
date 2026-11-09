@@ -180,6 +180,20 @@ int main(void)
     ed = (struct editor){0};
     assert(!editor_open(&ed, path));
     editor_destroy(&ed);
+    /* Files up to the limit open; a byte more is refused, with a message, before it's read. */
+    for (unsigned extra = 0; extra < 2; ++extra) {
+        FILE *big = fopen(path, "wb");
+        static char line[1 << 16];
+        memset(line, 'a', sizeof(line) - 1);
+        line[sizeof(line) - 1] = '\n';
+        for (unsigned i = 0; i < EDITOR_FILE_LIMIT / sizeof(line); ++i)
+            assert(fwrite(line, 1, sizeof(line), big) == sizeof(line));
+        assert(fwrite("b", 1, extra, big) == extra && !fclose(big));
+        ed = (struct editor){0};
+        assert(editor_open(&ed, path) == !extra);
+        assert(extra ? strstr(ed.message, "larger than") != NULL : ed.length == EDITOR_FILE_LIMIT);
+        editor_destroy(&ed);
+    }
     unlink(alias);
     unlink(path);
     rmdir(directory);

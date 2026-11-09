@@ -73,6 +73,13 @@ bool editor_open(struct editor *ed, const char *filename)
             fclose(file);
             return false;
         }
+        /* A page from someone else's notes folder can't take all the memory there is. */
+        if (count > EDITOR_FILE_LIMIT - ed->length) {
+            snprintf(ed->message, sizeof(ed->message), "File is larger than %u MiB",
+                     EDITOR_FILE_LIMIT >> 20);
+            fclose(file);
+            return false;
+        }
         if (ed->length > SIZE_MAX - count - 1 || !editor_reserve(ed, ed->length + count + 1)) {
             fclose(file);
             return false;
