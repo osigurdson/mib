@@ -1034,6 +1034,8 @@ bool app_paint(struct app *app, uint32_t *pixels, int width, int height, int str
     if (!app->font)
         return false;
     app->image_box = false;
+    /* Between frames no code holds a pointer into the text, so shrinking it is safe here. */
+    editor_compact(&app->editor);
     bool ok = paint(app, pixels, width, height, stride);
     if (ok)
         window_corners(app, pixels, width, height, stride);

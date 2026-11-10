@@ -40,6 +40,27 @@ int main(void)
     assert(ed.cursor == 3);
     type(&ed, "j");
     assert(ed.cursor == 9);
+    {
+        /* A large paste grows the buffer; deleting it lets editor_compact give the space back. */
+        size_t before = ed.capacity, big = 1 << 18;
+        char *fill = malloc(big);
+        assert(fill);
+        memset(fill, 'x', big);
+        assert(editor_replace(&ed, ed.length, ed.length, fill, big));
+        free(fill);
+        assert(ed.capacity > big);
+        editor_compact(&ed);
+        assert(ed.capacity > big);
+        assert(editor_replace(&ed, ed.length - big, ed.length, "", 0));
+        editor_compact(&ed);
+        assert(ed.capacity <= before && ed.capacity > ed.length);
+        assert(!strcmp(ed.text, "hello\nworld"));
+        editor_undo(&ed, false);
+        assert(ed.length == 11 + big && ed.capacity > ed.length);
+        editor_undo(&ed, false);
+        assert(!strcmp(ed.text, "hello\nworld"));
+        ed.cursor = 9;
+    }
     type(&ed, "l");
     type(&ed, "l");
     assert(ed.cursor == 10);

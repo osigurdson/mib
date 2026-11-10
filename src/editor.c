@@ -46,6 +46,21 @@ bool editor_reserve(struct editor *ed, size_t needed)
     return true;
 }
 
+void editor_compact(struct editor *ed)
+{
+    /* Halve until a quarter full, so the next growth is still a doubling away. */
+    size_t capacity = ed->capacity;
+    while (capacity > 1024 && ed->length + 1 <= capacity / 4)
+        capacity /= 2;
+    if (capacity == ed->capacity)
+        return;
+    char *text = realloc(ed->text, capacity);
+    if (!text)
+        return;
+    ed->text = text;
+    ed->capacity = capacity;
+}
+
 bool editor_open(struct editor *ed, const char *filename)
 {
     ed->view = VIEW_NORMAL;
