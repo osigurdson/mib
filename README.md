@@ -1,11 +1,26 @@
 <h1 align="center">
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="docs/brand/wordmark-dark.svg">
-<img src="docs/brand/wordmark-light.svg" alt="mib: Markdown under a mebibyte" width="360">
+<img src="docs/brand/wordmark-light.svg" alt="mib:  Markdown under a mebibyte" width="360">
 </picture>
 </h1>
 
-A 300KiB, vim-inspired Markdown scratchpad with inline images. It's a local, single binary desktop app with no Electron or WebView dependencies. mib loads instantly (<50ms), is CPU efficient and uses less than 1MiB of memory on startup (99% less than some Electron based markdown tools). 
+A 300KiB, Vim-inspired Markdown scratchpad with inline images, for Linux (Wayland). It's a local, single-binary desktop app with no Electron or WebView dependencies. mib loads instantly (<50ms) and uses less than 1MiB of memory on startup. 
+
+## Nine pages, no file management
+With mib, there are no files to manage, just nine scratch pages that you switch between as needed. 
+
+Why nine? mib's focus is on working notes, not building an archive. This is more than enough to manage a few threads (e.g. meeting notes, screen captures and notes on a bug you are working on, preliminary ideas on how to improve things, etc.). Anything more permanent usually lands in a git repo or wiki anyway.
+
+<img src="docs/demo.svg" width="640" alt="mib in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
+
+## Optional OCR and integrated image search
+If Tesseract is available on your machine, mib will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below. Set `MIB_OCR=0` to turn it off.
+
+<img src="docs/demo-ocr.svg" width="640" alt="mib searching for invoice: the search steps through two matches in a release checklist, then into a pasted screenshot of a monitoring dashboard, where it highlights POST /invoice in the graph legend">
+
+## Themes
+Despite its small size, mib has dark / light modes and even a few built in themes (mib - default, tokyonight, catppuccin, kanagawa and everforest).  
 
 ## Install
 
@@ -20,18 +35,6 @@ upgrade. The [download page](https://osigurdson.github.io/mib/) has the release 
 how to check where they came from, or you can
 [build from source](#build-and-run-linux-wayland). `mib --version` shows the release and
 commit you're running.
-
-## Nine pages, no file management
-With mib, there are no files to manage, just 9 scratch pages that you switch between as needed. 
-
-Why nine? mib's focus is on working notes, not building an archive. This is more than enough to manage a few threads (e.g meeting notes, screen captures and notes on a bug you are working on, preliminary ideas on how to improve things, etc.). Anything more permanent usually lands in a git repo or wiki anyway.
-
-<img src="docs/demo.svg" width="640" alt="mib in use: typing a Markdown task with bold text, pasting a latency graph screenshot, then opening the page list and switching to the Standup page">
-
-## Optional OCR and integrated image search
-If tesseract is available on your machine, mib will OCR the text in the images that you paste in. Any search terms found in the images are highlighted as shown below. Set `MIB_OCR=0` to turn it off.
-
-<img src="docs/demo-ocr.svg" width="640" alt="mib searching for invoice: the search steps through two matches in a release checklist, then into a pasted screenshot of a monitoring dashboard, where it highlights POST /invoice in the graph legend">
 
 ## Build and run (Linux, Wayland)
 
@@ -70,7 +73,7 @@ make install
 ```
 
 Make sure `~/.local/bin` is on your `PATH`. Run `make install` again to update; your pages
-and settings are kept. The installed binary has its debug info stripped (about 190 KB).
+and settings are kept.
 `PREFIX` (default `~/.local`) changes where it goes, and `DESTDIR` adds a staging root for
 packaging. `make clean` removes the build.
 
