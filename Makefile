@@ -203,9 +203,9 @@ $(FUZZ_DIR)/mib-fuzz: tests/fuzz.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(F
 
 # The first byte of an input picks its target, so each seed starts with it: 0 image, 1 page
 # text, 2 fragment. ImageMagick, when present, adds a JPEG seed.
-$(FUZZ_DIR)/corpus/seeded: docs/map.png README.md | $(FUZZ_DIR)/corpus
-	{ printf '\000'; cat docs/map.png; } > $(FUZZ_DIR)/corpus/seed-png
-	if command -v magick >/dev/null; then { printf '\000'; magick docs/map.png -resize 96x jpg:-; } > $(FUZZ_DIR)/corpus/seed-jpeg; fi
+$(FUZZ_DIR)/corpus/seeded: tests/fuzz-seed.png README.md | $(FUZZ_DIR)/corpus
+	{ printf '\000'; cat tests/fuzz-seed.png; } > $(FUZZ_DIR)/corpus/seed-png
+	if command -v magick >/dev/null; then { printf '\000'; magick tests/fuzz-seed.png -resize 96x jpg:-; } > $(FUZZ_DIR)/corpus/seed-jpeg; fi
 	{ printf '\001'; cat README.md; } > $(FUZZ_DIR)/corpus/seed-page
 	printf '\002MIBFRG1\000\004\000\000\000\022\000\000\000/tmp![](assets/x.png)\n' > $(FUZZ_DIR)/corpus/seed-fragment
 	touch $@

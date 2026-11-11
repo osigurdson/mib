@@ -39,7 +39,8 @@ for (start,end), label in zip(bands,labels):
     comparison.paste(reference.crop((0,start,reference.width,end)),(170,y+26))
     comparison.paste(custom.crop((0,start,custom.width,end)),(170,y+26+h))
     y += 2*h+36
-(root / "docs").mkdir(exist_ok=True)
-comparison.save(root / "docs/font-comparison.png")
-custom.save(root / "docs/font-samples.png")
-print("Wrote docs/font-comparison.png and docs/font-samples.png (native pixel sizes)")
+out = root / ".build/linux/font-comparison"
+out.mkdir(parents=True, exist_ok=True)
+comparison.save(out / "font-comparison.png")
+custom.save(out / "font-samples.png")
+print(f"Wrote {out}/font-comparison.png and font-samples.png (native pixel sizes)")

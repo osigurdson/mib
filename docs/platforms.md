@@ -9,20 +9,31 @@ run under Wine; see [Windows build and test details](windows.md).
 ```text
 src/
   main.c                  shared argument handling and application lifetime
-  app.h, app.c            shared editor state, normalized input, close policy
-  editor.h, editor.c      text buffer, movement, modes, commands, UTF-8 traversal
-  render.c                shared CPU UI renderer and physical-pixel layout
-  tiny-font.h, tiny-font.c bundled-font reader, rasterizer, bounded cache
+  app.h, app.c            shared app state, normalized input, close policy
+  editor.h, editor.c      text buffer, cursor movement, UTF-8 traversal
+  keys.c                  normal, visual and insert mode keys, motions, operators
+  ex.c, substitute.c      : commands and the :s regex subset
+  history.c               every text change, grouped undo/redo, mark shifting
+  pages.c, session.c      the nine pages in the notes folder and where it lives
+  media.h, media.c        pasted images, clipboard fragments, OCR and image search
+  image.h, image.c        PNG/JPEG decoding and PNG encoding
+  markdown.h, markdown.c  Markdown blocks, spans and tables for drawing
+  render.c                shared CPU renderer and physical-pixel layout
+  navigator.c, help.c     the page list and the :help card, drawn on top of render.c
+  colors.h, theme-palettes.h  color schemes (see colors.md)
+  tiny-font.h, tiny-font.c    bundled-font reader, rasterizer, bounded cache
   platform.h              small platform contract; no OS headers
   platform/
     linux/
       entry.c             Linux main entry
       wayland.c           window, xdg-shell/decorations, display scale, input, event loop
+      clipboard.inc       Wayland clipboard and drag and drop
       files.c             regular-file reads and atomic saves
       memory.c            mmap/munmap and optional glibc heap trimming
     windows/
       entry.c             Unicode wmain entry and argument conversion
       window.c            Win32 window/messages, DPI, CPU bitmap presentation
+      clipboard.inc       native clipboard and shell actions
       files.c             Unicode reads and temporary-file replacement
       utf.c, win32.h      UTF-8/UTF-16 paths and Windows errors
       memory.c            VirtualAlloc/VirtualFree
@@ -97,15 +108,6 @@ outside the shared model and renderer.
 
 ## Verification
 
-Make tests and CMake/CTest pass on Linux. Windows CMake builds using the Zig
-cross-toolchain, and five Windows tests pass under Wine. Shared-core tests check
-pitched versus tightly packed buffers and close protection; backend tests cover
-actual file operations, input messages, saves and failure paths. The real
-Windows executable is exercised by a separate process/window integration test.
-Font assets and raster output remain common to both builds.
-
-The earlier platform-separation measurements were 158,904 bytes for the Linux
-Make debug build and 70,040 bytes for CMake MinSizeRel. Empty-file samples were
-807–863 KiB PSS and 2,756–2,824 KiB RSS on the Wayland host; these are historical
-Linux figures, not Windows/Wine memory claims. GNOME System Monitor may display
-a different memory category.
+`make test` runs the shared and Linux tests; `make test-windows` cross-builds and runs the
+Windows tests under Wine. [windows.md](windows.md) lists what those cover and what still
+needs a real Windows machine.
