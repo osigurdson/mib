@@ -5,7 +5,7 @@
 </picture>
 </h1>
 
-A 300KiB, Vim-inspired Markdown scratchpad with inline images, for Linux (Wayland). It's a local, single-binary desktop app with no Electron or WebView dependencies. mib loads instantly (<50ms) and uses less than 1MiB of memory on startup. 
+A 300KiB, Vim-inspired Markdown scratchpad with inline images, for Linux (Wayland). It's a local, single-binary desktop app with no Electron or WebView dependencies. 
 
 ## Nine pages, no file management
 With mib, there are no files to manage, just nine scratch pages that you switch between as needed. 
