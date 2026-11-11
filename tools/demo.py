@@ -277,14 +277,30 @@ def dashboard(binary, work):
         text(title, x + 24, y + 50, (204, 204, 220))
 
     muted, bright = (142, 142, 160), (204, 204, 220)
-    # Title bar and sidebar.
+    # Title bar, with GNOME-style minimise, maximise and close buttons on the right, and
+    # sidebar.
     rect(0, 0, W, 72, (24, 27, 31))
-    for i, color in enumerate([(255, 95, 87), (254, 188, 46), (40, 200, 64)]):
-        rect(24 + 36 * i, 26, 20, 20, color, 10)
-    text('Checkout service / Overview', 150, 0, bright, 72)
+    glyph = (200, 200, 210)
+    for i in range(3):
+        cx, cy = W - 46 - 44 * (2 - i), 36
+        rect(cx - 14, cy - 14, 28, 28, (52, 56, 64), 14)
+        if i == 0:
+            rect(cx - 5, cy + 3, 10, 2, glyph)
+        elif i == 1:
+            rect(cx - 5, cy - 5, 10, 10, glyph)
+            rect(cx - 3, cy - 3, 6, 6, (52, 56, 64))
+        else:
+            for d in range(-50, 51):
+                t = d / 10
+                for sx in (1, -1):
+                    x, y = cx + t, cy + sx * t
+                    for yy in range(int(y) - 1, int(y) + 3):
+                        blend(round(x), yy, glyph, min(1.0, max(0.0, 1.4 - abs(yy - y))))
+    text('Checkout service / Overview', 96, 0, bright, 72)
     label_w = sprites['Last 1 hour'][0]
-    rect(W - label_w - 64, 14, label_w + 40, 44, (44, 48, 54), 6)
-    text('Last 1 hour', W - label_w - 44, 14, bright, 44)
+    pill_x = W - 46 - 88 - 14 - 32 - label_w - 40
+    rect(pill_x, 14, label_w + 40, 44, (44, 48, 54), 6)
+    text('Last 1 hour', pill_x + 20, 14, bright, 44)
     rect(0, 72, 72, H - 72, (24, 27, 31))
     for i in range(4):
         rect(22, 104 + 64 * i, 28, 28, (70, 75, 85), 6)
