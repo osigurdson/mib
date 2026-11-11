@@ -82,6 +82,7 @@ add_custom_target(version
             "${GENERATED}/version.h"
     BYPRODUCTS "${GENERATED}/version.h" VERBATIM)
 add_dependencies(mib version)
+add_dependencies(mib-core version) # src/ex.c reports it for :version
 target_include_directories(mib PRIVATE "${GENERATED}")
 if(MSVC)
     target_link_options(mib PRIVATE /ENTRY:wmainCRTStartup)

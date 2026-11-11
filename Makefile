@@ -34,7 +34,8 @@ PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-decoration-unstab
 PROTOCOL_HEADERS := $(addprefix $(GEN)/,$(addsuffix -client-protocol.h,$(PROTOCOL_NAMES)))
 PROTOCOL_SOURCES := $(addprefix $(GEN)/,$(addsuffix -protocol.c,$(PROTOCOL_NAMES)))
 CORE := src/app.c src/session.c src/pages.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/navigator.c src/help.c src/tiny-font.c
-HEADERS := $(wildcard src/*.h src/platform/*/*.inc)
+# version.h is generated: src/ex.c reports it for :version.
+HEADERS := $(wildcard src/*.h src/platform/*/*.inc) $(GEN)/version.h
 MEMORY := src/platform/linux/memory.c
 FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
@@ -89,7 +90,7 @@ FORCE:
 
 mib: $(LINUX_BUILD_DIR)/mib
 
-$(LINUX_BUILD_DIR)/mib: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(GEN)/version.h $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
+$(LINUX_BUILD_DIR)/mib: src/main.c src/platform/linux/entry.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(LINUX_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ src/main.c src/platform/linux/entry.c $(CORE) $(MEMORY) $(FILES) $(WINDOW) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(LDLIBS)
 
 run: mib
@@ -245,7 +246,7 @@ subset-font: | $(GEN)
 	$(PYTHON) tools/embed-font.py fonts/editor.tvf $(FONT_DATA)
 
 # compile_commands.json for clangd: Linux files use these flags, Windows files Zig's mingw headers.
-compile-commands: $(FONT_DATA) $(PROTOCOL_HEADERS)
+compile-commands: $(FONT_DATA) $(PROTOCOL_HEADERS) $(GEN)/version.h
 	$(PYTHON) tools/compile-commands.py -- $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS)
 
 format:

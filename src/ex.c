@@ -1,4 +1,5 @@
 #include "edit-internal.h"
+#include "version.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -227,7 +228,12 @@ void editor_command(struct editor *ed, const char *command)
             snprintf(ed->message, sizeof(ed->message), "Pages are :b 1 to :b 9");
     } else if (*p && strlen(p) <= strlen("help") && !strncmp(p, "help", strlen(p)))
         ed->requests |= ED_HELP; /* :h, :help and :help topic all show the one card */
-    else if (!strcmp(p, "e!"))
+    else if (strlen(p) >= 2 && strlen(p) <= strlen("version") &&
+             !strncmp(p, "version", strlen(p))) {
+        if (argument && *argument)
+            goto unknown;
+        snprintf(ed->message, sizeof(ed->message), "mib %s, commit %.12s", MIB_VERSION, MIB_COMMIT);
+    } else if (!strcmp(p, "e!"))
         editor_reload(ed);
     else if (!strcmp(p, "u") || !strcmp(p, "undo"))
         editor_undo(ed, false);

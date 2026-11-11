@@ -533,6 +533,15 @@ int main(void)
         editor_command(&ed, helps[i]);
         assert(ed.requests == ED_HELP);
     }
+    /* :ve, :version and the abbreviations between report the build, as mib --version does. */
+    const char *versions[] = {"ve", "vers", "version"};
+    for (unsigned i = 0; i < 3; ++i) {
+        ed.message[0] = 0;
+        editor_command(&ed, versions[i]);
+        assert(!strncmp(ed.message, "mib ", 4) && strstr(ed.message, ", commit "));
+    }
+    editor_command(&ed, "version extra");
+    assert(strstr(ed.message, "Unknown"));
     ed.requests = 0;
     uint64_t revision = ed.revision;
     const char *schemes[] = {"mib", "tokyonight", "catppuccin", "kanagawa", "everforest"};
