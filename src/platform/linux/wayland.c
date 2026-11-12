@@ -557,13 +557,18 @@ static void keyboard_keymap(void *data, struct wl_keyboard *keyboard, uint32_t f
     struct wayland_client *client = data;
     stop_repeat(client);
     struct xkb_keymap *keymap = NULL;
-    if (format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1 && size) {
+    bool supported = format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1 && size;
+    if (supported) {
         char *mapping = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
         if (mapping != MAP_FAILED) {
-            if (mapping[size - 1] == '\0')
-                keymap = xkb_keymap_new_from_string(client->xkb_context, mapping,
-                                                    XKB_KEYMAP_FORMAT_TEXT_V1,
-                                                    XKB_KEYMAP_COMPILE_NO_FLAGS);
+            /* Most compositors end the keymap with a NUL, but the protocol does not
+               require one (niri ends it with a newline), so pass the length instead. */
+            size_t length = size;
+            while (length && mapping[length - 1] == '\0')
+                length--;
+            keymap =
+                xkb_keymap_new_from_buffer(client->xkb_context, mapping, length,
+                                           XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
             munmap(mapping, size);
         }
     }
@@ -572,7 +577,8 @@ static void keyboard_keymap(void *data, struct wl_keyboard *keyboard, uint32_t f
     if (!state) {
         xkb_keymap_unref(keymap);
         snprintf(client->app->editor.message, sizeof(client->app->editor.message),
-                 "Could not load keyboard mapping");
+                 supported ? "Could not load keyboard mapping"
+                           : "Unsupported keyboard mapping format");
         client->app->dirty = true;
         return;
     }
