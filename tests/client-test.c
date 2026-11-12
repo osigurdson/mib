@@ -80,6 +80,68 @@ static void page_keys(void)
     assert(!system(command));
 }
 
+/* Hand keyboard_keymap a keymap the way a compositor does, as an fd and a size. */
+static void send_keymap(struct wayland_client *client, uint32_t format, const char *text,
+                        size_t size)
+{
+    int fd = memfd_create("mib-keymap", MFD_CLOEXEC);
+    assert(fd >= 0);
+    assert(write(fd, text, size) == (ssize_t)size);
+    keyboard_keymap(client, NULL, format, fd, (uint32_t)size);
+}
+
+/* The protocol does not promise a NUL at the end of the keymap: GNOME, KDE and wlroots
+ * send one, niri ends it with a newline. Both must load, and a key must then type. */
+static void keymap_endings(void)
+{
+    struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    assert(context);
+    xkb_context_set_log_level(context, XKB_LOG_LEVEL_CRITICAL); /* The broken keymap. */
+    struct xkb_rule_names names = {.layout = "us"};
+    struct xkb_keymap *reference =
+        xkb_keymap_new_from_names(context, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
+    assert(reference);
+    char *text = xkb_keymap_get_as_string(reference, XKB_KEYMAP_FORMAT_TEXT_V1);
+    assert(text);
+    size_t length = strlen(text);
+    char *newline = malloc(length + 1);
+    assert(newline);
+    memcpy(newline, text, length);
+    newline[length] = '\n';
+    const struct {
+        const char *text;
+        size_t size;
+    } cases[] = {{newline, length + 1}, {text, length + 1}, {text, length}};
+    for (unsigned i = 0; i < 3; ++i) {
+        struct app app = {0};
+        char path[] = "/tmp/mib-keymap-XXXXXX";
+        int file = mkstemp(path);
+        assert(file >= 0);
+        close(file);
+        assert(editor_open(&app.editor, path));
+        struct wayland_client client = {.app = &app, .xkb_context = context};
+        send_keymap(&client, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, cases[i].text, cases[i].size);
+        assert(client.xkb_keymap && client.xkb_state && !app.editor.message[0]);
+        press(&client, XKB_KEY_i);
+        press(&client, XKB_KEY_a);
+        assert(app.editor.length == 1 && app.editor.text[0] == 'a');
+        /* A broken keymap later keeps the one that works and says why. */
+        send_keymap(&client, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, "xkb_keymap {", 12);
+        assert(client.xkb_state && !strcmp(app.editor.message, "Could not load keyboard mapping"));
+        send_keymap(&client, WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP, text, length + 1);
+        assert(client.xkb_state &&
+               !strcmp(app.editor.message, "Unsupported keyboard mapping format"));
+        xkb_state_unref(client.xkb_state);
+        xkb_keymap_unref(client.xkb_keymap);
+        editor_destroy(&app.editor);
+        unlink(path);
+    }
+    free(newline);
+    free(text);
+    xkb_keymap_unref(reference);
+    xkb_context_unref(context);
+}
+
 static void frame_limit(void)
 {
     struct app app = {.dirty = true, .redraw_at = 1034};
@@ -454,6 +516,7 @@ static void pending_buffer_cleanup(void)
 int main(int argc, char **argv)
 {
     frame_limit();
+    keymap_endings();
     pending_buffer_cleanup();
     page_keys();
     decorations();
