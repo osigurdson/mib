@@ -1,6 +1,6 @@
 """Record a README demo from the real editor.
 
-    python3 tools/demo.py DEMO_FRAMES_BINARY NAME OUTPUT.svg [--frames DIR]
+    python3 tools/demo.py DEMO_FRAMES_BINARY NAME OUTPUT.svg [--frames DIR] [--mp4 OUTPUT.mp4]
 
 NAME is a key of DEMOS: editing (docs/demo.svg) or ocr (docs/demo-ocr.svg). Fills a
 throwaway notes folder, plays the demo's script through tools/demo-frames.c (the real editor
@@ -8,7 +8,8 @@ and renderer, keys in and pixels out), then packs the frames into one animated S
 the first frame and lays each later frame's changed regions over it as PNG patches, timed with
 CSS, so typing costs a few small patches rather than a whole frame per key. Uses only the
 Python standard library, plus Tesseract for the ocr demo. --frames keeps the PNG of every
-frame in DIR for checking.
+frame in DIR for checking. --mp4 also encodes the same frames and timings as an H.264 video
+with ffmpeg, for places that don't play animated SVGs.
 """
 import os, shutil, struct, subprocess, sys, tempfile, zlib
 from pathlib import Path
@@ -346,16 +347,17 @@ def dashboard(binary, work):
 
 def main():
     binary, name, output = sys.argv[1], sys.argv[2], Path(sys.argv[3])
-    keep = Path(sys.argv[sys.argv.index('--frames') + 1]) if '--frames' in sys.argv else None
+    option = lambda flag: Path(sys.argv[sys.argv.index(flag) + 1]) if flag in sys.argv else None
+    keep, video = option('--frames'), option('--mp4')
     # Raw frames are about 5 MB each, so the work folder goes as soon as the SVG is written.
     work = Path(tempfile.mkdtemp(prefix='mib-demo-'))
     try:
-        build(binary, name, output, keep, work)
+        build(binary, name, output, keep, video, work)
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
 
-def build(binary, name, output, keep, work):
+def build(binary, name, output, keep, video, work):
     if name == 'editing':
         title = 'mib: editing Markdown, pasting a screenshot and switching pages'
         (work / 'chart.png').write_bytes(chart())
@@ -423,6 +425,34 @@ def build(binary, name, output, keep, work):
            + ''.join(images) + '</g></svg>\n')
     output.write_text(svg)
     print(f'{output}: {len(svg) // 1024} KiB, {len(timeline)} frames, {total / 1000:.1f} s')
+    if video:
+        mp4(frames, timeline, video, title)
+
+
+def mp4(frames, timeline, output, title):
+    """Encode the frames, each shown for its time in timeline, as an H.264 MP4 at 30 frames a
+    second: yuv420p and faststart so browsers, phones and chat apps play it inline. Frames go to
+    ffmpeg raw, each repeated to the video frame its time ends on, so rounding doesn't add up."""
+    fps = 30
+    width, height, _ = read_ppm(frames / f'{timeline[0][0]:04d}.ppm')
+    encoder = subprocess.Popen(
+        ['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24',
+         '-s', f'{width}x{height}', '-r', str(fps), '-i', '-',
+         '-vf', 'scale=out_color_matrix=bt709,format=yuv420p', '-c:v', 'libx264',
+         '-preset', 'veryslow', '-crf', '20', '-tune', 'animation', '-colorspace', 'bt709',
+         '-color_primaries', 'bt709', '-color_trc', 'bt709', '-movflags', '+faststart',
+         '-metadata', f'title={title}', str(output)], stdin=subprocess.PIPE)
+    written, at = 0, 0
+    for number, ms in timeline:
+        at += ms
+        rgb = read_ppm(frames / f'{number:04d}.ppm')[2]
+        for _ in range(round(at * fps / 1000) - written):
+            encoder.stdin.write(rgb)
+            written += 1
+    encoder.stdin.close()
+    if encoder.wait():
+        sys.exit(f'ffmpeg failed writing {output}')
+    print(f'{output}: {output.stat().st_size // 1024} KiB')
 
 
 main()

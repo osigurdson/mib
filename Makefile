@@ -231,10 +231,11 @@ demo-frames: $(TOOL_BIN)/demo-frames
 $(TOOL_BIN)/demo-frames: tools/demo-frames.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TOOL_BIN)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tools/demo-frames.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
-# Record the README demos, docs/demo.svg and docs/demo-ocr.svg, from the real editor.
+# Record the README demos, docs/demo.svg and docs/demo-ocr.svg, from the real editor, with MP4
+# copies (docs/demo.mp4, docs/demo-ocr.mp4) for places that don't play animated SVGs.
 demo: $(TOOL_BIN)/demo-frames
-	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" editing docs/demo.svg --frames "$(LINUX_BUILD_DIR)/demo-frames" $(ARGS)
-	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" ocr docs/demo-ocr.svg --frames "$(LINUX_BUILD_DIR)/demo-ocr-frames" $(ARGS)
+	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" editing docs/demo.svg --frames "$(LINUX_BUILD_DIR)/demo-frames" --mp4 docs/demo.mp4 $(ARGS)
+	$(PYTHON) tools/demo.py "$(TOOL_BIN)/demo-frames" ocr docs/demo-ocr.svg --frames "$(LINUX_BUILD_DIR)/demo-ocr-frames" --mp4 docs/demo-ocr.mp4 $(ARGS)
 
 font-preview: $(TOOL_BIN)/font-preview
 
