@@ -2,7 +2,6 @@
 #include "markdown.h"
 #include "media.h"
 #include "render-internal.h"
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
