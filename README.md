@@ -80,6 +80,16 @@ packaging. `make clean` removes the build.
 There is also an experimental Windows build; see
 [Appendix: Windows (experimental)](#appendix-windows-experimental).
 
+For C editing in Neovim or another editor using clangd, generate the compilation database:
+
+```sh
+make compile-commands
+```
+
+This prepares the generated headers and writes `compile_commands.json` with the include
+paths and platform flags clangd needs. Restart the editor after running it. The database
+is local and gitignored; regenerate it after `make clean` or changes to build flags.
+
 ## Using mib
 
 Run `mib`. It opens on the page you were last using, in normal mode.
