@@ -15,22 +15,23 @@ void *platform_allocate_zeroed(size_t bytes);
 void platform_release(void *memory, size_t bytes);
 void platform_trim_heap(void);
 /* Paths are UTF-8. Missing files are distinguished from errors; caller fclose's. */
-FILE *platform_file_open_read(const char *path, bool *missing, char *error, size_t error_size);
+FILE *platform_file_open_read(const char *path, bool *missing, char *error,
+			      size_t error_size);
 /* Replace a regular file only after a successful complete write. */
-bool platform_file_write_atomic(const char *path, const char *data, size_t length, char *error,
-                                size_t error_size);
+bool platform_file_write_atomic(const char *path, const char *data,
+				size_t length, char *error, size_t error_size);
 /* Remove a file; an already missing file counts as success. */
 bool platform_file_remove(const char *path);
 /* Write DIRECTORY/RELATIVE in full under a temporary name, then rename it into place. A link
  * already at that name is replaced, not followed, and a link among RELATIVE's folders makes it
  * fail, so a crafted notes folder can't redirect the write. Missing folders aren't created. */
-bool platform_file_publish(const char *directory, const char *relative, const char *data,
-                           size_t length);
+bool platform_file_publish(const char *directory, const char *relative,
+			   const char *data, size_t length);
 /* Create DIRECTORY/RELATIVE as a new file only this user can read, failing if anything is
  * already at that name, a link included. Like platform_file_publish, a link among RELATIVE's
  * folders makes it fail. */
-bool platform_file_create_at(const char *directory, const char *relative, const char *data,
-                             size_t length);
+bool platform_file_create_at(const char *directory, const char *relative,
+			     const char *data, size_t length);
 /* Remove DIRECTORY/RELATIVE, or a link at that name rather than its target; a link among
  * RELATIVE's folders makes it fail. A missing file counts as success. */
 bool platform_file_remove_at(const char *directory, const char *relative);

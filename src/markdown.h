@@ -4,54 +4,55 @@
 #include <stddef.h>
 #include <stdint.h>
 enum {
-    MD_BOLD = 1,
-    MD_ITALIC = 2,
-    MD_CODE = 4,
-    MD_DIM = 8,
-    MD_LINK = 16,
-    MD_HEADING = 32,
-    MD_DONE = 64,
-    MD_QUOTE = 128,
-    MD_HIDE = 256,
-    MD_BULLET = 512,
-    MD_TASK = 1024,
-    MD_CHECKED = 2048,
-    MD_STRIKE = 4096
+	MD_BOLD = 1,
+	MD_ITALIC = 2,
+	MD_CODE = 4,
+	MD_DIM = 8,
+	MD_LINK = 16,
+	MD_HEADING = 32,
+	MD_DONE = 64,
+	MD_QUOTE = 128,
+	MD_HIDE = 256,
+	MD_BULLET = 512,
+	MD_TASK = 1024,
+	MD_CHECKED = 2048,
+	MD_STRIKE = 4096
 };
 struct md_span {
-    size_t start, end;
-    unsigned style;
+	size_t start, end;
+	unsigned style;
 };
 enum { MD_TABLE_COLUMNS = 16 };
 struct md_cell {
-    size_t start, end;
+	size_t start, end;
 };
 struct md_table {
-    struct md_cell cells[MD_TABLE_COLUMNS];
-    unsigned char align[MD_TABLE_COLUMNS]; /* 0 left, 1 center, 2 right */
-    unsigned count;
-    bool header, separator;
+	struct md_cell cells[MD_TABLE_COLUMNS];
+	unsigned char align[MD_TABLE_COLUMNS]; /* 0 left, 1 center, 2 right */
+	unsigned count;
+	bool header, separator;
 };
 /* One logical line of presentation data; no document-sized render buffer. */
 struct md_cache {
-    struct md_span spans[128];
-    struct md_table table;
-    size_t start, end, count;
-    uint64_t revision;
-    char fence_after;
-    bool valid, fenced, fence_line, quote;
-    unsigned indent, heading;
-    bool rule;
+	struct md_span spans[128];
+	struct md_table table;
+	size_t start, end, count;
+	uint64_t revision;
+	char fence_after;
+	bool valid, fenced, fence_line, quote;
+	unsigned indent, heading;
+	bool rule;
 };
 struct md_block {
-    unsigned indent, heading;
-    bool rule;
+	unsigned indent, heading;
+	bool rule;
 };
-unsigned markdown_cells(const char *text, size_t start, size_t end, struct md_cell *cells);
+unsigned markdown_cells(const char *text, size_t start, size_t end,
+			struct md_cell *cells);
 void markdown_table(const char *text, size_t length, size_t start, size_t end,
-                    struct md_table *table, bool continuation);
+		    struct md_table *table, bool continuation);
 struct md_block markdown_block(const char *text, size_t start, size_t end);
 /* Fixed caller-owned span storage; excess styling is safely omitted. */
-size_t markdown_line(const char *text, size_t start, size_t end, struct md_span *spans,
-                     size_t capacity, bool fenced);
+size_t markdown_line(const char *text, size_t start, size_t end,
+		     struct md_span *spans, size_t capacity, bool fenced);
 #endif
