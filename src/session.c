@@ -213,7 +213,6 @@ static struct app_settings current_settings(const struct app *app)
 		.light = app->editor.light,
 		.number = app->editor.number,
 		.relativenumber = app->editor.relativenumber,
-		.textwidth = app->editor.textwidth,
 		.wrapwidth = app->editor.wrapwidth,
 	};
 	memcpy(s.colorcolumn, app->editor.colorcolumn, sizeof(s.colorcolumn));
@@ -230,7 +229,6 @@ static void apply_settings(struct app *app, const struct app_settings *s)
 	app->editor.light = s->light;
 	app->editor.number = s->number;
 	app->editor.relativenumber = s->relativenumber;
-	app->editor.textwidth = s->textwidth;
 	app->editor.wrapwidth = s->wrapwidth;
 	memcpy(app->editor.colorcolumn, s->colorcolumn,
 	       sizeof(app->editor.colorcolumn));
@@ -291,9 +289,6 @@ static void parse_settings(const char *text, struct app_settings *s)
 			s->number = yes;
 		else if (!strcmp(key, "relativenumber") && (yes || no))
 			s->relativenumber = yes;
-		else if (!strcmp(key, "textwidth") && numeric &&
-			 number <= 10000)
-			s->textwidth = (unsigned)number;
 		else if (!strcmp(key, "wrapwidth") && numeric &&
 			 number <= 10000)
 			s->wrapwidth = (unsigned)number;
@@ -349,15 +344,14 @@ static bool write_settings(const struct app_settings *s)
 			"# window closes, keeping changes made here to other settings.\n"
 			"colorscheme = %s\nbackground = %s\nview = %s\nfont_size = %u\n"
 			"width = %d\nheight = %d\nmaximized = %s\nnumber = %s\n"
-			"relativenumber = %s\ntextwidth = %u\nwrapwidth = %u\n"
+			"relativenumber = %s\nwrapwidth = %u\n"
 			"colorcolumn = %s\n",
 			editor_colorscheme_name(s->colorscheme),
 			s->light ? "light" : "dark", editor_view_name(s->view),
 			s->font_size, s->width, s->height,
 			s->maximized ? "true" : "false",
 			s->number ? "true" : "false",
-			s->relativenumber ? "true" : "false", s->textwidth,
-			s->wrapwidth,
+			s->relativenumber ? "true" : "false", s->wrapwidth,
 			s->colorcolumn[0] ? s->colorcolumn : "none");
 		ok = n > 0 && (size_t)n < sizeof(text) &&
 		     platform_file_write_atomic(path, text, (size_t)n, error,
@@ -562,7 +556,6 @@ static void save_settings(struct app *app)
 	KEEP(light)
 	KEEP(number)
 	KEEP(relativenumber)
-	KEEP(textwidth)
 	KEEP(wrapwidth)
 #undef KEEP
 	if (strcmp(now.colorcolumn, was.colorcolumn)) {

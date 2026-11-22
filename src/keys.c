@@ -847,8 +847,7 @@ static bool object(struct editor *ed, const char *m, unsigned count, size_t *a,
 	}
 	return false;
 }
-/* gq: paragraphs are joined and rewrapped at textwidth columns (79 when it is 0, as in Vim),
- * keeping their first line's indent. */
+/* gq: paragraphs are joined and rewrapped at 79 columns, keeping their first line's indent. */
 #define FORMAT_WIDTH 79
 struct text_buffer {
 	char *data;
@@ -903,11 +902,11 @@ static bool image_reference(const char *line, size_t n)
 	const char *close = memchr(line + i, ']', n - i);
 	return close && close + 1 < line + n && close[1] == '(';
 }
-static void wrap(struct text_buffer *out, size_t textwidth, const char *indent,
+static void wrap(struct text_buffer *out, const char *indent,
 		 size_t indent_length, const char *text, size_t n)
 {
 	size_t width = columns(indent, indent_length, 0);
-	size_t limit = width < textwidth ? textwidth - width : 1;
+	size_t limit = width < FORMAT_WIDTH ? FORMAT_WIDTH - width : 1;
 	for (;;) {
 		size_t cut = SIZE_MAX, cols = 0;
 		for (size_t i = 0; i < n; ++i) {
@@ -941,7 +940,6 @@ static void format_lines(struct editor *ed, size_t a, size_t b)
 	a = editor_line_start(ed, a);
 	size_t last = editor_line_end(ed, b > a ? b - 1 : a);
 	struct text_buffer out = { 0 }, paragraph = { 0 };
-	size_t textwidth = ed->textwidth ? ed->textwidth : FORMAT_WIDTH;
 	const char *indent = NULL;
 	size_t indent_length = 0;
 	append(&out, "", 0);
@@ -953,7 +951,7 @@ static void format_lines(struct editor *ed, size_t a, size_t b)
 				 image_reference(ed->text + p, end - p);
 		if (separator || !paragraph.length) {
 			if (paragraph.length) {
-				wrap(&out, textwidth, indent, indent_length,
+				wrap(&out, indent, indent_length,
 				     paragraph.data, paragraph.length);
 				append(&out, "\n", 1);
 				paragraph.length = 0;
@@ -979,7 +977,7 @@ static void format_lines(struct editor *ed, size_t a, size_t b)
 	}
 	if (paragraph.length) {
 		/* The indent points into the text, which is only replaced after wrapping. */
-		wrap(&out, textwidth, indent, indent_length, paragraph.data,
+		wrap(&out, indent, indent_length, paragraph.data,
 		     paragraph.length);
 		append(&out, "\n", 1);
 	}
@@ -1213,78 +1211,6 @@ static void command_input(struct editor *ed, enum editor_key key,
 		editor_search(ed, ed->command_kind == '/', 1);
 	}
 }
-/* The start of a wrapped line's continuation, as Vim's default 'comments' give it: the indent,
- * then "> " quote markers repeated, or spaces under a "- " list marker. Sets *end to where the
- * line's own text starts. Unlike Vim, a "# " heading marker is not repeated, as that would
- * make a second heading. */
-static size_t continuation(const struct editor *ed, size_t start, size_t *end,
-			   char *out, size_t capacity)
-{
-	size_t p = start, n = 0;
-	while (p < ed->length && blank(ed->text[p]))
-		++p;
-	if (ed->text[p] == '-' && p + 1 < ed->length &&
-	    blank(ed->text[p + 1])) {
-		size_t q = p + 1;
-		while (q < ed->length && blank(ed->text[q]))
-			++q;
-		if (q - start > capacity)
-			q = start + capacity;
-		memcpy(out, ed->text + start, p - start);
-		memset(out + (p - start), ' ', q - p);
-		*end = q;
-		return q - start;
-	}
-	while (ed->text[p] == '>') {
-		++p;
-		while (p < ed->length && blank(ed->text[p]))
-			++p;
-	}
-	n = p - start < capacity ? p - start : capacity;
-	memcpy(out, ed->text + start, n);
-	*end = p;
-	return n;
-}
-/* Vim's automatic wrapping ('formatoptions' tc): before a non-blank character is typed past
- * textwidth, the line breaks at the last run of blanks whose preceding text fits, or else at
- * the first one. The blanks go, and the new line starts with the line's continuation. */
-static bool auto_wrap(struct editor *ed)
-{
-	for (bool wrapped = false;; wrapped = true) {
-		size_t start = editor_line_start(ed, ed->cursor), indent;
-		char line[128];
-		size_t n = continuation(ed, start, &indent, line + 1,
-					sizeof(line) - 1);
-		if (indent > ed->cursor)
-			return wrapped;
-		if (columns(ed->text + start, ed->cursor - start, 0) + 1 <=
-		    ed->textwidth)
-			return wrapped;
-		size_t cut = SIZE_MAX, cut_end = 0;
-		for (size_t p = ed->cursor; p > indent;) {
-			if (!blank(ed->text[p - 1])) {
-				--p;
-				continue;
-			}
-			size_t end = p;
-			while (p > indent && blank(ed->text[p - 1]))
-				--p;
-			if (p == indent)
-				break; /* only the indent is in front */
-			cut = p;
-			cut_end = end;
-			if (columns(ed->text + start, p - start, 0) <=
-			    ed->textwidth)
-				break;
-		}
-		if (cut == SIZE_MAX)
-			return wrapped; /* a single long word stays whole */
-		size_t cursor = ed->cursor;
-		line[0] = '\n';
-		editor_replace(ed, cut, cut_end, line, n + 1);
-		ed->cursor = cursor - (cut_end - cut) + n + 1;
-	}
-}
 static void repeat(struct editor *ed, unsigned count);
 static void replace_begin(struct editor *ed)
 {
@@ -1319,30 +1245,6 @@ static void replace_text(struct editor *ed, const char *text)
 		ed->cursor =
 			at + next -
 			i; /* Typing over an identical character leaves the text alone. */
-		i = next;
-	}
-}
-/* Typed text in insert mode, one character at a time so each can wrap the line first. In
- * replace mode that happens only past the line's end, as in Vim, and backspace then starts
- * again from the new line. */
-static void insert_typed(struct editor *ed, const char *text)
-{
-	for (size_t i = 0, n = strlen(text); i < n;) {
-		size_t next = i + 1;
-		while (next < n && ((unsigned char)text[next] & 0xc0) == 0x80)
-			++next;
-		char one[5] = "";
-		memcpy(one, text + i, next - i < 4 ? next - i : 4);
-		bool at_end = ed->cursor == editor_line_end(ed, ed->cursor);
-		if (ed->textwidth && !blank(text[i]) && text[i] != '\n' &&
-		    (!ed->replacing || at_end) && auto_wrap(ed) &&
-		    ed->replacing)
-			replace_begin(ed);
-		if (ed->replacing)
-			replace_text(ed, one);
-		else
-			editor_replace(ed, ed->cursor, ed->cursor, one,
-				       strlen(one));
 		i = next;
 	}
 }
@@ -1470,11 +1372,12 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
 	}
 	if (ed->mode == INSERT) {
 		if (ed->replacing && key == KEY_TEXT && text && *text)
-			insert_typed(ed, text);
+			replace_text(ed, text);
 		else if (ed->replacing && key == KEY_BACKSPACE)
 			replace_backspace(ed);
 		else if (key == KEY_TEXT && text && *text)
-			insert_typed(ed, text);
+			editor_replace(ed, ed->cursor, ed->cursor, text,
+				       strlen(text));
 		else if (key == KEY_BACKSPACE && ed->cursor)
 			editor_replace(ed, editor_previous(ed, ed->cursor),
 				       ed->cursor, "", 0);

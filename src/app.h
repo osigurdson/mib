@@ -25,7 +25,7 @@ struct app_settings {
 	enum view_mode view;
 	enum color_scheme colorscheme;
 	bool maximized, light, number, relativenumber;
-	unsigned textwidth, wrapwidth;
+	unsigned wrapwidth;
 	char colorcolumn[64];
 };
 

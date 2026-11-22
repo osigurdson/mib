@@ -127,7 +127,7 @@ static void color_column(void)
 	enum { WIDTH = 320, HEIGHT = 200 };
 	uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
 	assert(pixels);
-	editor_command(&app.editor, "set tw=9 cc=+1");
+	editor_command(&app.editor, "set cc=10");
 	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
 	int x = app.text_x + 9 * app.cell + app.cell / 2,
 	    y = app.padding + app.line_height / 2,

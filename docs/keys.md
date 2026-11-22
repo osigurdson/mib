@@ -69,7 +69,7 @@ are forgotten when the page is reloaded.
 | `r` | Replace a character |
 | `~` | Toggle case |
 | `gu` `gU` `g~` | Lowercase, uppercase or toggle case: follow with a motion or text object, or double the last key (`gUU`) for the line |
-| `gq` | Rewrap to `textwidth` columns (79 when it is 0): follow with a motion or text object (`gqip`), use `gqq` for lines, or select first. Paragraphs keep their first line's indent, and image lines stay on their own |
+| `gq` | Rewrap to 79 columns: follow with a motion or text object (`gqip`), use `gqq` for lines, or select first. Paragraphs keep their first line's indent, and image lines stay on their own |
 | `u` `Ctrl+R` | Undo, redo (one insert session is one undo step) |
 | `.` | Repeat the last change, including any text typed in insert mode; a count replaces the original one |
 
@@ -225,10 +225,9 @@ Press `:` to open it. Up and Down browse your history.
 | `:set nu`, `:set nonu`, `:set nu!` | Show, hide or toggle line numbers (`number`; on by default) |
 | `:set rnu`, `:set nornu`, `:set rnu!` | Show, hide or toggle relative line numbers (`relativenumber`) |
 | `:set nu?`, `:set rnu?` | Show the option; `inv` toggles, `&` restores the default, and several options can follow one `:set` |
-| `:set tw=79`, `:set tw+=5`, `:set tw&` | Wrap lines while typing past column 79 (`textwidth`; 0, the default, turns it off). Like Vim, a `- ` list item continues with a hanging indent and a `> ` quote repeats its marker; a `# ` heading is not repeated. `gq` uses it too |
-| `:set cc=80`, `:set cc=+1,100`, `:set cc=` | Shade columns as a guide (`colorcolumn`): a comma list of columns, where `+N` and `-N` count from a nonzero `textwidth`. `cc+=` adds a column and `cc-=` removes one. The band takes the color scheme's ColorColumn color, kept subtle, and isn't shown in the reading view |
-| `:set wrapwidth=80`, `:set wrapwidth=0` | Soft-wrap after column 80, or at the window edge if that comes first; the file keeps its long lines. 0, the default, wraps at the window edge. The reading view uses it as its width (80 otherwise). It draws nothing itself: pair it with `:set cc=81` for a page edge. Vim and Neovim don't have it yet; the name follows their open proposals |
-| `:set tw?`, `:set cc?`, `:set wrapwidth?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
+| `:set cc=80`, `:set cc=72,80`, `:set cc=` | Shade columns as a guide (`colorcolumn`): a comma list of columns. `cc+=` adds a column and `cc-=` removes one. The band takes the color scheme's ColorColumn color, kept subtle, and isn't shown in the reading view |
+| `:set wrapwidth=80`, `:set wrapwidth=0` | Soft-wrap after column 80, or at the window edge if that comes first; the file keeps its long lines. 0, the default, wraps at the window edge. The reading view uses it as its width (80 otherwise). It draws nothing itself: pair it with `:set cc=81` for a page edge. Typing never adds line breaks (mib has no `textwidth`); `gq` hard-wraps at 79 when you want it. Typing never adds line breaks (mib has no `textwidth`); `gq` hard-wraps when you want it. Vim and Neovim don't have it yet; the name follows their open proposals |
+| `:set cc?`, `:set wrapwidth?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
 | `:colorscheme {name}`, `:colo {name}` | Choose mib, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
 | `:colo <Tab>`, `:colo <S-Tab>` | Cycle through the schemes, as Vim's completion does, showing each one as it comes up; `Enter` keeps it and `Esc` puts back the one you started with. Type the start of a name first to cycle through fewer |

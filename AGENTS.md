@@ -75,9 +75,8 @@ Use `make vim-compare` when adding or changing Vim behaviour:
    the end. A gap that now matches is reported as FIXED and fails the run until you remove its
    `status` line; a passing case that stops matching is a FAIL with a diff.
 4. The Vim reference runs `vim -u NONE -es` with mib's conventions (4-space `expandtab`,
-   `autoindent`, `ignorecase smartcase`, `nojoinspaces`, `textwidth=79`); each case starts mib
-   with `textwidth = 79` in its config to match. If a difference is a deliberate mib choice,
-   keep it as a gap with a `note`.
+   `autoindent`, `ignorecase smartcase`, `nojoinspaces`, `textwidth=79`). If a difference is a
+   deliberate mib choice, keep it as a gap with a `note`.
 5. `:normal` differs from typing in a few ways: it drops the remaining keys after a failing
    command (typed Vim beeps and continues), `u` undoes everything since `:normal` started, and
    `q` can't record. Give such cases a `vim_keys` field with what interactive Vim effectively

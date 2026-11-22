@@ -95,9 +95,7 @@ struct editor {
 	unsigned other_modified;
 	/* Vim's number and relativenumber options: which line numbers the gutter shows. */
 	bool number, relativenumber;
-	/* Vim's textwidth (0 is off; gq then uses 79) and colorcolumn, kept as typed: columns
-     * such as "80,100", or "+1" and "-N" relative to a nonzero textwidth. */
-	unsigned textwidth;
+	/* Vim's colorcolumn, kept as typed: columns such as "80,100". */
 	char colorcolumn[64];
 	/* wrapwidth: soft-wrap after this many columns, or at the window edge if that comes
      * first; 0 wraps at the window edge. Proposed for Vim and Neovim, but not in either. */
@@ -174,11 +172,11 @@ bool editor_selection(const struct editor *ed, size_t *from, size_t *to,
 void editor_forget_registers(struct editor *ed, const char *text);
 /* Report read-only polish mode before starting an edit or import. */
 bool editor_colorscheme(struct editor *ed, const char *name);
-/* The screen columns (1-based) that colorcolumn highlights for the current textwidth, in
- * ascending order; returns how many were stored in columns, at most capacity. */
+/* The screen columns (1-based) that colorcolumn highlights, in ascending order; returns how
+ * many were stored in columns, at most capacity. */
 unsigned editor_color_columns(const struct editor *ed, unsigned *columns,
 			      unsigned capacity);
-/* Whether text is a valid colorcolumn value: "", or numbers and +N/-N joined by commas. */
+/* Whether text is a valid colorcolumn value: "", or numbers joined by commas. */
 bool editor_valid_colorcolumn(const char *text);
 bool editor_can_edit(struct editor *ed);
 bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text,

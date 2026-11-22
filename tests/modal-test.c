@@ -212,45 +212,37 @@ static void number_options(void)
 
 static void text_options(void)
 {
-	/* textwidth and colorcolumn take Vim's names, = : += -= ? & and a bare name to show. */
+	/* colorcolumn takes = += -= ? & and a bare name to show; wrapwidth is a number. */
 	reset("abc\n");
-	assert(!ed.textwidth && !ed.colorcolumn[0]);
-	editor_command(&ed, "set tw?");
-	assert(!strcmp(ed.message, "  textwidth=0"));
-	editor_command(&ed, "set textwidth=70");
-	assert(ed.textwidth == 70);
-	editor_command(&ed, "set tw+=9");
-	assert(ed.textwidth == 79);
-	editor_command(&ed, "set tw");
-	assert(!strcmp(ed.message, "  textwidth=79"));
-	editor_command(&ed, "set tw=x");
-	assert(ed.textwidth == 79 && strstr(ed.message, "number"));
-	editor_command(&ed, "set tw-=100");
-	assert(ed.textwidth == 0);
-	editor_command(&ed, "set tw:79 cc=80,+1");
-	assert(ed.textwidth == 79 && !strcmp(ed.colorcolumn, "80,+1"));
+	assert(!ed.colorcolumn[0] && !ed.wrapwidth);
+	editor_command(&ed, "set cc=100,80");
+	assert(!strcmp(ed.colorcolumn, "100,80"));
 	unsigned columns[4];
-	assert(editor_color_columns(&ed, columns, 4) == 1 && columns[0] == 80);
-	editor_command(&ed, "set cc+=-9");
-	assert(!strcmp(ed.colorcolumn, "80,+1,-9"));
-	assert(editor_color_columns(&ed, columns, 4) == 2 && columns[0] == 70 &&
-	       columns[1] == 80);
-	editor_command(&ed, "set cc-=+1 cc?");
-	assert(!strcmp(ed.message, "  colorcolumn=80,-9"));
-	editor_command(&ed, "set tw&");
-	/* Without a textwidth, relative columns are not shown. */
-	assert(editor_color_columns(&ed, columns, 4) == 1 && columns[0] == 80);
+	assert(editor_color_columns(&ed, columns, 4) == 2 && columns[0] == 80 &&
+	       columns[1] == 100);
+	editor_command(&ed, "set cc+=72 cc?");
+	assert(!strcmp(ed.message, "  colorcolumn=100,80,72"));
+	editor_command(&ed, "set cc-=80");
+	assert(!strcmp(ed.colorcolumn, "100,72"));
+	editor_command(&ed, "set cc=+1");
+	assert(!strcmp(ed.colorcolumn, "100,72") &&
+	       strstr(ed.message, "80,100"));
 	editor_command(&ed, "set cc=80,,90");
-	assert(!strcmp(ed.colorcolumn, "80,-9") &&
+	assert(!strcmp(ed.colorcolumn, "100,72") &&
 	       strstr(ed.message, "80,100"));
 	editor_command(&ed, "set colorcolumn=");
 	assert(!ed.colorcolumn[0] && !editor_color_columns(&ed, columns, 4));
 	editor_command(&ed, "set wrapwidth?");
 	assert(!strcmp(ed.message, "  wrapwidth=0"));
 	editor_command(&ed, "set wrapwidth=72 wrapwidth+=8");
-	assert(ed.wrapwidth == 80 && !ed.textwidth);
+	assert(ed.wrapwidth == 80);
+	editor_command(&ed, "set wrapwidth=x");
+	assert(ed.wrapwidth == 80 && strstr(ed.message, "number"));
 	editor_command(&ed, "set wrapwidth&");
 	assert(!ed.wrapwidth);
+	/* textwidth is not supported: typing never adds line breaks. */
+	editor_command(&ed, "set tw=20");
+	assert(strstr(ed.message, "Unknown option"));
 	editor_command(&ed, "set ccc=1");
 	assert(strstr(ed.message, "Unknown option"));
 	expect("abc\n");
@@ -312,53 +304,6 @@ static void colorscheme_completion(void)
 	assert(!strcmp(ed.command, "colo "));
 	editor_input(&ed, KEY_ESCAPE, "");
 	expect("abc\n");
-}
-static void auto_wrap(void)
-{
-	/* Typing past textwidth breaks at the last blank that fits, as Vim's formatoptions t. */
-	reset("");
-	editor_command(&ed, "set tw=20");
-	keys("ione two three four five six seven");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("one two three four\nfive six seven");
-	keys("u");
-	expect("");
-	keys("i    alpha beta gamma delta epsilon");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("    alpha beta gamma\n    delta epsilon");
-	reset("");
-	editor_command(&ed, "set tw=20");
-	keys("iabcdefghijklmnopqrstuvwxyz x y");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("abcdefghijklmnopqrstuvwxyz\nx y");
-	/* List items get a hanging indent and quotes keep their marker. */
-	reset("");
-	editor_command(&ed, "set tw=20");
-	keys("i- a list item that wraps around");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("- a list item that\n  wraps around");
-	reset("");
-	editor_command(&ed, "set tw=20");
-	keys("i> a quote line that wraps around");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("> a quote line that\n> wraps around");
-	/* Typing at the end of an already long line breaks it; typing early in it does not. */
-	reset("one two three four five six\n");
-	editor_command(&ed, "set tw=20");
-	keys("0wiX ");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("one X two three four five six\n");
-	keys("Ainsert");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("one X two three four\nfive sixinsert\n");
-	/* gq follows textwidth too. */
-	keys("ggVGJgqq");
-	expect("one X two three four\nfive sixinsert\n");
-	editor_command(&ed, "set tw=0");
-	keys("ggJ");
-	keys("ofive");
-	editor_input(&ed, KEY_ESCAPE, "");
-	expect("one X two three four five sixinsert\nfive\n");
 }
 static void word_at_line_end(void)
 {
@@ -672,7 +617,6 @@ int main(void)
 	unknown_commands();
 	number_options();
 	text_options();
-	auto_wrap();
 	colorscheme_completion();
 	registers();
 	word_at_line_end();

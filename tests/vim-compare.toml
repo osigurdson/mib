@@ -567,69 +567,14 @@ name = ":t."
 keys = ":t.<CR>"
 status = "gap"
 
-# Automatic wrapping: both sides start with textwidth=79
+# Automatic wrapping
 
 [[case]]
-name = "tw wraps typed text"
-keys = ":set tw=20<CR>Oone two three four five six seven<Esc>"
-
-[[case]]
-name = "tw keeps the indent"
-keys = ":set tw=20<CR>O    alpha beta gamma delta epsilon<Esc>"
-
-[[case]]
-name = "tw long word stays whole"
-keys = ":set tw=20<CR>Oabcdefghijklmnopqrstuvwxyz x y<Esc>"
-
-[[case]]
-name = "tw list item hangs"
-keys = ":set tw=20<CR>O- a list item that wraps around<Esc>"
-
-[[case]]
-name = "tw quote repeats marker"
-keys = ":set tw=20<CR>O> > a nested quote that wraps around<Esc>"
-
-[[case]]
-name = "tw heading"
-keys = ":set tw=20<CR>O# a heading line that wraps around<Esc>"
-status = "gap"
-note = "Vim repeats # as a comment leader, which would make a second Markdown heading"
-
-[[case]]
-name = "tw append to a line past it"
+name = "textwidth wraps typed text"
 keys = "Aend<Esc>"
 seed = "long"
-
-[[case]]
-name = "tw typing early in a long line"
-keys = "wiX <Esc>"
-seed = "long"
-
-[[case]]
-name = "tw typing in the middle of a long line"
-keys = ":set tw=40<CR>/ et dolore<CR>iX<Esc>"
-seed = "long"
-
-[[case]]
-name = "tw typing with text after the cursor"
-keys = ":set tw=20<CR>A a delta epsilon<Esc>"
-
-[[case]]
-name = "tw gq"
-keys = ":set tw=30<CR>gqip"
-seed = "long"
-
-[[case]]
-name = "tw dot repeat"
-keys = ":set tw=20<CR>Oone two three four five six<Esc>j."
-
-[[case]]
-name = "tw 0 does not wrap"
-keys = ":set tw=0<CR>Oone two three four five six seven eight nine ten eleven twelve thirteen fourteen<Esc>"
-
-[[case]]
-name = "tw in replace mode"
-keys = ":set tw=20<CR>$Rxx yy zz ww vv<Esc>"
+status = "gap"
+note = "mib has no textwidth: typing never adds line breaks, and wrapwidth soft-wraps instead"
 
 # Insert mode keys
 

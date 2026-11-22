@@ -21,8 +21,6 @@ bool editor_valid_colorcolumn(const char *text)
 	if (strlen(text) >= sizeof(((struct editor *)0)->colorcolumn))
 		return false;
 	for (const char *p = text; *p;) {
-		if (*p == '+' || *p == '-')
-			++p;
 		if (!isdigit((unsigned char)*p))
 			return false;
 		while (isdigit((unsigned char)*p))
@@ -39,15 +37,10 @@ unsigned editor_color_columns(const struct editor *ed, unsigned *columns,
 {
 	unsigned count = 0;
 	for (const char *p = ed->colorcolumn; *p;) {
-		char sign = *p == '+' || *p == '-' ? *p++ : 0;
-		unsigned long value = strtoul(p, (char **)&p, 10);
+		unsigned long column = strtoul(p, (char **)&p, 10);
 		if (*p == ',')
 			++p;
-		/* Like Vim, +N and -N need a textwidth, and columns left of 1 are skipped. */
-		long column = !sign	     ? (long)value :
-			      !ed->textwidth ? 0 :
-			      sign == '+' ? (long)ed->textwidth + (long)value :
-					    (long)ed->textwidth - (long)value;
+		/* Like Vim, column 0 is skipped. */
 		if (column < 1 || column > 10000)
 			continue;
 		unsigned i = 0;
@@ -180,8 +173,8 @@ static const char *value_option(const char *option, const char *name,
 		return rest + 1;
 	return *rest ? NULL : rest;
 }
-/* A number of columns from 0 (the default) to 10000: textwidth (tw), where 0 means no
- * automatic wrapping, and wrapwidth, where 0 means wrapping at the window edge. */
+/* A number of columns from 0 (the default) to 10000, such as wrapwidth, where 0 means
+ * wrapping at the window edge. */
 static bool number_option(struct editor *ed, const char *option,
 			  const char *name, const char *short_name,
 			  unsigned *target)
@@ -251,19 +244,18 @@ static bool colorcolumn_option(struct editor *ed, const char *option)
 	}
 	if (!editor_valid_colorcolumn(result)) {
 		snprintf(ed->message, sizeof(ed->message),
-			 "colorcolumn takes columns such as 80,100 or +1");
+			 "colorcolumn takes columns such as 80,100");
 		return true;
 	}
 	memcpy(ed->colorcolumn, result, strlen(result) + 1);
 	return true;
 }
-/* One :set argument, such as view=source, bg=light, nu, nornu, rnu!, tw=79 or cc=+1. */
+/* One :set argument, such as view=source, bg=light, nu, nornu, rnu! or cc=80. */
 static bool set_option(struct editor *ed, const char *option)
 {
 	if (boolean_option(ed, option, "number", "nu", &ed->number, true) ||
 	    boolean_option(ed, option, "relativenumber", "rnu",
 			   &ed->relativenumber, false) ||
-	    number_option(ed, option, "textwidth", "tw", &ed->textwidth) ||
 	    number_option(ed, option, "wrapwidth", "wrapwidth",
 			  &ed->wrapwidth) ||
 	    colorcolumn_option(ed, option))

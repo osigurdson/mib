@@ -24,7 +24,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 # Vim settings that match mib's fixed behaviour: 4-space indents, kept indentation,
-# smart-case search and single-space joins; mib's config gets the same textwidth.
+# smart-case search, single-space joins and 79-column gq.
 VIM_SETUP = ['set nocompatible', 'set expandtab shiftwidth=4 tabstop=4 softtabstop=0 autoindent',
              'set ignorecase smartcase nojoinspaces textwidth=79 nrformats=bin,hex',
              'call cursor(1, 1)']
@@ -220,10 +220,6 @@ def main():
             note = folder / '1' / 'page.md'
             note.parent.mkdir()
             note.write_text(seed)
-            # mib keeps :set options in its config, so each case starts from Vim's textwidth.
-            config = run_dir / 'config' / 'mib'
-            config.mkdir(parents=True, exist_ok=True)
-            (config / 'config').write_text('textwidth = 79\ncolorcolumn = none\n')
             state = run_dir / 'state' / 'mib'
             state.mkdir(parents=True, exist_ok=True)
             (state / 'positions').write_text(f'0 0 0 {note.resolve()}\n')
