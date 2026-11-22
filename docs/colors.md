@@ -10,6 +10,9 @@
 :set background=light
 ```
 
+Type `:colo ` and press `Tab` to try them in turn: each scheme shows as it comes up,
+`Shift+Tab` goes back, `Enter` keeps the one shown and `Esc` restores the previous one.
+
 All five schemes follow `background`; `bg` is an abbreviation. Selecting a scheme
 preserves the background setting. Use `:colorscheme` (`:colo`) to show the current
 scheme and `:set background?` to show the background option.

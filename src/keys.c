@@ -1055,6 +1055,8 @@ static void prompt(struct editor *ed, char kind)
 		ed->search_hidden = false;
 	}
 	ed->command_kind = kind;
+	ed->scheme_before = ed->colorscheme;
+	ed->completing = false;
 	ed->command_length = 0;
 	ed->command[0] = 0;
 	ed->search_origin = ed->cursor;
@@ -1070,12 +1072,69 @@ static void prompt(struct editor *ed, char kind)
 		ed->command_length = 5;
 	}
 }
+/* Tab and Shift-Tab after :colorscheme (or :colo and the lengths between): like Vim, step
+ * through the names starting with what was typed, in alphabetical order, and then back to the
+ * typed text. Each name is shown as it comes up. */
+static void complete_command(struct editor *ed, bool forward)
+{
+	const char *p = ed->command;
+	while (*p == ' ' || *p == ':')
+		++p;
+	size_t word = strcspn(p, " ");
+	if (ed->command_kind != ':' || word < 4 || word > 11 ||
+	    strncmp(p, "colorscheme", word) || p[word] != ' ')
+		return;
+	const char *argument = p + word;
+	while (*argument == ' ')
+		++argument;
+	if (strchr(argument, ' '))
+		return;
+	size_t at = (size_t)(argument - ed->command);
+	const char *names[COLOR_COUNT];
+	unsigned count = 0;
+	if (!ed->completing)
+		snprintf(ed->completion_base, sizeof(ed->completion_base), "%s",
+			 argument);
+	size_t typed = strlen(ed->completion_base);
+	for (unsigned i = 0; i < COLOR_COUNT; ++i) {
+		const char *name =
+			editor_colorscheme_name((enum color_scheme)i);
+		if (strncmp(name, ed->completion_base, typed))
+			continue;
+		unsigned j = count++;
+		for (; j && strcmp(names[j - 1], name) > 0; --j)
+			names[j] = names[j - 1];
+		names[j] = name;
+	}
+	if (!count)
+		return;
+	if (!ed->completing)
+		ed->completion_index = count;
+	ed->completing = count > 1;
+	unsigned index = count == 1 ? 0 :
+			 forward ? (ed->completion_index + 1) % (count + 1) :
+				   (ed->completion_index + count) % (count + 1);
+	ed->completion_index = index;
+	const char *shown = index < count ? names[index] : ed->completion_base;
+	snprintf(ed->command + at, sizeof(ed->command) - at, "%s", shown);
+	ed->command_length = strlen(ed->command);
+	if (index < count)
+		editor_colorscheme(ed, shown);
+	else
+		ed->colorscheme = ed->scheme_before;
+}
 static void command_input(struct editor *ed, enum editor_key key,
 			  const char *text)
 {
+	if (key == KEY_TAB || key == KEY_SHIFT_TAB) {
+		complete_command(ed, key == KEY_TAB);
+		return;
+	}
+	ed->completing = false;
 	if (key == KEY_ESCAPE) {
 		ed->command_active = false;
 		ed->cursor = ed->search_origin;
+		ed->colorscheme = ed->scheme_before;
 		return;
 	}
 	if (key == KEY_ENTER) {
@@ -1132,6 +1191,7 @@ static void command_input(struct editor *ed, enum editor_key key,
 		if (!ed->command_length) {
 			ed->command_active = false;
 			ed->cursor = ed->search_origin;
+			ed->colorscheme = ed->scheme_before;
 			return;
 		}
 		do {

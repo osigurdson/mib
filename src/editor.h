@@ -143,6 +143,13 @@ struct editor {
 	bool replacing;
 	size_t replace_start;
 	char *replace_original;
+	/* :colorscheme <Tab> cycles through the matching schemes, showing each as it goes, as
+     * Neovim's picker plugins do; Esc puts back the scheme from when the command line opened.
+     * completion_index is the match shown, or the match count for the typed text. */
+	enum color_scheme scheme_before;
+	char completion_base[32];
+	unsigned completion_index;
+	bool completing;
 	char *command_history[32];
 	unsigned history_count, history_position;
 };

@@ -255,6 +255,64 @@ static void text_options(void)
 	assert(strstr(ed.message, "Unknown option"));
 	expect("abc\n");
 }
+static void tab(bool forward)
+{
+	editor_input(&ed, forward ? KEY_TAB : KEY_SHIFT_TAB, "");
+}
+static void colorscheme_completion(void)
+{
+	/* :colo <Tab> steps through the schemes in Vim's alphabetical order, showing each, then
+	 * back to what was typed; Esc puts back the scheme from before. */
+	reset("abc\n");
+	editor_command(&ed, "colorscheme kanagawa");
+	keys(":colo ");
+	const char *order[] = { "catppuccin", "everforest", "kanagawa", "mib",
+				"tokyonight" };
+	for (unsigned i = 0; i < 5; ++i) {
+		tab(true);
+		char expected[32];
+		snprintf(expected, sizeof(expected), "colo %s", order[i]);
+		assert(!strcmp(ed.command, expected) &&
+		       !strcmp(editor_colorscheme_name(ed.colorscheme),
+			       order[i]));
+	}
+	tab(true);
+	assert(!strcmp(ed.command, "colo ") &&
+	       ed.colorscheme == COLOR_KANAGAWA);
+	tab(false);
+	assert(!strcmp(ed.command, "colo tokyonight") &&
+	       ed.colorscheme == COLOR_TOKYONIGHT);
+	editor_input(&ed, KEY_ESCAPE, "");
+	assert(!ed.command_active && ed.colorscheme == COLOR_KANAGAWA);
+	/* A single match completes and stays; Enter keeps it. */
+	keys(":colorscheme e");
+	tab(true);
+	tab(true);
+	assert(!strcmp(ed.command, "colorscheme everforest") &&
+	       ed.colorscheme == COLOR_EVERFOREST);
+	editor_input(&ed, KEY_ENTER, "");
+	assert(ed.colorscheme == COLOR_EVERFOREST && !ed.message[0]);
+	/* Editing ends the cycle, and leaving with Backspace also restores. */
+	keys(":colo m");
+	tab(true);
+	assert(ed.colorscheme == COLOR_MIB);
+	keys("x");
+	tab(true);
+	assert(!strcmp(ed.command, "colo mibx"));
+	while (ed.command_active)
+		editor_input(&ed, KEY_BACKSPACE, "");
+	assert(ed.colorscheme == COLOR_EVERFOREST);
+	/* Other commands and searches don't complete. */
+	keys(":set ");
+	tab(true);
+	assert(!strcmp(ed.command, "set "));
+	editor_input(&ed, KEY_ESCAPE, "");
+	keys("/colo ");
+	tab(true);
+	assert(!strcmp(ed.command, "colo "));
+	editor_input(&ed, KEY_ESCAPE, "");
+	expect("abc\n");
+}
 static void auto_wrap(void)
 {
 	/* Typing past textwidth breaks at the last blank that fits, as Vim's formatoptions t. */
@@ -615,6 +673,7 @@ int main(void)
 	number_options();
 	text_options();
 	auto_wrap();
+	colorscheme_completion();
 	registers();
 	word_at_line_end();
 	dot_repeat();

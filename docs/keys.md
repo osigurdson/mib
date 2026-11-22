@@ -231,6 +231,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:set tw?`, `:set cc?`, `:set wrapwidth?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
 | `:colorscheme {name}`, `:colo {name}` | Choose mib, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
+| `:colo <Tab>`, `:colo <S-Tab>` | Cycle through the schemes, as Vim's completion does, showing each one as it comes up; `Enter` keeps it and `Esc` puts back the one you started with. Type the start of a name first to cycle through fewer |
 | `:res[ize] {n}`, `:resize {n}%` | Set the image under the cursor to n pixels wide, or n% of its original width |
 | `:resize +{n}`, `:resize -{n}`, `:resize +{n}%` | Widen or narrow the image under the cursor |
 | `:resize` | Show the image under the cursor at its original size |
