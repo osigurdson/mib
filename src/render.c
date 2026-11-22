@@ -751,6 +751,45 @@ static size_t table_hit(const struct app *app, const struct md_cache *cache,
 	}
 	return end;
 }
+/* colorcolumn: a quiet one-cell band per column on each text row. The theme's ColorColumn is
+ * a small step from its background; over another background, such as a code block, the band
+ * takes the same step from that color, so it stays equally subtle everywhere. */
+static uint32_t column_color(const struct palette *theme, uint32_t under)
+{
+	uint32_t pixel = 0xff000000;
+	for (unsigned shift = 0; shift < 24; shift += 8) {
+		int step = (int)((theme->colorcolumn >> shift) & 255) -
+			   (int)((theme->background >> shift) & 255),
+		    base = (int)((under >> shift) & 255);
+		/* A step that would clip at black or white goes the other way. */
+		int value = base + step < 0 || base + step > 255 ? base - step :
+								   base + step;
+		pixel |= (uint32_t)value << shift;
+	}
+	return pixel;
+}
+static void color_columns(struct app *app, const struct palette *theme,
+			  uint32_t *pixels, int width, int height, int stride,
+			  int y, int row_height, uint32_t under, int left,
+			  int right)
+{
+	unsigned columns[16];
+	unsigned count = editor_color_columns(&app->editor, columns, 16);
+	uint32_t color = column_color(theme, under);
+	for (unsigned i = 0; i < count; ++i) {
+		int x = app->text_x + (int)(columns[i] - 1) * app->cell,
+		    end = x + app->cell;
+		if (end > app->text_x + app->text_width)
+			break;
+		if (x < left)
+			x = left;
+		if (end > right)
+			end = right;
+		if (x < end)
+			render_rectangle(pixels, width, height, stride, x, y,
+					 end - x, row_height, color);
+	}
+}
 static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 		  int stride)
 {
@@ -950,6 +989,13 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 		struct text_layout layout = text_layout(app, cache);
 		int row_height = layout.height, text_y = y + layout.inset;
 		int text_cell = layout.cell, text_ascender = layout.ascender;
+		if (!reading)
+			color_columns(app, theme, pixels, width, height, stride,
+				      y, row_height,
+				      cache && cache->fenced ?
+					      theme->code :
+					      theme->background,
+				      text_x, text_x + text_width);
 		if (beacon && ed->cursor >= start &&
 		    (ed->cursor < end ||
 		     (ed->cursor == end &&
@@ -984,10 +1030,17 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 			unsigned advance = cp == '\t' ? 4 - column % 4 : 1;
 			int x = text_x + (int)column * text_cell;
 			uint32_t color = inline_color(theme, style);
-			if (style & MD_CODE)
+			if (style & MD_CODE) {
 				render_rectangle(pixels, width, height, stride,
 						 x, y, text_cell * (int)advance,
 						 row_height, theme->code);
+				if (!reading)
+					color_columns(
+						app, theme, pixels, width,
+						height, stride, y, row_height,
+						theme->code, x,
+						x + text_cell * (int)advance);
+			}
 			if (highlight(ed, at))
 				render_rectangle(pixels, width, height, stride,
 						 x, y, text_cell * (int)advance,

@@ -69,7 +69,7 @@ are forgotten when the page is reloaded.
 | `r` | Replace a character |
 | `~` | Toggle case |
 | `gu` `gU` `g~` | Lowercase, uppercase or toggle case: follow with a motion or text object, or double the last key (`gUU`) for the line |
-| `gq` | Rewrap to 79 columns: follow with a motion or text object (`gqip`), use `gqq` for lines, or select first. Paragraphs keep their first line's indent, and image lines stay on their own |
+| `gq` | Rewrap to `textwidth` columns (79 when it is 0): follow with a motion or text object (`gqip`), use `gqq` for lines, or select first. Paragraphs keep their first line's indent, and image lines stay on their own |
 | `u` `Ctrl+R` | Undo, redo (one insert session is one undo step) |
 | `.` | Repeat the last change, including any text typed in insert mode; a count replaces the original one |
 
@@ -225,6 +225,9 @@ Press `:` to open it. Up and Down browse your history.
 | `:set nu`, `:set nonu`, `:set nu!` | Show, hide or toggle line numbers (`number`; on by default) |
 | `:set rnu`, `:set nornu`, `:set rnu!` | Show, hide or toggle relative line numbers (`relativenumber`) |
 | `:set nu?`, `:set rnu?` | Show the option; `inv` toggles, `&` restores the default, and several options can follow one `:set` |
+| `:set tw=79`, `:set tw+=5`, `:set tw&` | Wrap lines while typing past column 79 (`textwidth`; 0, the default, turns it off). Like Vim, a `- ` list item continues with a hanging indent and a `> ` quote repeats its marker; a `# ` heading is not repeated. `gq` uses it too |
+| `:set cc=80`, `:set cc=+1,100`, `:set cc=` | Shade columns as a guide (`colorcolumn`): a comma list of columns, where `+N` and `-N` count from a nonzero `textwidth`. `cc+=` adds a column and `cc-=` removes one. The band takes the color scheme's ColorColumn color, kept subtle, and isn't shown in the reading view |
+| `:set tw?`, `:set cc?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
 | `:colorscheme {name}`, `:colo {name}` | Choose mib, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
 | `:res[ize] {n}`, `:resize {n}%` | Set the image under the cursor to n pixels wide, or n% of its original width |

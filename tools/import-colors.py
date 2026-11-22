@@ -40,7 +40,8 @@ local normal = hl("Normal")
 assert(normal.fg and normal.bg, "Normal must have explicit RGB colors")
 local groups = {}
 for _, name in ipairs({"Normal", "LineNr", "Underlined", "Title", "Comment", "Special",
-                       "CursorLine", "Search", "Visual", "Cursor", "StatusLine", "Pmenu", "PmenuSel"}) do
+                       "CursorLine", "Search", "Visual", "Cursor", "StatusLine", "Pmenu", "PmenuSel",
+                       "ColorColumn"}) do
   local value = hl(name)
   local fg, bg = value.fg or normal.fg, value.bg or normal.bg
   if value.reverse then fg, bg = bg, fg end
@@ -60,6 +61,12 @@ vim.fn.writefile({vim.json.encode({scheme = scheme, background = background, gro
 def blend(a, b, weight):
     a, b = int(a[1:], 16), int(b[1:], 16)
     return "#" + "".join(f"{(((a >> shift) & 255) * (100-weight) + ((b >> shift) & 255) * weight) // 100:02x}" for shift in (16, 8, 0))
+
+def subtle(background, color, limit=16):
+    """color, pulled toward background so no channel differs by more than limit."""
+    a, b = int(background[1:], 16), int(color[1:], 16)
+    spread = max(abs(((a >> shift) & 255) - ((b >> shift) & 255)) for shift in (16, 8, 0))
+    return color if spread <= limit else blend(background, color, limit * 100 // spread)
 
 if len(sys.argv) != 2:
     raise SystemExit(__doc__)
@@ -100,6 +107,9 @@ with tempfile.TemporaryDirectory(prefix="mib-import-colors-") as directory:
                       g["StatusLine"][0], g["Pmenu"][0], g["PmenuSel"][0]]
             if colors[11] == bg:
                 colors[11] = fg
+            # ColorColumn keeps the theme's hue but stays a quiet band; unset means a faint tint.
+            column = g["ColorColumn"][1]
+            colors.append(subtle(bg, column) if column != bg else blend(bg, fg, 5))
             header += f"static const struct palette theme_{name}_{background} = {{\n"
             for i in range(0, len(colors), 5):
                 header += "    " + ", ".join("0xff" + color[1:] for color in colors[i:i+5]) + ",\n"

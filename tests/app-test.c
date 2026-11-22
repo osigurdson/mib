@@ -116,6 +116,42 @@ static void toast(void)
 	app_close(&app);
 }
 
+/* colorcolumn draws a quiet band at each column, in the theme's color, a fixed step from
+ * whatever background is under it. */
+static void color_column(void)
+{
+	struct app app;
+	assert(app_open(&app));
+	const char *note = "one\n```\ncode\n```\n";
+	assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+	enum { WIDTH = 320, HEIGHT = 200 };
+	uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
+	assert(pixels);
+	editor_command(&app.editor, "set tw=9 cc=+1");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	int x = app.text_x + 9 * app.cell + app.cell / 2,
+	    y = app.padding + app.line_height / 2,
+	    code = y + 2 * app.line_height;
+	assert(pixels[y * WIDTH + x] == 0xff1e2633);
+	assert(pixels[y * WIDTH + x - app.cell] == 0xff18202b);
+	/* The dark code background 0xff242d3b plus the band's step of 6, 6 and 8. */
+	assert(pixels[code * WIDTH + x] == 0xff2a3343);
+	editor_command(&app.editor, "colorscheme tokyonight");
+	editor_command(&app.editor, "set bg=light");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	assert(pixels[y * WIDTH + x] == 0xffd1d2d7);
+	editor_command(&app.editor, "set view=reading");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	x = app.text_x + 9 * app.cell + app.cell / 2;
+	assert(pixels[y * WIDTH + x] ==
+	       0xffe1e2e7); /* not in the reading view */
+	editor_command(&app.editor, "set view=normal cc=");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	x = app.text_x + 9 * app.cell + app.cell / 2;
+	assert(pixels[y * WIDTH + x] == 0xffe1e2e7);
+	free(pixels);
+	app_close(&app);
+}
 static void theme_layout(void)
 {
 	struct app app;
@@ -970,6 +1006,7 @@ int main(void)
 	gutter_layout();
 	number_options();
 	theme_layout();
+	color_column();
 	search_visibility();
 	toast();
 	decoration_layout();

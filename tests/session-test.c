@@ -560,6 +560,30 @@ int main(void)
 	assert(session_open(&app, directory) == 1);
 	assert(app.editor.number && !app.editor.relativenumber);
 	app_close(&app);
+	/* textwidth and colorcolumn are kept with the other settings; none means no columns. */
+	assert(app_open(&app));
+	assert(session_open(&app, directory) == 1);
+	assert(!app.editor.textwidth && !app.editor.colorcolumn[0]);
+	editor_command(&app.editor, "set tw=72 cc=+1,100");
+	app_close(&app);
+	text = session_read(settings, 4096, &n);
+	assert(text && strstr(text, "textwidth = 72\n") &&
+	       strstr(text, "colorcolumn = +1,100\n"));
+	free(text);
+	assert(app_open(&app));
+	assert(session_open(&app, directory) == 1);
+	assert(app.editor.textwidth == 72 &&
+	       !strcmp(app.editor.colorcolumn, "+1,100"));
+	editor_command(&app.editor, "set tw=0 cc=");
+	app_close(&app);
+	text = session_read(settings, 4096, &n);
+	assert(text && strstr(text, "textwidth = 0\n") &&
+	       strstr(text, "colorcolumn = none\n"));
+	free(text);
+	assert(app_open(&app));
+	assert(session_open(&app, directory) == 1);
+	assert(!app.editor.textwidth && !app.editor.colorcolumn[0]);
+	app_close(&app);
 	const char *mode_commands[] = { "set view=source", "set view=normal",
 					"set view=reading" };
 	for (unsigned mode = VIEW_SOURCE; mode <= VIEW_READING; ++mode) {

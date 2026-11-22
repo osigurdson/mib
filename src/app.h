@@ -25,6 +25,8 @@ struct app_settings {
 	enum view_mode view;
 	enum color_scheme colorscheme;
 	bool maximized, light, number, relativenumber;
+	unsigned textwidth;
+	char colorcolumn[64];
 };
 
 /* The notes folder holds nine pages, 1/ to 9/, each with its own page.md and assets/, shown in

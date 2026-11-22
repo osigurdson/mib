@@ -95,6 +95,10 @@ struct editor {
 	unsigned other_modified;
 	/* Vim's number and relativenumber options: which line numbers the gutter shows. */
 	bool number, relativenumber;
+	/* Vim's textwidth (0 is off; gq then uses 79) and colorcolumn, kept as typed: columns
+     * such as "80,100", or "+1" and "-N" relative to a nonzero textwidth. */
+	unsigned textwidth;
+	char colorcolumn[64];
 	bool light, search_forward, search_word, search_failed, search_pending,
 		search_hidden;
 	char command[1024], message[256], search[256], pending[40];
@@ -160,6 +164,12 @@ bool editor_selection(const struct editor *ed, size_t *from, size_t *to,
 void editor_forget_registers(struct editor *ed, const char *text);
 /* Report read-only polish mode before starting an edit or import. */
 bool editor_colorscheme(struct editor *ed, const char *name);
+/* The screen columns (1-based) that colorcolumn highlights for the current textwidth, in
+ * ascending order; returns how many were stored in columns, at most capacity. */
+unsigned editor_color_columns(const struct editor *ed, unsigned *columns,
+			      unsigned capacity);
+/* Whether text is a valid colorcolumn value: "", or numbers and +N/-N joined by commas. */
+bool editor_valid_colorcolumn(const char *text);
 bool editor_can_edit(struct editor *ed);
 bool editor_replace(struct editor *ed, size_t from, size_t to, const char *text,
 		    size_t length);

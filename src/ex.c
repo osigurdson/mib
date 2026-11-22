@@ -16,6 +16,53 @@ const char *editor_view_name(enum view_mode view)
 	static const char *const names[] = { "source", "normal", "reading" };
 	return (unsigned)view < VIEW_COUNT ? names[view] : "normal";
 }
+bool editor_valid_colorcolumn(const char *text)
+{
+	if (strlen(text) >= sizeof(((struct editor *)0)->colorcolumn))
+		return false;
+	for (const char *p = text; *p;) {
+		if (*p == '+' || *p == '-')
+			++p;
+		if (!isdigit((unsigned char)*p))
+			return false;
+		while (isdigit((unsigned char)*p))
+			++p;
+		if (*p == ',' && p[1])
+			++p;
+		else if (*p)
+			return false;
+	}
+	return true;
+}
+unsigned editor_color_columns(const struct editor *ed, unsigned *columns,
+			      unsigned capacity)
+{
+	unsigned count = 0;
+	for (const char *p = ed->colorcolumn; *p;) {
+		char sign = *p == '+' || *p == '-' ? *p++ : 0;
+		unsigned long value = strtoul(p, (char **)&p, 10);
+		if (*p == ',')
+			++p;
+		/* Like Vim, +N and -N need a textwidth, and columns left of 1 are skipped. */
+		long column = !sign	     ? (long)value :
+			      !ed->textwidth ? 0 :
+			      sign == '+' ? (long)ed->textwidth + (long)value :
+					    (long)ed->textwidth - (long)value;
+		if (column < 1 || column > 10000)
+			continue;
+		unsigned i = 0;
+		while (i < count && columns[i] < (unsigned)column)
+			++i;
+		if ((i < count && columns[i] == (unsigned)column) ||
+		    count == capacity)
+			continue;
+		memmove(columns + i + 1, columns + i,
+			(count - i) * sizeof(*columns));
+		columns[i] = (unsigned)column;
+		++count;
+	}
+	return count;
+}
 bool editor_colorscheme(struct editor *ed, const char *name)
 {
 	for (unsigned i = 0; i < COLOR_COUNT; ++i) {
@@ -110,12 +157,110 @@ static bool boolean_option(struct editor *ed, const char *option,
 		*value = toggle || invert ? !*value : !clear;
 	return true;
 }
-/* One :set argument, such as view=source, bg=light, nu, nornu or rnu!. */
+/* The name of a value option by its full or short name, and what follows it: "=", ":", "+=",
+ * "-=", "?", "&" or nothing (which shows the value, as ? does). */
+static const char *value_option(const char *option, const char *name,
+				const char *short_name, char *operation)
+{
+	size_t n = strlen(name), m = strlen(short_name);
+	const char *rest = !strncmp(option, name, n)	   ? option + n :
+			   !strncmp(option, short_name, m) ? option + m :
+							     NULL;
+	if (!rest)
+		return NULL;
+	*operation = *rest == '=' || *rest == ':' ? '=' : *rest;
+	if (*operation == '+' || *operation == '-') {
+		if (rest[1] != '=')
+			return NULL;
+		return rest + 2;
+	}
+	if (*operation == '=')
+		return rest + 1;
+	if ((*operation == '?' || *operation == '&') && !rest[1])
+		return rest + 1;
+	return *rest ? NULL : rest;
+}
+/* textwidth (tw): a number of columns, or 0 for no automatic wrapping. */
+static bool textwidth_option(struct editor *ed, const char *option)
+{
+	char operation;
+	const char *value = value_option(option, "textwidth", "tw", &operation);
+	if (!value)
+		return false;
+	if (!operation || operation == '?') {
+		snprintf(ed->message, sizeof(ed->message), "  textwidth=%u",
+			 ed->textwidth);
+		return true;
+	}
+	if (operation == '&') {
+		ed->textwidth = 0;
+		return true;
+	}
+	char *end;
+	unsigned long n = strtoul(value, &end, 10);
+	if (!isdigit((unsigned char)*value) || *end || n > 10000) {
+		snprintf(ed->message, sizeof(ed->message),
+			 "textwidth needs a number from 0 to 10000");
+		return true;
+	}
+	if (operation == '+')
+		n += ed->textwidth;
+	else if (operation == '-')
+		n = n > ed->textwidth ? 0 : ed->textwidth - n;
+	ed->textwidth = n > 10000 ? 10000 : (unsigned)n;
+	return true;
+}
+/* colorcolumn (cc): a comma-separated list; += adds an item and -= removes one. */
+static bool colorcolumn_option(struct editor *ed, const char *option)
+{
+	char operation;
+	const char *value =
+		value_option(option, "colorcolumn", "cc", &operation);
+	if (!value)
+		return false;
+	if (!operation || operation == '?') {
+		snprintf(ed->message, sizeof(ed->message), "  colorcolumn=%s",
+			 ed->colorcolumn);
+		return true;
+	}
+	char result[sizeof(ed->colorcolumn) + 8] = "";
+	if (operation == '=')
+		snprintf(result, sizeof(result), "%s", value);
+	else if (operation == '+')
+		snprintf(result, sizeof(result), "%s%s%s", ed->colorcolumn,
+			 *ed->colorcolumn && *value ? "," : "", value);
+	else if (operation == '-') {
+		/* Remove the item matching value exactly, as Vim does for comma lists. */
+		size_t n = strlen(value), used = 0;
+		bool removed = false;
+		for (const char *p = ed->colorcolumn; *p;) {
+			size_t length = strcspn(p, ",");
+			if (removed || length != n || strncmp(p, value, n)) {
+				used += (size_t)snprintf(result + used,
+							 sizeof(result) - used,
+							 "%s%.*s",
+							 used ? "," : "",
+							 (int)length, p);
+			} else
+				removed = true;
+			p += length + (p[length] == ',');
+		}
+	}
+	if (!editor_valid_colorcolumn(result)) {
+		snprintf(ed->message, sizeof(ed->message),
+			 "colorcolumn takes columns such as 80,100 or +1");
+		return true;
+	}
+	memcpy(ed->colorcolumn, result, strlen(result) + 1);
+	return true;
+}
+/* One :set argument, such as view=source, bg=light, nu, nornu, rnu!, tw=79 or cc=+1. */
 static bool set_option(struct editor *ed, const char *option)
 {
 	if (boolean_option(ed, option, "number", "nu", &ed->number, true) ||
 	    boolean_option(ed, option, "relativenumber", "rnu",
-			   &ed->relativenumber, false))
+			   &ed->relativenumber, false) ||
+	    textwidth_option(ed, option) || colorcolumn_option(ed, option))
 		return true;
 	if (!strncmp(option, "view=", 5)) {
 		unsigned view = 0;

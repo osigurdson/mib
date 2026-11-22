@@ -10,6 +10,7 @@ struct palette {
 	uint32_t title, title_separator, title_hover, title_pressed;
 	uint32_t search_text, selection_text, status_text, menu_text,
 		menu_selected_text;
+	uint32_t colorcolumn;
 };
 uint32_t render_blend(uint32_t background, unsigned alpha, uint32_t foreground);
 void render_rectangle(uint32_t *pixels, int width, int height, int stride,

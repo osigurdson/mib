@@ -27,6 +27,8 @@ int main(int argc, char **argv)
 	for (int i = 5; i < argc; ++i) {
 		if (!strcmp(argv[i], "light") || !strcmp(argv[i], "dark"))
 			app.editor.light = !strcmp(argv[i], "light");
+		else if (argv[i][0] == ':')
+			editor_command(&app.editor, argv[i] + 1);
 		else if (!strcmp(argv[i], "decorated"))
 			app.client_decorated = true;
 		else if (!strcmp(argv[i], "source") ||

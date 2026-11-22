@@ -52,6 +52,7 @@ roles. No Lua, Vimscript, plugin code, or theme files are loaded at runtime.
 | Status bar | StatusLine |
 | Context menu | Pmenu / PmenuSel |
 | Cursor | Cursor |
+| Color column | ColorColumn background, pulled toward Normal so no channel differs by more than 16; over a code block the band takes the same step from the code color |
 
 Window controls have mib-specific colors derived from Normal. Heading sizes,
 Markdown styling and the renderer remain mib's. The mib palettes retain all their
@@ -59,7 +60,7 @@ original colors.
 
 ## Footprint and regeneration
 
-The ten palettes are fixed read-only tables of 25 32-bit colors: **1,000 bytes**
+The ten palettes are fixed read-only tables of 26 32-bit colors: **1,040 bytes**
 total. Choosing a theme adds no per-document allocations, render buffers, or font
 caches. The selected scheme is stored by name in `~/.config/mib/config`.
 
