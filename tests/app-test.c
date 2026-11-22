@@ -896,8 +896,77 @@ static void number_options(void)
 	app_close(&app);
 }
 
+/* With Ctrl held, the link under the mouse is underlined and a click there opens it; without
+ * Ctrl, or off a link, nothing is. */
+static void link_hover(void)
+{
+	struct app app;
+	assert(app_open(&app));
+	static uint32_t plain[640 * 200], hovered[640 * 200];
+	const char *text = "see [docs](a.md) and https://x.io end";
+	assert(editor_replace(&app.editor, 0, app.editor.length, text,
+			      strlen(text)));
+	app.editor.cursor = 0;
+	assert(app_paint(&app, plain, 640, 200, 640));
+	int y = app.title_height + app.padding + app.line_height / 2;
+#define COLUMN(c) (app.text_x + (c) * app.cell + app.cell / 2)
+	assert(app_hit_test(&app, COLUMN(5), y) == 5);
+	assert(!app_hover(&app, COLUMN(5), y, false) && !app.hover_end);
+	assert(app_hover(&app, COLUMN(5), y, true) && app.hover_open);
+	assert(app.hover_start == 4 && app.hover_end == 16 && app.dirty);
+	assert(app_paint(&app, hovered, 640, 200, 640));
+	assert(memcmp(plain, hovered, sizeof(plain)));
+	assert(app_hover(&app, COLUMN(24), y, true));
+	assert(app.hover_start == 21 && app.hover_end == 33);
+	assert(!app_hover(&app, COLUMN(18), y, true) && !app.hover_end);
+	assert(!app_hover(&app, COLUMN(5), 199, true)); /* the status line */
+	assert(app_hover(&app, COLUMN(5), y, true));
+	app_input(&app, KEY_TEXT,
+		  "l"); /* keys may move the text, so start over */
+	assert(!app.hover_open && !app.hover_end);
+	assert(app_paint(&app, hovered, 640, 200, 640));
+	app.editor.cursor = 0;
+	assert(app_paint(&app, hovered, 640, 200, 640));
+	assert(!memcmp(plain, hovered, sizeof(plain)));
+#undef COLUMN
+	/* A double click opens images only; links take Ctrl. */
+	app.editor.cursor = 5;
+	assert(!app_double_click_opens(&app));
+	app_close(&app);
+}
+
+/* Opening and page switches light the cursor's row, which fades out and stops redrawing. */
+static void cursor_beacon(void)
+{
+	struct app app;
+	assert(app_open(&app));
+	static uint32_t plain[320 * 200], lit[320 * 200];
+	assert(app_paint(&app, plain, 320, 200, 320));
+	assert(!app_deadline(&app));
+	app.beacon = true;
+	assert(app_paint(&app, lit, 320, 200, 320));
+	assert(app.beacon_at && !app.beacon && app_deadline(&app));
+	assert(memcmp(plain, lit, sizeof(plain)));
+	app.dirty = false;
+	app_tick(&app);
+	assert(app.dirty && app.beacon_at);
+	app.beacon_at = 1; /* long over */
+	app_tick(&app);
+	assert(!app.beacon_at && !app_deadline(&app));
+	assert(app_paint(&app, lit, 320, 200, 320));
+	assert(!memcmp(plain, lit, sizeof(plain)));
+	/* A key means the cursor has been found. */
+	app.beacon = true;
+	assert(app_paint(&app, lit, 320, 200, 320) && app.beacon_at);
+	app_input(&app, KEY_ESCAPE, "");
+	assert(!app.beacon_at && !app_deadline(&app));
+	app_close(&app);
+}
+
 int main(void)
 {
+	link_hover();
+	cursor_beacon();
 	gutter_layout();
 	number_options();
 	theme_layout();

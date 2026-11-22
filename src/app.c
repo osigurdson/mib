@@ -55,6 +55,13 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 	app->ocr_retry = false;
 	app->image_hit = false;
 	uint64_t search_serial = app->editor.search_serial;
+	/* Typing means the cursor has been found, and may move the hovered link's text. */
+	if (app->beacon_at || app->hover_end)
+		app->dirty = true;
+	app->beacon = false;
+	app->beacon_at = 0;
+	app->hover_start = app->hover_end = 0;
+	app->hover_open = false;
 	bool digit = key == KEY_TEXT && text && text[0] >= '1' &&
 		     text[0] <= '9' && !text[1];
 	if (app->help) {
@@ -68,18 +75,19 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 	}
 	if (app->page_map) {
 		/* The list takes the keyboard: a digit (with or without Alt) shows that
-         * page, Up/Down or k/j move the selection and Enter shows it, Esc or Alt+0
+         * page, Up/Down or k/j move the selection, wrapping
+         * at either end, and Enter shows it, Esc or Alt+0
          * closes the list, and other keys are ignored rather than editing unseen
          * text. Pages run 1 to 9 down the list. */
 		unsigned choice = app->map_choice;
 		char letter = key == KEY_TEXT && text && text[0] && !text[1] ?
 				      text[0] :
 				      0;
-		if ((key == KEY_UP || letter == 'k') && choice > 0)
-			--choice;
-		else if ((key == KEY_DOWN || letter == 'j') &&
-			 choice < PAGE_COUNT - 1)
-			++choice;
+		if (key == KEY_UP || letter == 'k') /* wraps to the last page */
+			choice = (choice + PAGE_COUNT - 1) % PAGE_COUNT;
+		else if (key == KEY_DOWN ||
+			 letter == 'j') /* and back to the first */
+			choice = (choice + 1) % PAGE_COUNT;
 		app->map_choice = choice;
 		if ((key == KEY_PAGE || digit) && text && text[0] >= '1' &&
 		    text[0] <= '9')
@@ -307,6 +315,11 @@ void app_toast(struct app *app, const char *text)
 void app_tick(struct app *app)
 {
 	media_tick(app);
+	if (app->beacon_at) { /* each frame of the fade */
+		if (session_now() >= app->beacon_at + APP_BEACON_MS)
+			app->beacon_at = 0;
+		app->dirty = true;
+	}
 	if (app->toast_until && session_now() >= app->toast_until) {
 		app->toast[0] = 0;
 		app->toast_until = 0;
@@ -317,7 +330,15 @@ void app_tick(struct app *app)
 uint64_t app_deadline(const struct app *app)
 {
 	uint64_t work = app->work_at, toast = app->toast_until;
-	return !work ? toast : !toast || work < toast ? work : toast;
+	uint64_t next = !work ? toast : !toast || work < toast ? work : toast;
+	if (app->beacon_at) {
+		uint64_t frame = session_now() + APP_FRAME_INTERVAL_MS;
+		if (app->redraw_at > session_now())
+			frame = app->redraw_at;
+		if (!next || frame < next)
+			next = frame;
+	}
+	return next;
 }
 
 void app_request_close(struct app *app)
@@ -492,6 +513,36 @@ void app_pointer(struct app *app, int x, int y, bool extend)
 	ed->cursor = app_hit_test(app, x, y);
 	app->dirty = true;
 	app->follow_cursor = false;
+}
+
+bool app_hover(struct app *app, int x, int y, bool control)
+{
+	size_t start = 0, end = 0;
+	bool open = false;
+	int py = (int)((int64_t)y * app->scale120 / 120) - app->title_height -
+		 app->padding,
+	    px = (int)((int64_t)x * app->scale120 / 120);
+	if (control && !app->page_map && !app->help && !app->context_menu &&
+	    !app->image_drag && app->cell > 0 && py >= 0 &&
+	    py < app->text_height && px >= app->text_x &&
+	    px < app->text_x + app->text_width) {
+		size_t at = app_hit_test(app, x, y);
+		if (app->editor.view != VIEW_SOURCE && media_at(app, at))
+			open = true;
+		else
+			open = media_link_at(&app->editor, at, &start, &end);
+	}
+	if (start != app->hover_start || end != app->hover_end)
+		app->dirty = true;
+	app->hover_start = start;
+	app->hover_end = end;
+	app->hover_open = open;
+	return open;
+}
+bool app_double_click_opens(struct app *app)
+{
+	return app->editor.view != VIEW_SOURCE && !app->image_drag &&
+	       media_at(app, app->editor.cursor);
 }
 
 void app_context(struct app *app, int x, int y)

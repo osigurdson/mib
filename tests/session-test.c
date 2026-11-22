@@ -162,22 +162,27 @@ static void pages(const char *parent)
 	assert(app.current == 0 && !strcmp(app.editor.text, "one\ntwo"));
 	type(&app, ":b3\n");
 	assert(app.current == 2 && strstr(app.editor.text, "milk"));
-	/* Up/Down or k/j move the selection from the shown page, stopping at the ends, other
-     * keys do nothing, and Enter shows the selected page. */
+	assert(app.beacon); /* the next paint shows where the page's cursor is */
+	/* Up/Down or k/j move the selection from the shown page, wrapping around at the ends,
+	 * other keys do nothing, and Enter shows the selected page. */
 	type(&app, ":ls\n");
 	assert(app.page_map && app.map_choice == 2);
 	app_input(&app, KEY_UP, "");
 	app_input(&app, KEY_UP, "");
-	app_input(&app, KEY_UP, "");
 	assert(app.map_choice == 0 && app.current == 2 && app.page_map);
+	app_input(&app, KEY_UP, "");
+	assert(app.map_choice == 8);
 	app_input(&app, KEY_DOWN, "");
-	type(&app, "jjj");
+	assert(app.map_choice == 0);
+	type(&app, "jjjj");
 	assert(app.map_choice == 4);
 	app_input(&app, KEY_RIGHT, "");
 	type(&app, "hl");
 	assert(app.map_choice == 4 && app.current == 2 &&
 	       strstr(app.editor.text, "milk"));
-	type(&app, "jjjjjjj");
+	type(&app, "jjjjj");
+	assert(app.map_choice == 0);
+	type(&app, "k");
 	assert(app.map_choice == 8);
 	type(&app, "kkkkkkkk");
 	assert(app.map_choice == 0);

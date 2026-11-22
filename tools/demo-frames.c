@@ -29,6 +29,10 @@ static const char *folder;
 
 static void frame(unsigned ms)
 {
+	/* Frames are painted at once and then held, which would freeze the cursor beacon at full
+	 * strength instead of fading it. */
+	app.beacon = false;
+	app.beacon_at = 0;
 	if (!app_paint(&app, pixels, width, height, width)) {
 		fprintf(stderr, "paint failed\n");
 		exit(1);

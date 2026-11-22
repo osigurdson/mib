@@ -595,55 +595,74 @@ char *media_clipboard_image(struct app *app, size_t *length)
 	image_free(&image);
 	return (char *)png;
 }
+/* The link on POSITION's line that covers it: [text](target) from its '[' through its ')', or
+ * a bare http(s) URL. The target runs from *a to *b; *span_start and *span_end bound what
+ * shows as the link. AFTER also counts the position just past the link, as the cursor sits
+ * there after typing one. */
+static bool link_at(const struct editor *ed, size_t position, bool after,
+		    size_t *span_start, size_t *span_end, size_t *a, size_t *b)
+{
+	size_t start = editor_line_start(ed, position),
+	       end = editor_line_end(ed, position);
+	for (size_t p = start; p < end; ++p) {
+		size_t left, right;
+		if (p + 1 < end && ed->text[p] == ']' &&
+		    ed->text[p + 1] == '(') {
+			*a = *b = p + 2;
+			while (*b < end && ed->text[*b] != ')')
+				++*b;
+			left = p;
+			while (left > start && ed->text[left] != '[')
+				--left;
+			right = *b < end ? *b + 1 : *b;
+		} else if (!strncmp(ed->text + p, "https://", 8) ||
+			   !strncmp(ed->text + p, "http://", 7)) {
+			*a = *b = left = p;
+			while (*b < end &&
+			       !isspace((unsigned char)ed->text[*b]) &&
+			       ed->text[*b] != ')' && ed->text[*b] != '>')
+				++*b;
+			right = *b;
+		} else
+			continue;
+		if (position >= left &&
+		    (position < right || (after && position <= *b))) {
+			*span_start = left;
+			*span_end = right;
+			return true;
+		}
+	}
+	return false;
+}
+bool media_link_at(const struct editor *ed, size_t position, size_t *start,
+		   size_t *end)
+{
+	size_t a, b;
+	return position < ed->length &&
+	       link_at(ed, position, false, start, end, &a, &b);
+}
 char *media_target(struct app *app)
 {
 	const struct media_entry *e = media_at(app, app->editor.cursor);
 	if (e)
 		return session_path(app, e->name);
 	struct editor *ed = &app->editor;
-	size_t start = editor_line_start(ed, ed->cursor),
-	       end = editor_line_end(ed, ed->cursor);
-	for (size_t p = start; p < end; ++p) {
-		size_t a = p, b = p;
-		if (p + 1 < end && ed->text[p] == ']' &&
-		    ed->text[p + 1] == '(') {
-			a = p + 2;
-			b = a;
-			while (b < end && ed->text[b] != ')')
-				++b;
-			size_t left = p;
-			while (left > start && ed->text[left] != '[')
-				--left;
-			if (ed->cursor < left || ed->cursor > b)
-				continue;
-		} else if (!strncmp(ed->text + p, "https://", 8) ||
-			   !strncmp(ed->text + p, "http://", 7)) {
-			a = p;
-			while (b < end &&
-			       !isspace((unsigned char)ed->text[b]) &&
-			       ed->text[b] != ')' && ed->text[b] != '>')
-				++b;
-			if (ed->cursor < a || ed->cursor > b)
-				continue;
-		} else
-			continue;
-		if (b - a > 4096)
-			return NULL;
-		char *target = malloc(b - a + 1);
-		if (!target)
-			return NULL;
-		memcpy(target, ed->text + a, b - a);
-		target[b - a] = 0;
-		if (strncmp(target, "https://", 8) &&
-		    strncmp(target, "http://", 7) &&
-		    strncmp(target, "mailto:", 7)) {
-			char *path = session_path(app, target);
-			free(target);
-			target = path;
-		}
-		return target;
+	size_t left, right, a, b;
+	if (!link_at(ed, ed->cursor, true, &left, &right, &a, &b) ||
+	    b - a > 4096)
+		return NULL;
+	char *target = malloc(b - a + 1);
+	if (!target)
+		return NULL;
+	memcpy(target, ed->text + a, b - a);
+	target[b - a] = 0;
+	if (strncmp(target, "https://", 8) && strncmp(target, "http://", 7) &&
+	    strncmp(target, "mailto:", 7)) {
+		char *path = session_path(app, target);
+		free(target);
+		target = path;
 	}
-	return NULL;
+	return target;
 }
 /* Kinds of file that the desktop's open action runs, installs, mounts or follows elsewhere
  * instead of showing. Windows goes by the name alone; Linux desktops also look inside, which

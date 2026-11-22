@@ -112,6 +112,9 @@ bool app_page_switch(struct app *app, unsigned index)
 	free(app->directory);
 	app->directory = folder;
 	app->current = index;
+	app->beacon = true; /* show where this page's cursor is */
+	app->hover_start = app->hover_end = 0;
+	app->hover_open = false;
 	ed->mode = NORMAL;
 	ed->pending[0] = 0;
 	ed->match_start = ed->match_end = 0;

@@ -35,6 +35,10 @@ bool media_resize(struct editor *ed, size_t position, const char *spec,
 bool media_pixels(struct app *app, const struct media_entry *entry,
 		  struct image *image);
 char *media_clipboard_image(struct app *app, size_t *length);
+/* The link covering POSITION, as [text](target) or a bare http(s) URL, with the text it
+ * covers in START to END. */
+bool media_link_at(const struct editor *ed, size_t position, size_t *start,
+		   size_t *end);
 /* The path or URL of the image or link under the cursor, or NULL. */
 char *media_target(struct app *app);
 /* media_target, for the desktop to open: NULL with a message instead when the image isn't a

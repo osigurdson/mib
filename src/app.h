@@ -90,6 +90,14 @@ struct app {
 	struct page pages[PAGE_COUNT];
 	bool page_map, map_click;
 	bool help; /* the :help card is showing */
+	/* With Ctrl held, the link under the mouse (hover_start to hover_end, underlined) and
+	 * whether Ctrl+click there opens something, a link or an image. */
+	bool hover_open;
+	size_t hover_start, hover_end;
+	/* The cursor's row lights up and fades on opening and page switches, so it is easy to
+	 * find: beacon starts it at the next paint, which sets beacon_at (session_now ms). */
+	bool beacon;
+	uint64_t beacon_at;
 	int map_x, map_y, map_width, map_height;
 };
 size_t app_view_next(struct app *app, size_t start);
@@ -106,6 +114,12 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y);
 void app_scroll(struct app *app, int rows);
 void app_context(struct app *app, int x, int y);
 void app_pointer(struct app *app, int x, int y, bool extend);
+/* The mouse is at logical (x, y) with Ctrl held or not: track the link under it. Returns
+ * whether a Ctrl+click there would open something. */
+bool app_hover(struct app *app, int x, int y, bool control);
+/* Whether a double click just selected an image, which it then opens; links need Ctrl. */
+bool app_double_click_opens(struct app *app);
+enum { APP_BEACON_MS = 1000 };
 /* The left button was released; finishes an image resize drag. */
 void app_pointer_release(struct app *app);
 /* The selected image's corner handle (0 top left, 1 top right, 2 bottom left, 3 bottom

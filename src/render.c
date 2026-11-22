@@ -2,6 +2,7 @@
 #include "markdown.h"
 #include "media.h"
 #include "render-internal.h"
+#include "session.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -846,6 +847,23 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 	bool linewise;
 	bool selected =
 		editor_selection(ed, &selection_a, &selection_b, &linewise);
+	/* The beacon: the cursor's row in the cursor color, held briefly and then faded out. */
+	unsigned beacon = 0;
+	if (app->beacon) {
+		app->beacon = false;
+		app->beacon_at = session_now() | 1;
+	}
+	if (app->beacon_at && !reading) {
+		uint64_t now = session_now(), hold = 300,
+			 elapsed = now > app->beacon_at ? now - app->beacon_at :
+							  0;
+		if (elapsed < APP_BEACON_MS)
+			beacon = elapsed < hold ?
+					 64 :
+					 (unsigned)(64 *
+						    (APP_BEACON_MS - elapsed) /
+						    (APP_BEACON_MS - hold));
+	}
 	size_t start = ed->top,
 	       cursor_line = editor_line_number(ed, ed->cursor);
 	int cursor_x = -1, cursor_y = -1, cursor_height = line_height,
@@ -932,6 +950,15 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 		struct text_layout layout = text_layout(app, cache);
 		int row_height = layout.height, text_y = y + layout.inset;
 		int text_cell = layout.cell, text_ascender = layout.ascender;
+		if (beacon && ed->cursor >= start &&
+		    (ed->cursor < end ||
+		     (ed->cursor == end &&
+		      (end == ed->length || ed->text[end] == '\n'))))
+			render_rectangle(pixels, width, height, stride,
+					 text_x - padding / 2, y,
+					 text_width + padding / 2, row_height,
+					 render_blend(theme->background, beacon,
+						      theme->cursor));
 		if (!tiny_font_set_size(app->font, layout.size))
 			return false;
 		bool last = cache && next >= cache->end;
@@ -1042,6 +1069,15 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 						(int)((app->scale120 + 119) /
 						      120),
 						color);
+			}
+			if (at >= app->hover_start && at < app->hover_end) {
+				/* Ctrl is held over this link: underline it, as a click opens it. */
+				int stroke = (int)((app->scale120 + 119) / 120);
+				render_rectangle(
+					pixels, width, height, stride, x,
+					text_y + text_ascender + stroke,
+					text_cell * (int)advance, stroke,
+					theme->link);
 			}
 			column += advance;
 		}

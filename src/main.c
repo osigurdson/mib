@@ -34,6 +34,8 @@ int app_main(int argc, char **argv)
 		app_close(&app);
 		return EXIT_FAILURE;
 	}
+	app.beacon =
+		true; /* show where the cursor is once the window appears */
 	int status = platform_run(&app);
 	app_close(&app);
 	return status;

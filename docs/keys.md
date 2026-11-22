@@ -126,7 +126,7 @@ An image is selected when the cursor is on it. Move onto its line or click it.
 | `=` | Show the selected image at its original size |
 | Drag a corner | Resize the selected image, keeping its shape |
 | `gx`, double-click | Open the image in your image viewer |
-| `gx`, `Ctrl`+click | Open the link under the cursor |
+| `gx`, `Ctrl`+click | Open the link under the cursor; a plain click only moves the cursor, and holding `Ctrl` underlines the link under the mouse |
 | `y`, `yy` | Copy the selected image, ready to paste into other apps |
 | Right-click | Copy Image, Copy Text from Image, or Open Image |
 | `d`, `x` | Delete the selected image in normal mode |
@@ -173,7 +173,7 @@ opens on the page shown when it last closed.
 | `Alt+0`, `:ls` | Show the list of pages (`:buffers` and `:files` too) |
 | `:b N`, `:bN`, `:buffer N` | Show page N |
 | `1` … `9` in the list | Show that page |
-| `Up` `Down` or `k` `j`, then `Enter` in the list | Select a page and show it |
+| `Up` `Down` or `k` `j`, then `Enter` in the list | Select a page and show it; the selection wraps from the last page to the first and back |
 | `Esc` or `Alt+0` in the list | Close it |
 
 All nine pages always exist; there is nothing to create, name or delete. A page's folder

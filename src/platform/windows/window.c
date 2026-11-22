@@ -178,6 +178,20 @@ static bool paint_window(struct windows_window *window, HDC dc)
 	return ok;
 }
 
+/* Track the link under the mouse while Ctrl is held, and show the hand over it. */
+static void hover(struct windows_window *window)
+{
+	POINT point;
+	GetCursorPos(&point);
+	ScreenToClient(window->handle, &point);
+	bool was = window->app->hover_open;
+	bool open = app_hover(window->app,
+			      MulDiv(point.x, 96, (int)window->dpi),
+			      MulDiv(point.y, 96, (int)window->dpi),
+			      !window->dragging && GetKeyState(VK_CONTROL) < 0);
+	if (open != was) /* WM_SETCURSOR only comes with the mouse moving */
+		SetCursor(LoadCursorW(NULL, open ? IDC_HAND : IDC_IBEAM));
+}
 static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 				    LPARAM lparam)
 {
@@ -265,8 +279,9 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 			/* A double click on a corner handle starts a resize, not Open Image. */
 			window->dragging = true;
 			SetCapture(handle);
-		} else
-			windows_service(window->app, ED_OPEN, window);
+		} else if (app_double_click_opens(window->app))
+			windows_service(window->app, ED_OPEN,
+					window); /* links need Ctrl */
 		changed(window);
 		return 0;
 	case WM_DROPFILES:
@@ -276,6 +291,7 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 		return 0;
 	case WM_MOUSEWHEEL:
 		app_scroll(window->app, (short)HIWORD(wparam) > 0 ? -3 : 3);
+		hover(window);
 		changed(window);
 		return 0;
 	case WM_LBUTTONDOWN: {
@@ -304,8 +320,9 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 				    MulDiv((short)HIWORD(lparam), 96,
 					   (int)window->dpi),
 				    true);
-			changed(window);
 		}
+		hover(window);
+		changed(window);
 		return 0;
 	case WM_LBUTTONUP:
 		window->dragging = false;
@@ -342,9 +359,17 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 						      IDC_SIZENESW));
 				return TRUE;
 			}
+			if (window->app->hover_open) {
+				SetCursor(LoadCursorW(NULL, IDC_HAND));
+				return TRUE;
+			}
 		}
 		break;
 	case WM_KEYDOWN: {
+		if (wparam == VK_CONTROL) {
+			hover(window);
+			changed(window);
+		}
 		enum editor_key key;
 		if (GetKeyState(VK_CONTROL) < 0 &&
 		    (wparam == VK_OEM_PLUS || wparam == VK_ADD ||
@@ -440,6 +465,10 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 		break;
 	case WM_KEYUP:
 	case WM_SYSKEYUP:
+		if (wparam == VK_CONTROL) {
+			hover(window);
+			changed(window);
+		}
 		if (wparam == VK_MENU && window->alt_code) {
 			/* TranslateMessage posts the Alt code's WM_CHAR before this key up is
              * dispatched, so it is already queued. */

@@ -688,6 +688,18 @@ static void keyboard_key(void *data, struct wl_keyboard *keyboard,
 	}
 }
 
+static void update_cursor(struct wayland_client *client);
+/* Track the link under the mouse while Ctrl is held, and show the hand over it. */
+static void update_hover(struct wayland_client *client)
+{
+	bool control = client->cursor_serial && client->xkb_state &&
+		       !client->dragging &&
+		       xkb_state_mod_name_is_active(
+			       client->xkb_state, XKB_MOD_NAME_CTRL,
+			       XKB_STATE_MODS_EFFECTIVE) > 0;
+	app_hover(client->app, client->pointer_x, client->pointer_y, control);
+	update_cursor(client);
+}
 static void keyboard_modifiers(void *data, struct wl_keyboard *keyboard,
 			       uint32_t serial, uint32_t depressed,
 			       uint32_t latched, uint32_t locked,
@@ -699,6 +711,7 @@ static void keyboard_modifiers(void *data, struct wl_keyboard *keyboard,
 	if (client->xkb_state)
 		xkb_state_update_mask(client->xkb_state, depressed, latched,
 				      locked, 0, 0, group);
+	update_hover(client);
 }
 
 static void keyboard_repeat(void *data, struct wl_keyboard *keyboard,
@@ -758,6 +771,8 @@ static uint32_t pointer_shape(const struct wayland_client *client)
 			       WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE;
 	if (client->dragging || client->app->title_pressed != TITLE_NONE)
 		return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
+	if (app->hover_open)
+		return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER;
 	switch (resize_edge(client, client->pointer_x, client->pointer_y)) {
 	case XDG_TOPLEVEL_RESIZE_EDGE_TOP:
 		return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_N_RESIZE;
@@ -823,7 +838,7 @@ static void pointer_enter(void *data, struct wl_pointer *pointer,
 	c->pointer_y = wl_fixed_to_int(y);
 	c->cursor_serial = serial;
 	c->cursor_shape = 0;
-	update_cursor(c);
+	update_hover(c);
 }
 static void pointer_leave(void *data, struct wl_pointer *pointer,
 			  uint32_t serial, struct wl_surface *surface)
@@ -839,7 +854,7 @@ static void pointer_leave(void *data, struct wl_pointer *pointer,
 	client->app->title_pressed = TITLE_NONE;
 	client->cursor_serial = 0;
 	client->cursor_shape = 0;
-	update_cursor(client);
+	update_hover(client);
 }
 static void pointer_motion(void *data, struct wl_pointer *pointer,
 			   uint32_t time, wl_fixed_t x, wl_fixed_t y)
@@ -851,7 +866,7 @@ static void pointer_motion(void *data, struct wl_pointer *pointer,
 	c->pointer_y = wl_fixed_to_int(y);
 	if (c->dragging)
 		app_pointer(c->app, c->pointer_x, c->pointer_y, true);
-	update_cursor(c);
+	update_hover(c);
 }
 static void toggle_maximized(struct wayland_client *client)
 {
@@ -967,7 +982,10 @@ static void pointer_button(void *data, struct wl_pointer *pointer,
 				     abs(c->pointer_x - c->last_click_x) < 4 &&
 				     abs(c->pointer_y - c->last_click_y) < 4;
 			bool resizing = c->app->image_drag;
-			if (!menu && !resizing && (control || twice)) {
+			/* Ctrl+click opens a link or image; a double click only an image. */
+			if (!menu && !resizing &&
+			    (control ||
+			     (twice && app_double_click_opens(c->app)))) {
 				linux_service(c->app, ED_OPEN, c);
 				c->dragging = false;
 			}
@@ -975,7 +993,7 @@ static void pointer_button(void *data, struct wl_pointer *pointer,
 			c->last_click_x = c->pointer_x;
 			c->last_click_y = c->pointer_y;
 		}
-		update_cursor(c);
+		update_hover(c);
 	}
 }
 static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time,
@@ -986,8 +1004,10 @@ static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time,
 	struct wayland_client *client = data;
 	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL &&
 	    app_title_hit(client->app, client->pointer_x, client->pointer_y) ==
-		    TITLE_NONE)
+		    TITLE_NONE) {
 		app_scroll(client->app, value > 0 ? 3 : -3);
+		update_hover(client);
+	}
 }
 static const struct wl_pointer_listener pointer_listener = {
 	.enter = pointer_enter,
