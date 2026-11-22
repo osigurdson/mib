@@ -606,6 +606,11 @@ keys = "wiX <Esc>"
 seed = "long"
 
 [[case]]
+name = "tw typing in the middle of a long line"
+keys = ":set tw=40<CR>/ et dolore<CR>iX<Esc>"
+seed = "long"
+
+[[case]]
 name = "tw typing with text after the cursor"
 keys = ":set tw=20<CR>A a delta epsilon<Esc>"
 
