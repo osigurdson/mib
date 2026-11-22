@@ -245,6 +245,12 @@ static void text_options(void)
 	       strstr(ed.message, "80,100"));
 	editor_command(&ed, "set colorcolumn=");
 	assert(!ed.colorcolumn[0] && !editor_color_columns(&ed, columns, 4));
+	editor_command(&ed, "set wrapwidth?");
+	assert(!strcmp(ed.message, "  wrapwidth=0"));
+	editor_command(&ed, "set wrapwidth=72 wrapwidth+=8");
+	assert(ed.wrapwidth == 80 && !ed.textwidth);
+	editor_command(&ed, "set wrapwidth&");
+	assert(!ed.wrapwidth);
 	editor_command(&ed, "set ccc=1");
 	assert(strstr(ed.message, "Unknown option"));
 	expect("abc\n");

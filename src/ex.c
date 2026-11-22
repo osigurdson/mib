@@ -180,34 +180,37 @@ static const char *value_option(const char *option, const char *name,
 		return rest + 1;
 	return *rest ? NULL : rest;
 }
-/* textwidth (tw): a number of columns, or 0 for no automatic wrapping. */
-static bool textwidth_option(struct editor *ed, const char *option)
+/* A number of columns from 0 (the default) to 10000: textwidth (tw), where 0 means no
+ * automatic wrapping, and wrapwidth, where 0 means wrapping at the window edge. */
+static bool number_option(struct editor *ed, const char *option,
+			  const char *name, const char *short_name,
+			  unsigned *target)
 {
 	char operation;
-	const char *value = value_option(option, "textwidth", "tw", &operation);
+	const char *value = value_option(option, name, short_name, &operation);
 	if (!value)
 		return false;
 	if (!operation || operation == '?') {
-		snprintf(ed->message, sizeof(ed->message), "  textwidth=%u",
-			 ed->textwidth);
+		snprintf(ed->message, sizeof(ed->message), "  %s=%u", name,
+			 *target);
 		return true;
 	}
 	if (operation == '&') {
-		ed->textwidth = 0;
+		*target = 0;
 		return true;
 	}
 	char *end;
 	unsigned long n = strtoul(value, &end, 10);
 	if (!isdigit((unsigned char)*value) || *end || n > 10000) {
 		snprintf(ed->message, sizeof(ed->message),
-			 "textwidth needs a number from 0 to 10000");
+			 "%s needs a number from 0 to 10000", name);
 		return true;
 	}
 	if (operation == '+')
-		n += ed->textwidth;
+		n += *target;
 	else if (operation == '-')
-		n = n > ed->textwidth ? 0 : ed->textwidth - n;
-	ed->textwidth = n > 10000 ? 10000 : (unsigned)n;
+		n = n > *target ? 0 : *target - n;
+	*target = n > 10000 ? 10000 : (unsigned)n;
 	return true;
 }
 /* colorcolumn (cc): a comma-separated list; += adds an item and -= removes one. */
@@ -260,7 +263,10 @@ static bool set_option(struct editor *ed, const char *option)
 	if (boolean_option(ed, option, "number", "nu", &ed->number, true) ||
 	    boolean_option(ed, option, "relativenumber", "rnu",
 			   &ed->relativenumber, false) ||
-	    textwidth_option(ed, option) || colorcolumn_option(ed, option))
+	    number_option(ed, option, "textwidth", "tw", &ed->textwidth) ||
+	    number_option(ed, option, "wrapwidth", "wrapwidth",
+			  &ed->wrapwidth) ||
+	    colorcolumn_option(ed, option))
 		return true;
 	if (!strncmp(option, "view=", 5)) {
 		unsigned view = 0;

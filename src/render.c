@@ -779,7 +779,8 @@ static void color_columns(struct app *app, const struct palette *theme,
 	for (unsigned i = 0; i < count; ++i) {
 		int x = app->text_x + (int)(columns[i] - 1) * app->cell,
 		    end = x + app->cell;
-		if (end > app->text_x + app->text_width)
+		/* A column past wrapwidth still shows, up to the window's edge. */
+		if (end > app->view_width - app->padding)
 			break;
 		if (x < left)
 			x = left;
@@ -819,11 +820,15 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 	int gutter = numbers ? (digits + 2) * cell : 0;
 	int text_x = padding + gutter,
 	    text_width = width - 2 * padding - gutter;
+	/* wrapwidth narrows the text to a page, and sets the reading view's measure. */
+	int page = ed->wrapwidth ? (int)ed->wrapwidth : reading ? 80 : 0;
+	if (page && text_width > page * cell)
+		text_width = page * cell;
 	if (reading) {
 		int margin = (int)((24 * (int64_t)app->scale120 + 60) / 120);
 		text_width = width - 2 * margin;
-		if (text_width > 80 * cell)
-			text_width = 80 * cell;
+		if (text_width > page * cell)
+			text_width = page * cell;
 		if (text_width < cell)
 			text_width = cell;
 		text_x = (width - text_width) / 2;
@@ -989,13 +994,17 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 		struct text_layout layout = text_layout(app, cache);
 		int row_height = layout.height, text_y = y + layout.inset;
 		int text_cell = layout.cell, text_ascender = layout.ascender;
-		if (!reading)
+		if (!reading) {
 			color_columns(app, theme, pixels, width, height, stride,
 				      y, row_height,
 				      cache && cache->fenced ?
 					      theme->code :
 					      theme->background,
 				      text_x, text_x + text_width);
+			color_columns(app, theme, pixels, width, height, stride,
+				      y, row_height, theme->background,
+				      text_x + text_width, width);
+		}
 		if (beacon && ed->cursor >= start &&
 		    (ed->cursor < end ||
 		     (ed->cursor == end &&

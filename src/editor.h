@@ -99,6 +99,9 @@ struct editor {
      * such as "80,100", or "+1" and "-N" relative to a nonzero textwidth. */
 	unsigned textwidth;
 	char colorcolumn[64];
+	/* wrapwidth: soft-wrap after this many columns, or at the window edge if that comes
+     * first; 0 wraps at the window edge. Proposed for Vim and Neovim, but not in either. */
+	unsigned wrapwidth;
 	bool light, search_forward, search_word, search_failed, search_pending,
 		search_hidden;
 	char command[1024], message[256], search[256], pending[40];

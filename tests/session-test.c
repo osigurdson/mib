@@ -564,17 +564,18 @@ int main(void)
 	assert(app_open(&app));
 	assert(session_open(&app, directory) == 1);
 	assert(!app.editor.textwidth && !app.editor.colorcolumn[0]);
-	editor_command(&app.editor, "set tw=72 cc=+1,100");
+	editor_command(&app.editor, "set tw=72 cc=+1,100 wrapwidth=60");
 	app_close(&app);
 	text = session_read(settings, 4096, &n);
 	assert(text && strstr(text, "textwidth = 72\n") &&
+	       strstr(text, "wrapwidth = 60\n") &&
 	       strstr(text, "colorcolumn = +1,100\n"));
 	free(text);
 	assert(app_open(&app));
 	assert(session_open(&app, directory) == 1);
-	assert(app.editor.textwidth == 72 &&
+	assert(app.editor.textwidth == 72 && app.editor.wrapwidth == 60 &&
 	       !strcmp(app.editor.colorcolumn, "+1,100"));
-	editor_command(&app.editor, "set tw=0 cc=");
+	editor_command(&app.editor, "set tw=0 cc= wrapwidth=0");
 	app_close(&app);
 	text = session_read(settings, 4096, &n);
 	assert(text && strstr(text, "textwidth = 0\n") &&

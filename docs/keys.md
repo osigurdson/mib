@@ -227,7 +227,8 @@ Press `:` to open it. Up and Down browse your history.
 | `:set nu?`, `:set rnu?` | Show the option; `inv` toggles, `&` restores the default, and several options can follow one `:set` |
 | `:set tw=79`, `:set tw+=5`, `:set tw&` | Wrap lines while typing past column 79 (`textwidth`; 0, the default, turns it off). Like Vim, a `- ` list item continues with a hanging indent and a `> ` quote repeats its marker; a `# ` heading is not repeated. `gq` uses it too |
 | `:set cc=80`, `:set cc=+1,100`, `:set cc=` | Shade columns as a guide (`colorcolumn`): a comma list of columns, where `+N` and `-N` count from a nonzero `textwidth`. `cc+=` adds a column and `cc-=` removes one. The band takes the color scheme's ColorColumn color, kept subtle, and isn't shown in the reading view |
-| `:set tw?`, `:set cc?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
+| `:set wrapwidth=80`, `:set wrapwidth=0` | Soft-wrap after column 80, or at the window edge if that comes first; the file keeps its long lines. 0, the default, wraps at the window edge. The reading view uses it as its width (80 otherwise). It draws nothing itself: pair it with `:set cc=81` for a page edge. Vim and Neovim don't have it yet; the name follows their open proposals |
+| `:set tw?`, `:set cc?`, `:set wrapwidth?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
 | `:colorscheme {name}`, `:colo {name}` | Choose mib, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |
 | `:res[ize] {n}`, `:resize {n}%` | Set the image under the cursor to n pixels wide, or n% of its original width |

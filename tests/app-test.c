@@ -152,6 +152,42 @@ static void color_column(void)
 	free(pixels);
 	app_close(&app);
 }
+/* wrapwidth soft-wraps at a column narrower than the window, and a colorcolumn just past it
+ * still shows; the reading view uses it as its measure. */
+static void wrap_width(void)
+{
+	struct app app;
+	assert(app_open(&app));
+	const char *note = "alpha beta gamma delta epsilon\n";
+	assert(editor_replace(&app.editor, 0, 0, note, strlen(note)));
+	app.editor.cursor = 0;
+	enum { WIDTH = 480, HEIGHT = 200 };
+	uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
+	assert(pixels);
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	unsigned wide = app.editor.viewport_columns;
+	assert(wide > 30 && app_view_next(&app, 0) == strlen(note));
+	editor_command(&app.editor, "set wrapwidth=12 cc=13");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	assert(app.editor.viewport_columns == 12 &&
+	       app.text_width == 12 * app.cell);
+	assert(app_view_next(&app, 0) == strlen("alpha beta "));
+	int y = app.padding + app.line_height / 2;
+	assert(pixels[y * WIDTH + app.text_x + 12 * app.cell + app.cell / 2] ==
+	       0xff1e2633);
+	editor_command(&app.editor, "set wrapwidth=1000");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	assert(app.editor.viewport_columns == wide);
+	editor_command(&app.editor, "set view=reading wrapwidth=20");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	assert(app.editor.viewport_columns == 20);
+	editor_command(&app.editor, "set wrapwidth=0");
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	assert(app.editor.viewport_columns > 20 &&
+	       app.editor.viewport_columns <= 80);
+	free(pixels);
+	app_close(&app);
+}
 static void theme_layout(void)
 {
 	struct app app;
@@ -1007,6 +1043,7 @@ int main(void)
 	number_options();
 	theme_layout();
 	color_column();
+	wrap_width();
 	search_visibility();
 	toast();
 	decoration_layout();
