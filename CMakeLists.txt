@@ -126,6 +126,8 @@ if(BUILD_TESTING)
 
     add_executable(app-test tests/app-test.c ${PLATFORM_FILES})
     target_link_libraries(app-test PRIVATE mib-core mib-memory)
+    add_dependencies(app-test help-text)
+    target_include_directories(app-test PRIVATE "${GENERATED}") # help-text.h
     add_test(NAME app COMMAND app-test)
 
     if(WIN32)

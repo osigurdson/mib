@@ -1,4 +1,5 @@
 #include "app.h"
+#include "help-text.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -416,15 +417,17 @@ static void help_document(void)
 	assert(pixels);
 	type(&app, ":help\n");
 	assert(app.help && app.editor.readonly && !app.editor.modified);
-	assert(!strncmp(app.editor.text, "# Help\n", 7));
+	/* The text is docs/help.md, whatever it says. */
+	size_t length = sizeof(help_text) - 1;
+	assert(app.editor.length == length &&
+	       !memcmp(app.editor.text, help_text, length));
 	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
 	/* Nothing edits it. */
-	size_t length = app.editor.length;
 	type(&app, "xddp");
 	app_input(&app, KEY_CTRL_V, "");
 	app_input(&app, KEY_CTRL_S, "");
 	assert(app.editor.length == length && !app.editor.modified &&
-	       !strncmp(app.editor.text, "# Help\n", 7) &&
+	       !memcmp(app.editor.text, help_text, length) &&
 	       strstr(app.editor.message, "read-only"));
 	/* There is no command line, and ZZ doesn't act on it. */
 	type(&app, ":");
@@ -432,13 +435,30 @@ static void help_document(void)
 	       !strcmp(app.editor.message, "Esc closes help"));
 	type(&app, "ZZ");
 	assert(app.help && app.running && !app.editor.quit);
-	/* Search works, and Esc cancels a search or selection before it leaves help. */
-	type(&app, "/Unlike");
+	/* Search works, and Esc cancels a search or selection before it leaves help. The word
+	 * searched for is the first one of four letters after the first line. */
+	char word[5] = { 0 }, search[8];
+	for (const char *p = strchr(help_text, '\n'); p && *p && !word[0];
+	     ++p) {
+		size_t n = 0;
+		while (n < 4 && ((p[n] >= 'a' && p[n] <= 'z') ||
+				 (p[n] >= 'A' && p[n] <= 'Z')))
+			++n;
+		if (n == 4)
+			memcpy(word, p, 4);
+	}
+	assert(word[0]);
+	snprintf(search, sizeof(search), "/%s", word);
+	type(&app, search);
 	app_input(&app, KEY_ESCAPE, NULL);
-	assert(app.help && !app.editor.command_active);
-	type(&app, "/Unlike\n");
+	assert(app.help && !app.editor.command_active && !app.editor.cursor);
+	type(&app, search);
+	type(&app, "\n");
 	size_t found = app.editor.cursor;
-	assert(found && !strncmp(app.editor.text + found, "Unlike", 6));
+	assert(found);
+	for (int i = 0; i < 4;
+	     ++i) /* search ignores case unless it has capitals */
+		assert((app.editor.text[found + i] | 0x20) == (word[i] | 0x20));
 	type(&app, "v");
 	app_input(&app, KEY_ESCAPE, NULL);
 	assert(app.help && app.editor.mode == NORMAL);

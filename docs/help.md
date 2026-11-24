@@ -1,7 +1,5 @@
-# Help
-
 ## Pages
-- `:ls` lists pages
+- `:ls` lists pages (first # H1 titles the page)
 - `Alt+1` ... `Alt+9`: show page 1 to 9
 
 ## Views
