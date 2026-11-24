@@ -214,7 +214,7 @@ static void text_options(void)
 {
 	/* colorcolumn takes = += -= ? & and a bare name to show; wrapwidth is a number. */
 	reset("abc\n");
-	assert(!ed.colorcolumn[0] && !ed.wrapwidth);
+	assert(!ed.colorcolumn[0] && ed.wrapwidth == 80);
 	editor_command(&ed, "set cc=100,80");
 	assert(!strcmp(ed.colorcolumn, "100,80"));
 	unsigned columns[4];
@@ -233,13 +233,15 @@ static void text_options(void)
 	editor_command(&ed, "set colorcolumn=");
 	assert(!ed.colorcolumn[0] && !editor_color_columns(&ed, columns, 4));
 	editor_command(&ed, "set wrapwidth?");
-	assert(!strcmp(ed.message, "  wrapwidth=0"));
-	editor_command(&ed, "set wrapwidth=72 wrapwidth+=8");
-	assert(ed.wrapwidth == 80);
+	assert(!strcmp(ed.message, "  wrapwidth=80"));
+	editor_command(&ed, "set wrapwidth=64 wrapwidth+=8");
+	assert(ed.wrapwidth == 72);
 	editor_command(&ed, "set wrapwidth=x");
-	assert(ed.wrapwidth == 80 && strstr(ed.message, "number"));
-	editor_command(&ed, "set wrapwidth&");
+	assert(ed.wrapwidth == 72 && strstr(ed.message, "number"));
+	editor_command(&ed, "set wrapwidth=0");
 	assert(!ed.wrapwidth);
+	editor_command(&ed, "set wrapwidth&"); /* back to the default */
+	assert(ed.wrapwidth == 80);
 	/* textwidth is not supported: typing never adds line breaks, and :set says so. */
 	editor_command(&ed, "set tw=20");
 	assert(strstr(ed.message, "no textwidth"));

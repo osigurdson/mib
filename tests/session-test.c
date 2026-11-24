@@ -599,10 +599,11 @@ int main(void)
 	assert(session_open(&app, directory) == 1);
 	assert(app.editor.number && !app.editor.relativenumber);
 	app_close(&app);
-	/* wrapwidth and colorcolumn are kept with the other settings; none means no columns. */
+	/* wrapwidth and colorcolumn are kept with the other settings; none means no columns.
+	 * By default text wraps at 80 columns with no colorcolumn. */
 	assert(app_open(&app));
 	assert(session_open(&app, directory) == 1);
-	assert(!app.editor.wrapwidth && !app.editor.colorcolumn[0]);
+	assert(app.editor.wrapwidth == 80 && !app.editor.colorcolumn[0]);
 	editor_command(&app.editor, "set cc=73,100 wrapwidth=60");
 	app_close(&app);
 	text = session_read(settings, 4096, &n);

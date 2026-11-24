@@ -173,11 +173,11 @@ static const char *value_option(const char *option, const char *name,
 		return rest + 1;
 	return *rest ? NULL : rest;
 }
-/* A number of columns from 0 (the default) to 10000, such as wrapwidth, where 0 means
- * wrapping at the window edge. */
+/* A number of columns from 0 to 10000, such as wrapwidth, where 0 means wrapping at the
+ * window edge; & restores fallback. */
 static bool number_option(struct editor *ed, const char *option,
 			  const char *name, const char *short_name,
-			  unsigned *target)
+			  unsigned *target, unsigned fallback)
 {
 	char operation;
 	const char *value = value_option(option, name, short_name, &operation);
@@ -189,7 +189,7 @@ static bool number_option(struct editor *ed, const char *option,
 		return true;
 	}
 	if (operation == '&') {
-		*target = 0;
+		*target = fallback;
 		return true;
 	}
 	char *end;
@@ -292,8 +292,8 @@ static bool set_option(struct editor *ed, const char *option)
 	if (boolean_option(ed, option, "number", "nu", &ed->number, true) ||
 	    boolean_option(ed, option, "relativenumber", "rnu",
 			   &ed->relativenumber, false) ||
-	    number_option(ed, option, "wrapwidth", "wrapwidth",
-			  &ed->wrapwidth) ||
+	    number_option(ed, option, "wrapwidth", "wrapwidth", &ed->wrapwidth,
+			  EDITOR_WRAPWIDTH) ||
 	    colorcolumn_option(ed, option))
 		return true;
 	if (!strncmp(option, "view=", 5)) {

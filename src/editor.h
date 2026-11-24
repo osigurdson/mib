@@ -2,6 +2,8 @@
 #define EDITOR_H
 /* The largest file editor_open reads. */
 #define EDITOR_FILE_LIMIT (64u * 1024 * 1024)
+/* The default wrapwidth: soft-wrap at 80 columns, the classic terminal width. */
+#define EDITOR_WRAPWIDTH 80u
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -99,8 +101,8 @@ struct editor {
 	bool number, relativenumber;
 	/* Vim's colorcolumn, kept as typed: columns such as "80,100". */
 	char colorcolumn[64];
-	/* wrapwidth: soft-wrap after this many columns, or at the window edge if that comes
-     * first; 0 wraps at the window edge. Proposed for Vim and Neovim, but not in either. */
+	/* wrapwidth: soft-wrap after this many columns (80 by default), or at the window edge
+     * if that comes first; 0 wraps at the window edge. Proposed for Vim and Neovim, but not in either. */
 	unsigned wrapwidth;
 	bool light, search_forward, search_word, search_failed, search_pending,
 		search_hidden;

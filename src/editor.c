@@ -70,6 +70,7 @@ bool editor_open(struct editor *ed, const char *filename)
 {
 	ed->view = VIEW_NORMAL;
 	ed->number = true;
+	ed->wrapwidth = EDITOR_WRAPWIDTH;
 	ed->viewport_rows = 24;
 	ed->viewport_columns = 80;
 	if (!editor_reserve(ed, 1))

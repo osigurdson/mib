@@ -15,7 +15,7 @@ Each page is a `page.md` with its own `assets/` folder, in the notes folder (`~/
 
 - `y` `d` `p`: use the system clipboard; named registers `"a` to `"z` still work
 - `Ctrl+V`: pastes text or a screenshot; there is no block visual mode
-- `:set wrapwidth=N`: soft-wrap at column N; typing never adds line breaks (no `textwidth`)
+- `:set wrapwidth=N`: soft-wrap at column N (80 by default, 0 for the window edge); typing never adds line breaks (no `textwidth`)
 - `gq`: hard-wrap lines at 79 columns
 - `:colo <Tab>`: try the color schemes live; `Enter` keeps one, `Esc` goes back
 
