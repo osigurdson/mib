@@ -416,7 +416,7 @@ static void help_document(void)
 	assert(pixels);
 	type(&app, ":help\n");
 	assert(app.help && app.editor.readonly && !app.editor.modified);
-	assert(!strncmp(app.editor.text, "# mib help\n", 11));
+	assert(!strncmp(app.editor.text, "# Help\n", 7));
 	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
 	/* Nothing edits it. */
 	size_t length = app.editor.length;
@@ -424,7 +424,7 @@ static void help_document(void)
 	app_input(&app, KEY_CTRL_V, "");
 	app_input(&app, KEY_CTRL_S, "");
 	assert(app.editor.length == length && !app.editor.modified &&
-	       !strncmp(app.editor.text, "# mib help\n", 11) &&
+	       !strncmp(app.editor.text, "# Help\n", 7) &&
 	       strstr(app.editor.message, "read-only"));
 	/* There is no command line, and ZZ doesn't act on it. */
 	type(&app, ":");
