@@ -344,6 +344,45 @@ static void pages(const char *parent)
 	app_close(&app);
 	remove_notes(directory);
 }
+/* Help replaces the shown page until Esc or a page switch, and nothing saves it. */
+static void help_pages(const char *parent)
+{
+	char directory[1100];
+	snprintf(directory, sizeof(directory), "%s/help", parent);
+	struct app app;
+	assert(app_open(&app) && session_open(&app, directory) == 1);
+	app_input(&app, KEY_PAGE, "1"); /* mib reopens on the last page used */
+	type(&app, "ione\x1b");
+	type(&app, ":help\n");
+	assert(app.help && !app.editor.filename && app.current == 0);
+	/* Alt+N leaves help for that page, even the one help replaced. */
+	app_input(&app, KEY_PAGE, "3");
+	assert(!app.help && app.current == 2 && !app.editor.readonly &&
+	       strstr(app.editor.filename, "/3/page.md"));
+	app_input(&app, KEY_PAGE, "1");
+	type(&app, ":help\n");
+	app_input(&app, KEY_PAGE, "1");
+	assert(!app.help && app.current == 0 &&
+	       !strcmp(app.editor.text, "one") && app.editor.modified);
+	/* Alt+0 leaves help for the page list. */
+	type(&app, ":help\n");
+	app_input(&app, KEY_PAGE, "0");
+	assert(!app.help && app.page_map && app.current == 0);
+	app_input(&app, KEY_ESCAPE, NULL);
+	/* Changes made elsewhere while help was shown are picked up on the way back. */
+	type(&app, ":w\n:help\n");
+	write_file(directory, "1/page.md", "changed");
+	app_input(&app, KEY_ESCAPE, NULL);
+	assert(!app.help && !strcmp(app.editor.text, "changed"));
+	/* Closing from help saves the page's place, not the help's. */
+	type(&app, ":help\n");
+	app_close(&app);
+	assert(app_open(&app) && session_open(&app, directory) == 1);
+	assert(!app.help && app.current == 0 &&
+	       !strcmp(app.editor.text, "changed"));
+	app_close(&app);
+	remove_notes(directory);
+}
 static void set_env(const char *name, const char *value)
 {
 #ifdef _WIN32
@@ -679,6 +718,7 @@ int main(void)
 	assert(text && strstr(text, "colorscheme = tokyonight\n"));
 	free(text);
 	pages(directory);
+	help_pages(directory);
 	last_page(directory);
 	remove_notes(other);
 	remove_file(settings);

@@ -99,7 +99,7 @@ Run `mib`. It opens on the page you were last using, in normal mode.
   objects, counts, registers, search and `:s`.
 - Paste a screenshot or drop an image file to add it to the page.
 - `:w` or `Ctrl+S` saves, and `:q` closes; mib won't close with unsaved changes.
-- `:help` shows a short card. `:set view=source`, `normal` or `reading` changes how
+- `:help` opens a short help page; `Esc` goes back. `:set view=source`, `normal` or `reading` changes how
   Markdown is shown, and `:colorscheme` picks from five color schemes, each with light and
   dark backgrounds.
 

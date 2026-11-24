@@ -21,9 +21,14 @@ add_custom_command(OUTPUT "${GENERATED}/font-data.h"
             "${CMAKE_CURRENT_SOURCE_DIR}/fonts/editor.tvf" "${GENERATED}/font-data.h"
     DEPENDS tools/embed-font.py fonts/editor.tvf VERBATIM)
 add_custom_target(font-data DEPENDS "${GENERATED}/font-data.h")
+add_custom_command(OUTPUT "${GENERATED}/help-text.h"
+    COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed-help.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/docs/help.md" "${GENERATED}/help-text.h"
+    DEPENDS tools/embed-help.py docs/help.md VERBATIM)
+add_custom_target(help-text DEPENDS "${GENERATED}/help-text.h")
 
-add_library(mib-core STATIC src/app.c src/session.c src/pages.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/navigator.c src/help.c src/tiny-font.c)
-add_dependencies(mib-core font-data)
+add_library(mib-core STATIC src/app.c src/session.c src/pages.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/navigator.c src/tiny-font.c)
+add_dependencies(mib-core font-data help-text)
 target_include_directories(mib-core PUBLIC src PRIVATE "${GENERATED}")
 
 if(WIN32)

@@ -1174,7 +1174,8 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 	char status[512];
 	/* Vim modes, the file name and pending keys stay out of the status line; only
      * non-default views are worth calling out. */
-	const char *mode = reading		   ? "READING" :
+	const char *mode = app->help		   ? "HELP  Esc closes" :
+			   reading		   ? "READING" :
 			   ed->view == VIEW_SOURCE ? "SOURCE" :
 						     "";
 	int baseline = status_y + padding + ascender;
@@ -1236,9 +1237,6 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 	}
 	if (app->page_map && !navigator_draw(app, theme, pixels, width, height,
 					     stride, top, status_y, padding))
-		return false;
-	if (app->help && !help_draw(app, theme, pixels, width, height, stride,
-				    top, status_y, padding))
 		return false;
 	return true;
 }

@@ -224,9 +224,9 @@ static void text_options(void)
 	assert(!strcmp(ed.message, "  colorcolumn=100,80,72"));
 	editor_command(&ed, "set cc-=80");
 	assert(!strcmp(ed.colorcolumn, "100,72"));
-	editor_command(&ed, "set cc=+1");
+	editor_command(&ed, "set cc=+1"); /* Vim's offset from textwidth */
 	assert(!strcmp(ed.colorcolumn, "100,72") &&
-	       strstr(ed.message, "80,100"));
+	       strstr(ed.message, "plain columns"));
 	editor_command(&ed, "set cc=80,,90");
 	assert(!strcmp(ed.colorcolumn, "100,72") &&
 	       strstr(ed.message, "80,100"));
@@ -240,9 +240,9 @@ static void text_options(void)
 	assert(ed.wrapwidth == 80 && strstr(ed.message, "number"));
 	editor_command(&ed, "set wrapwidth&");
 	assert(!ed.wrapwidth);
-	/* textwidth is not supported: typing never adds line breaks. */
+	/* textwidth is not supported: typing never adds line breaks, and :set says so. */
 	editor_command(&ed, "set tw=20");
-	assert(strstr(ed.message, "Unknown option"));
+	assert(strstr(ed.message, "no textwidth"));
 	editor_command(&ed, "set ccc=1");
 	assert(strstr(ed.message, "Unknown option"));
 	expect("abc\n");
@@ -643,13 +643,39 @@ int main(void)
 	       strstr(ed.message, "source, normal and reading"));
 	editor_command(&ed, "set raw");
 	assert(ed.view == VIEW_NORMAL && strstr(ed.message, "Unknown"));
-	/* :h, :help and :help with a topic all ask for the help card. */
+	/* :h, :help and :help with a topic all ask for the help document. */
 	const char *helps[] = { "h", "he", "help", "help marks" };
 	for (unsigned i = 0; i < 4; ++i) {
 		ed.requests = 0;
 		editor_command(&ed, helps[i]);
 		assert(ed.requests == ED_HELP);
 	}
+	/* Vim options mib leaves out on purpose say what to use instead. */
+	const struct {
+		const char *command, *message;
+	} missing[] = {
+		{ "set tw=79", "no textwidth" },
+		{ "set textwidth?", "no textwidth" },
+		{ "set nowrap", "always soft-wraps" },
+		{ "set wrap", "always soft-wraps" },
+		{ "set lbr", "word boundaries" },
+		{ "set clipboard=unnamedplus", "system clipboard" },
+		{ "set cc=+1", "plain columns, such as 81" },
+		{ "set cc+=-1", "plain columns, such as 81" },
+		{ "set cc=abc", "such as 80,100" },
+		{ "set tw=79 nu", "no textwidth" },
+	};
+	bool numbered = ed.number;
+	char columns[sizeof(ed.colorcolumn)];
+	memcpy(columns, ed.colorcolumn, sizeof(columns));
+	for (unsigned i = 0; i < sizeof(missing) / sizeof(missing[0]); ++i) {
+		ed.message[0] = 0;
+		editor_command(&ed, missing[i].command);
+		assert(strstr(ed.message, missing[i].message));
+	}
+	assert(ed.number == numbered && !strcmp(ed.colorcolumn, columns));
+	editor_command(&ed, "set wrapscan");
+	assert(strstr(ed.message, "Unknown option: wrapscan"));
 	/* :ve, :version and the abbreviations between report the build, as mib --version does. */
 	const char *versions[] = { "ve", "vers", "version" };
 	for (unsigned i = 0; i < 3; ++i) {

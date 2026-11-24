@@ -19,7 +19,7 @@ src/
   image.h, image.c        PNG/JPEG decoding and PNG encoding
   markdown.h, markdown.c  Markdown blocks, spans and tables for drawing
   render.c                shared CPU renderer and physical-pixel layout
-  navigator.c, help.c     the page list and the :help card, drawn on top of render.c
+  navigator.c             the page list, drawn on top of render.c
   colors.h, theme-palettes.h  color schemes (see colors.md)
   tiny-font.h, tiny-font.c    bundled-font reader, rasterizer, bounded cache
   platform.h              small platform contract; no OS headers

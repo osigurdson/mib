@@ -38,7 +38,7 @@ struct page {
 	char *text, *filename;
 	size_t length, capacity, cursor, top, left, anchor, desired_column;
 	size_t visual_first, visual_last;
-	bool loaded, fresh, modified, crlf;
+	bool loaded, fresh, modified, crlf, readonly;
 	uint64_t revision, saved_hash;
 	struct edit_history *history;
 	struct media *media;
@@ -91,7 +91,11 @@ struct app {
 	char *root; /* The notes folder holding 1/ to 9/; NULL for explicit files. */
 	struct page pages[PAGE_COUNT];
 	bool page_map, map_click;
-	bool help; /* the :help card is showing */
+	/* :help shows the built-in help document (help_page) in place of the shown document,
+	 * which waits in help_return, with its media and folder, until Esc. */
+	bool help;
+	struct page help_page, help_return;
+	char *help_directory;
 	/* With Ctrl held, the link under the mouse (hover_start to hover_end, underlined) and
 	 * whether Ctrl+click there opens something, a link or an image. */
 	bool hover_open;
@@ -138,6 +142,9 @@ unsigned app_page_modified(const struct app *app);
  * False, with the reason in the message, if one could not be saved. */
 bool app_pages_save(struct app *app);
 void app_pages_close(struct app *app);
+/* Show the read-only help document, or put back the document it replaced. */
+void app_help_open(struct app *app);
+void app_help_close(struct app *app);
 int app_main(int argc, char **argv);
 /* An empty, unnamed document with default settings; session_open then opens the notes
  * folder in it. */

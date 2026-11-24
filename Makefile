@@ -33,9 +33,9 @@ PROTOCOLS_DIR := $(shell $(PKG_CONFIG) --variable=pkgdatadir wayland-protocols)
 PROTOCOL_NAMES := xdg-shell viewporter fractional-scale-v1 xdg-decoration-unstable-v1 cursor-shape-v1 tablet-unstable-v2
 PROTOCOL_HEADERS := $(addprefix $(GEN)/,$(addsuffix -client-protocol.h,$(PROTOCOL_NAMES)))
 PROTOCOL_SOURCES := $(addprefix $(GEN)/,$(addsuffix -protocol.c,$(PROTOCOL_NAMES)))
-CORE := src/app.c src/session.c src/pages.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/navigator.c src/help.c src/tiny-font.c
-# version.h is generated: src/ex.c reports it for :version.
-HEADERS := $(wildcard src/*.h src/platform/*/*.inc) $(GEN)/version.h
+CORE := src/app.c src/session.c src/pages.c src/media.c src/image.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c src/markdown.c src/render.c src/navigator.c src/tiny-font.c
+# version.h is generated: src/ex.c reports it for :version. help-text.h holds docs/help.md.
+HEADERS := $(wildcard src/*.h src/platform/*/*.inc) $(GEN)/version.h $(GEN)/help-text.h
 MEMORY := src/platform/linux/memory.c
 FILES := src/platform/linux/files.c
 WINDOW := src/platform/linux/wayland.c
@@ -81,6 +81,9 @@ $(GEN)/tablet-unstable-v2-protocol.c: $(PROTOCOLS_DIR)/unstable/tablet/tablet-un
 
 $(FONT_DATA): fonts/editor.tvf tools/embed-font.py | $(GEN)
 	$(PYTHON) tools/embed-font.py $< $@
+
+$(GEN)/help-text.h: docs/help.md tools/embed-help.py | $(GEN)
+	$(PYTHON) tools/embed-help.py $< $@
 
 # Checked on every build; tools/version.py only rewrites it when the version or commit changes.
 $(GEN)/version.h: FORCE | $(GEN)
@@ -247,7 +250,7 @@ subset-font: | $(GEN)
 	$(PYTHON) tools/embed-font.py fonts/editor.tvf $(FONT_DATA)
 
 # compile_commands.json for clangd: Linux files use these flags, Windows files Zig's mingw headers.
-compile-commands: $(FONT_DATA) $(PROTOCOL_HEADERS) $(GEN)/version.h
+compile-commands: $(FONT_DATA) $(PROTOCOL_HEADERS) $(GEN)/version.h $(GEN)/help-text.h
 	$(PYTHON) tools/compile-commands.py -- $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS)
 
 format:

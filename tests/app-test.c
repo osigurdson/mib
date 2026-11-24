@@ -404,37 +404,68 @@ static void type(struct app *app, const char *keys)
 			app_input(app, KEY_TEXT, text);
 	}
 }
-/* :help shows a card that takes the keyboard until Esc, q, Enter or a click closes it. */
-static void help_card(void)
+/* :help shows the built-in help document in place of the page, read-only, until Esc. */
+static void help_document(void)
 {
 	struct app app;
 	assert(app_open(&app));
 	assert(editor_replace(&app.editor, 0, 0, "notes\n", 6));
 	app.editor.cursor = 0;
 	enum { WIDTH = 800, HEIGHT = 560 };
-	uint32_t *plain = malloc(WIDTH * HEIGHT * sizeof(*plain)),
-		 *card = malloc(WIDTH * HEIGHT * sizeof(*card));
-	assert(plain && card);
-	assert(app_paint(&app, plain, WIDTH, HEIGHT, WIDTH));
+	uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
+	assert(pixels);
+	type(&app, ":help\n");
+	assert(app.help && app.editor.readonly && !app.editor.modified);
+	assert(!strncmp(app.editor.text, "# mib help\n", 11));
+	assert(app_paint(&app, pixels, WIDTH, HEIGHT, WIDTH));
+	/* Nothing edits it. */
+	size_t length = app.editor.length;
+	type(&app, "xddp");
+	app_input(&app, KEY_CTRL_V, "");
+	app_input(&app, KEY_CTRL_S, "");
+	assert(app.editor.length == length && !app.editor.modified &&
+	       !strncmp(app.editor.text, "# mib help\n", 11) &&
+	       strstr(app.editor.message, "read-only"));
+	/* There is no command line, and ZZ doesn't act on it. */
+	type(&app, ":");
+	assert(!app.editor.command_active &&
+	       !strcmp(app.editor.message, "Esc closes help"));
+	type(&app, "ZZ");
+	assert(app.help && app.running && !app.editor.quit);
+	/* Search works, and Esc cancels a search or selection before it leaves help. */
+	type(&app, "/Unlike");
+	app_input(&app, KEY_ESCAPE, NULL);
+	assert(app.help && !app.editor.command_active);
+	type(&app, "/Unlike\n");
+	size_t found = app.editor.cursor;
+	assert(found && !strncmp(app.editor.text + found, "Unlike", 6));
+	type(&app, "v");
+	app_input(&app, KEY_ESCAPE, NULL);
+	assert(app.help && app.editor.mode == NORMAL);
+	type(&app, "y");
+	assert(!strcmp(app.editor.pending, "y"));
+	app_input(&app, KEY_ESCAPE, NULL);
+	assert(app.help && !app.editor.pending[0]);
+	app_input(&app, KEY_ESCAPE, NULL);
+	assert(!app.help && !app.editor.readonly &&
+	       !strcmp(app.editor.text, "notes\n") && app.editor.modified &&
+	       app.editor.cursor == 0);
+	type(&app, "x");
+	assert(!strcmp(app.editor.text, "otes\n"));
+	/* Opening it again goes back to where you were in it. */
+	type(&app, ":h marks\n");
+	assert(app.help && app.editor.cursor == found);
+	/* Ctrl+Q leaves help and quits from the page, which has unsaved changes. */
+	app_input(&app, KEY_CTRL_Q, "");
+	assert(!app.help && app.running && !strcmp(app.editor.text, "otes\n") &&
+	       strstr(app.editor.message, "Unsaved"));
+	/* Closing the window from help puts the page back first. */
+	type(&app, ":help\n");
+	app_request_close(&app);
+	assert(!app.help && app.running && !strcmp(app.editor.text, "otes\n"));
 	type(&app, ":help\n");
 	assert(app.help);
-	assert(app_paint(&app, card, WIDTH, HEIGHT, WIDTH));
-	assert(memcmp(plain, card, WIDTH * HEIGHT * sizeof(*card)));
-	type(&app,
-	     ":xdd"); /* ignored, so :q closes the card rather than the window */
-	assert(app.help && !app.editor.command_active &&
-	       app.editor.length == 6);
-	type(&app, "q");
-	assert(!app.help && !app.editor.quit && app.editor.length == 6);
-	type(&app, ":h marks\n");
-	assert(app.help);
-	app_input(&app, KEY_ESCAPE, NULL);
-	assert(!app.help);
-	type(&app, ":he\n");
-	app_pointer(&app, 10, 10, false);
-	assert(!app.help);
-	free(plain);
-	free(card);
+	free(pixels);
 	app_close(&app);
 }
 static void render_modes(void)
@@ -1049,7 +1080,7 @@ int main(void)
 	decoration_layout();
 	rounded_window();
 	render_modes();
-	help_card();
+	help_document();
 	markdown_notes();
 	markdown_tables();
 	normal_markdown_styles();

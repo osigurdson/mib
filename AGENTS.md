@@ -10,8 +10,9 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 - `src/app.c`, `src/media.c`: app-level input (images, clipboard paste), shared by both platforms.
 - `src/navigator.c`: the page list (`Alt+0`, `:ls`), its drawing (`navigator_draw`) and click
   hit-testing (`navigator_page_at`). It uses the `render_*` helpers and `struct palette` that
-  `src/render.c` shares through `src/render-internal.h`. `src/help.c` draws the `:help` card the
-  same way.
+  `src/render.c` shares through `src/render-internal.h`. `:help` shows `docs/help.md`, built
+  in as `help-text.h`, as a read-only document in place of the page (`app_help_open` in
+  `src/pages.c`); `Esc` goes back.
 - `src/pages.c`: the nine pages `1/` to `9/` in the notes folder (`app.root`), each with
   `page.md` and `assets/`. The shown page lives in `app.editor`, `app.media` and
   `app.directory`; switching swaps the per-document editor fields (text, cursor, undo, marks)

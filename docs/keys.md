@@ -214,7 +214,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
-| `:h`, `:help` | Show a short card with the views and page keys; `Esc`, `q` or a click closes it |
+| `:h`, `:help` | Open the help, a short read-only page of the most useful keys; `Esc` goes back |
 | `:ve`, `:version` | Show mib's version and commit, as `mib --version` does |
 | `:set view=source` | Editable plain source, with no Markdown styling or inline images |
 | `:set view=normal` | Editable styled source with inline images (default) |
@@ -226,7 +226,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:set rnu`, `:set nornu`, `:set rnu!` | Show, hide or toggle relative line numbers (`relativenumber`) |
 | `:set nu?`, `:set rnu?` | Show the option; `inv` toggles, `&` restores the default, and several options can follow one `:set` |
 | `:set cc=80`, `:set cc=72,80`, `:set cc=` | Shade columns as a guide (`colorcolumn`): a comma list of columns. `cc+=` adds a column and `cc-=` removes one. The band takes the color scheme's ColorColumn color, kept subtle, and isn't shown in the reading view |
-| `:set wrapwidth=80`, `:set wrapwidth=0` | Soft-wrap after column 80, or at the window edge if that comes first; the file keeps its long lines. 0, the default, wraps at the window edge. The reading view uses it as its width (80 otherwise). It draws nothing itself: pair it with `:set cc=81` for a page edge. Typing never adds line breaks (mib has no `textwidth`); `gq` hard-wraps at 79 when you want it. Typing never adds line breaks (mib has no `textwidth`); `gq` hard-wraps when you want it. Vim and Neovim don't have it yet; the name follows their open proposals |
+| `:set wrapwidth=80`, `:set wrapwidth=0` | Soft-wrap after column 80, or at the window edge if that comes first; the file keeps its long lines. 0, the default, wraps at the window edge. The reading view uses it as its width (80 otherwise). It draws nothing itself: pair it with `:set cc=81` for a page edge. Typing never adds line breaks (mib has no `textwidth`); `gq` hard-wraps at 79 when you want it. Vim and Neovim don't have it yet; the name follows their open proposals |
 | `:set cc?`, `:set wrapwidth?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
 | `:colorscheme {name}`, `:colo {name}` | Choose mib, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |

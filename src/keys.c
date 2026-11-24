@@ -1285,10 +1285,11 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
 		command_input(ed, key, text);
 		return;
 	}
-	if (ed->view == VIEW_READING &&
+	bool readonly = ed->view == VIEW_READING || ed->readonly;
+	if (readonly &&
 	    (key == KEY_CUT || key == KEY_CTRL_V || key == KEY_DELETE ||
 	     key == KEY_BACKSPACE || key == KEY_TAB || key == KEY_SHIFT_TAB ||
-	     key == KEY_CTRL_W)) {
+	     key == KEY_CTRL_W || (ed->readonly && key == KEY_CTRL_S))) {
 		editor_can_edit(ed);
 		return;
 	}
@@ -1477,7 +1478,7 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
 	if (!count)
 		count = 1;
 	bool visual = ed->mode == VISUAL || ed->mode == VISUAL_LINE;
-	if (ed->view == VIEW_READING &&
+	if ((ed->view == VIEW_READING || ed->readonly) &&
 	    ((!visual && (strchr("dc><iaIAoOsSxXDCJRr~pPu", *p) ||
 			  (p[0] == 'g' && p[1] && strchr("uU~q", p[1])))) ||
 	     (visual && (strchr("dc><JuU~xspP", *p) || !strcmp(p, "gq"))))) {
@@ -1528,6 +1529,12 @@ static void input(struct editor *ed, enum editor_key key, const char *text)
 		if (ed->image_resize(ed, ed->cursor, spec,
 				     ed->image_resize_data))
 			return;
+	}
+	/* Help has no command line, and ZZ or ZQ there would act on the help rather than
+	 * the page behind it. */
+	if (!op && ed->readonly && (*p == ':' || *p == 'Z')) {
+		snprintf(ed->message, sizeof(ed->message), "Esc closes help");
+		return;
 	}
 	if (!op && *p == 'Z') {
 		if (p[1] == 'Z' || p[1] == 'Q')

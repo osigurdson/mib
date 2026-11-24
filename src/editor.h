@@ -90,6 +90,8 @@ struct editor {
 	enum view_mode view;
 	enum color_scheme colorscheme;
 	bool modified, command_active, quit, crlf;
+	/* The help document: nothing edits it, and : doesn't open the command line. */
+	bool readonly;
 	/* Another page (1 to 9) with unsaved changes, or 0. The app sets it so quitting
      * protects every page. */
 	unsigned other_modified;

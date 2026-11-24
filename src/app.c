@@ -33,6 +33,7 @@ void app_saved(void *context)
 
 void app_close(struct app *app)
 {
+	app_help_close(app);
 	media_close(app);
 	session_close(app);
 	app_pages_close(app);
@@ -44,6 +45,7 @@ void app_close(struct app *app)
 /* The page list (:ls or Alt+0), starting on the page that is showing. */
 static void open_page_list(struct app *app)
 {
+	app_help_close(app);
 	if (app->root) {
 		app->page_map = true;
 		app->map_choice = app->current;
@@ -65,13 +67,16 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 	bool digit = key == KEY_TEXT && text && text[0] >= '1' &&
 		     text[0] <= '9' && !text[1];
 	if (app->help) {
-		/* The card takes the keyboard until Esc, q or Enter closes it, so :q closes
-         * the card rather than the window. */
-		if (key == KEY_ESCAPE || key == KEY_ENTER ||
-		    (key == KEY_TEXT && text && !strcmp(text, "q")))
-			app->help = false;
-		app->dirty = true;
-		return;
+		/* Esc with nothing to cancel leaves help; Ctrl+Q quits from the page behind it, so
+		 * that page's unsaved changes are still caught. */
+		struct editor *ed = &app->editor;
+		if (key == KEY_ESCAPE && ed->mode == NORMAL &&
+		    !ed->command_active && !ed->pending[0]) {
+			app_help_close(app);
+			return;
+		}
+		if (key == KEY_CTRL_Q)
+			app_help_close(app);
 	}
 	if (app->page_map) {
 		/* The list takes the keyboard: a digit (with or without Alt) shows that
@@ -259,7 +264,7 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 	if (requests & ED_PAGE_MAP)
 		open_page_list(app);
 	if (requests & ED_HELP)
-		app->help = true;
+		app_help_open(app);
 	app->editor.requests &=
 		~(ED_ZOOM_IN | ED_ZOOM_OUT | ED_ZOOM_RESET | ED_PAGE_MAP |
 		  ED_HELP | ED_PAGE_SWITCH | ED_SAVE_ALL | ED_QUIT_ALL);
@@ -343,6 +348,7 @@ uint64_t app_deadline(const struct app *app)
 
 void app_request_close(struct app *app)
 {
+	app_help_close(app);
 	unsigned page = app_page_modified(app);
 	if (app->editor.modified)
 		snprintf(app->editor.message, sizeof(app->editor.message),
@@ -440,12 +446,6 @@ void app_pointer(struct app *app, int x, int y, bool extend)
 	if (app->map_click && extend)
 		return; /* The rest of the click that closed the map. */
 	app->map_click = false;
-	if (app->help) { /* a click anywhere closes the card */
-		app->help = false;
-		app->map_click = !extend;
-		app->dirty = true;
-		return;
-	}
 	if (app->page_map) {
 		/* A click on a page shows it; anywhere else closes the map. */
 		int px = (int)((int64_t)x * app->scale120 / 120),
@@ -522,7 +522,7 @@ bool app_hover(struct app *app, int x, int y, bool control)
 	int py = (int)((int64_t)y * app->scale120 / 120) - app->title_height -
 		 app->padding,
 	    px = (int)((int64_t)x * app->scale120 / 120);
-	if (control && !app->page_map && !app->help && !app->context_menu &&
+	if (control && !app->page_map && !app->context_menu &&
 	    !app->image_drag && app->cell > 0 && py >= 0 &&
 	    py < app->text_height && px >= app->text_x &&
 	    px < app->text_x + app->text_width) {

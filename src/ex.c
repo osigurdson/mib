@@ -243,12 +243,48 @@ static bool colorcolumn_option(struct editor *ed, const char *option)
 		}
 	}
 	if (!editor_valid_colorcolumn(result)) {
+		/* Vim's +1 and -1 count from textwidth, which mib doesn't have. */
 		snprintf(ed->message, sizeof(ed->message),
-			 "colorcolumn takes columns such as 80,100");
+			 strchr(value, '+') || strchr(value, '-') ?
+				 "colorcolumn takes plain columns, such as 81" :
+				 "colorcolumn takes columns such as 80,100");
 		return true;
 	}
 	memcpy(ed->colorcolumn, result, strlen(result) + 1);
 	return true;
+}
+/* Vim options that mib leaves out on purpose: instead of "Unknown option", say what mib does
+ * instead. */
+static bool missing_option(struct editor *ed, const char *option)
+{
+	size_t n = strcspn(option, "=:+-?!&^");
+	const char *base = option;
+	if (n > 2 && !strncmp(option, "no", 2))
+		base += 2;
+	else if (n > 3 && !strncmp(option, "inv", 3))
+		base += 3;
+	n -= (size_t)(base - option);
+	static const struct {
+		const char *name, *short_name, *message;
+	} options[] = {
+		{ "textwidth", "tw",
+		  "mib has no textwidth: :set wrapwidth=N soft-wraps, gq hard-wraps at 79" },
+		{ "wrap", "wrap",
+		  "mib always soft-wraps; :set wrapwidth=N sets where" },
+		{ "linebreak", "lbr", "mib always wraps at word boundaries" },
+		{ "clipboard", "cb",
+		  "Yanks and deletes already use the system clipboard" },
+	};
+	for (size_t i = 0; i < sizeof(options) / sizeof(options[0]); ++i)
+		if ((strlen(options[i].name) == n &&
+		     !strncmp(base, options[i].name, n)) ||
+		    (strlen(options[i].short_name) == n &&
+		     !strncmp(base, options[i].short_name, n))) {
+			snprintf(ed->message, sizeof(ed->message), "%s",
+				 options[i].message);
+			return true;
+		}
+	return false;
 }
 /* One :set argument, such as view=source, bg=light, nu, nornu, rnu! or cc=80. */
 static bool set_option(struct editor *ed, const char *option)
@@ -398,8 +434,8 @@ void editor_command(struct editor *ed, const char *command)
 				 "Pages are :b 1 to :b 9");
 	} else if (*p && strlen(p) <= strlen("help") &&
 		   !strncmp(p, "help", strlen(p)))
-		ed->requests |=
-			ED_HELP; /* :h, :help and :help topic all show the one card */
+		ed->requests |= ED_HELP; /* :h, :help and :help topic all open
+					    the help document at the top */
 	else if (strlen(p) >= 2 && strlen(p) <= strlen("version") &&
 		 !strncmp(p, "version", strlen(p))) {
 		if (argument && *argument)
@@ -429,8 +465,11 @@ void editor_command(struct editor *ed, const char *command)
 			bool more = *end;
 			*end = 0;
 			if (!set_option(ed, option)) {
-				snprintf(ed->message, sizeof(ed->message),
-					 "Unknown option: %.230s", option);
+				if (!missing_option(ed, option))
+					snprintf(ed->message,
+						 sizeof(ed->message),
+						 "Unknown option: %.230s",
+						 option);
 				return;
 			}
 			option = more ? end + 1 : end;

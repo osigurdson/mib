@@ -750,7 +750,7 @@ void session_focus(struct app *app, bool focused)
 {
 	if (!app->root)
 		return;
-	if (!focused || app->editor.modified)
+	if (!focused || app->editor.modified || app->help)
 		return;
 	struct editor check = { 0 };
 	if (editor_open(&check, app->editor.filename)) {

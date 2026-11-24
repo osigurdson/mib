@@ -17,6 +17,11 @@ static char *copy_string(const char *value)
 
 bool editor_can_edit(struct editor *ed)
 {
+	if (ed->readonly) {
+		snprintf(ed->message, sizeof(ed->message),
+			 "Help is read-only (Esc closes it)");
+		return false;
+	}
 	if (ed->view != VIEW_READING)
 		return true;
 	snprintf(ed->message, sizeof(ed->message),

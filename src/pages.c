@@ -2,6 +2,7 @@
 #include "edit-internal.h"
 #include "media.h"
 #include "session.h"
+#include "help-text.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +13,7 @@
 #define ROOM_FIELDS                                                                                \
     X(text) X(filename) X(length) X(capacity) X(cursor) X(top) X(left) X(anchor)                   \
     X(desired_column) X(visual_first) X(visual_last) X(modified) X(crlf) X(revision)               \
-    X(saved_hash) X(history) X(context) X(jump_count) X(jump_index)
+    X(saved_hash) X(history) X(context) X(jump_count) X(jump_index) X(readonly)
 /* clang-format on */
 
 static void stash(struct editor *ed, struct page *page)
@@ -80,6 +81,78 @@ static bool load(struct app *app, unsigned index)
 	}
 	return ok;
 }
+/* Forget what was drawn or selected for the document that was shown. */
+static void reset_view(struct app *app)
+{
+	struct editor *ed = &app->editor;
+	app->beacon = true; /* show where the cursor is */
+	app->hover_start = app->hover_end = 0;
+	app->hover_open = false;
+	ed->mode = NORMAL;
+	ed->pending[0] = 0;
+	ed->match_start = ed->match_end = 0;
+	ed->search_hidden = true;
+	ed->message[0] = 0;
+	/* Positions cached for the previous document's text are no longer valid. */
+	app->markdown.valid = false;
+	app->media_scanned = false;
+	app->image_box = app->image_drag = app->image_hit = false;
+	app->context_menu = false;
+	app->page_map = false;
+	app->dirty = true;
+}
+void app_help_open(struct app *app)
+{
+	struct editor *ed = &app->editor;
+	if (app->help)
+		return;
+	if (!app->help_page.loaded) {
+		struct editor document = { 0 };
+		size_t n = sizeof(help_text) - 1;
+		if (!editor_open(&document, NULL) ||
+		    !editor_reserve(&document, n + 1)) {
+			editor_destroy(&document);
+			snprintf(ed->message, sizeof(ed->message),
+				 "Could not open help: out of memory");
+			return;
+		}
+		memcpy(document.text, help_text, n + 1);
+		document.length = n;
+		document.saved_hash = editor_hash(&document);
+		document.readonly = true;
+		stash(&document, &app->help_page);
+	}
+	editor_change_end(ed);
+	stash(ed, &app->help_return);
+	app->help_return.media = app->media;
+	app->media = NULL;
+	app->help_directory = app->directory;
+	app->directory = NULL;
+	unstash(ed, &app->help_page);
+	app->help = true;
+	reset_view(app);
+	app->beacon = false;
+	app->follow_cursor = true;
+}
+void app_help_close(struct app *app)
+{
+	struct editor *ed = &app->editor;
+	if (!app->help)
+		return;
+	editor_change_end(ed);
+	stash(ed, &app->help_page);
+	struct media *media = app->help_return.media;
+	unstash(ed, &app->help_return);
+	app->media = media;
+	app->directory = app->help_directory;
+	app->help_directory = NULL;
+	app->help = false;
+	reset_view(app);
+	app->follow_cursor = false; /* keep the document's scroll position */
+	/* Pick up changes made outside mib while help was shown, as on focus. */
+	session_focus(app, true);
+	media_tick(app);
+}
 bool app_page_switch(struct app *app, unsigned index)
 {
 	struct editor *ed = &app->editor;
@@ -87,6 +160,7 @@ bool app_page_switch(struct app *app, unsigned index)
 		return false;
 	if (index >= PAGE_COUNT)
 		return false;
+	app_help_close(app);
 	if (index == app->current)
 		return true;
 	char *folder = page_path(app, index, NULL);
@@ -112,19 +186,7 @@ bool app_page_switch(struct app *app, unsigned index)
 	free(app->directory);
 	app->directory = folder;
 	app->current = index;
-	app->beacon = true; /* show where this page's cursor is */
-	app->hover_start = app->hover_end = 0;
-	app->hover_open = false;
-	ed->mode = NORMAL;
-	ed->pending[0] = 0;
-	ed->match_start = ed->match_end = 0;
-	ed->search_hidden = true;
-	ed->message[0] = 0;
-	/* Positions cached for the previous page's text are no longer valid. */
-	app->markdown.valid = false;
-	app->media_scanned = false;
-	app->image_box = app->image_drag = app->image_hit = false;
-	app->context_menu = false;
+	reset_view(app);
 	/* Keep the page's own scroll position; a page shown for the first time follows its
      * cursor to the end instead. */
 	app->follow_cursor = fresh;
@@ -132,7 +194,6 @@ bool app_page_switch(struct app *app, unsigned index)
      * the page's image work. */
 	session_focus(app, true);
 	media_tick(app);
-	app->dirty = true;
 	return true;
 }
 void app_page_heading(struct app *app, unsigned index, char *heading,
@@ -256,6 +317,9 @@ bool app_pages_save(struct app *app)
 }
 void app_pages_close(struct app *app)
 {
+	app_help_close(app);
+	if (app->help_page.loaded)
+		free_page(&app->help_page);
 	for (unsigned i = 0; i < PAGE_COUNT; ++i)
 		if (app->pages[i].loaded)
 			free_page(&app->pages[i]);
