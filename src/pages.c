@@ -128,6 +128,8 @@ void app_help_open(struct app *app)
 	app->media = NULL;
 	app->help_directory = app->directory;
 	app->directory = NULL;
+	app->help_view = ed->view;
+	ed->view = VIEW_READING;
 	unstash(ed, &app->help_page);
 	app->help = true;
 	reset_view(app);
@@ -146,6 +148,7 @@ void app_help_close(struct app *app)
 	app->media = media;
 	app->directory = app->help_directory;
 	app->help_directory = NULL;
+	ed->view = app->help_view;
 	app->help = false;
 	reset_view(app);
 	app->follow_cursor = false; /* keep the document's scroll position */

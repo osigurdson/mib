@@ -415,8 +415,10 @@ static void help_document(void)
 	enum { WIDTH = 800, HEIGHT = 560 };
 	uint32_t *pixels = malloc(WIDTH * HEIGHT * sizeof(*pixels));
 	assert(pixels);
-	type(&app, ":help\n");
-	assert(app.help && app.editor.readonly && !app.editor.modified);
+	/* Help is shown in the reading view, whatever the page uses. */
+	type(&app, ":set view=source\n:help\n");
+	assert(app.help && app.editor.readonly && !app.editor.modified &&
+	       app.editor.view == VIEW_READING);
 	/* The text is docs/help.md, whatever it says. */
 	size_t length = sizeof(help_text) - 1;
 	assert(app.editor.length == length &&
@@ -469,7 +471,7 @@ static void help_document(void)
 	app_input(&app, KEY_ESCAPE, NULL);
 	assert(!app.help && !app.editor.readonly &&
 	       !strcmp(app.editor.text, "notes\n") && app.editor.modified &&
-	       app.editor.cursor == 0);
+	       app.editor.cursor == 0 && app.editor.view == VIEW_SOURCE);
 	type(&app, "x");
 	assert(!strcmp(app.editor.text, "otes\n"));
 	/* Opening it again goes back to where you were in it. */

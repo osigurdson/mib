@@ -214,7 +214,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:{n}`, `:$` | Go to line n, or the last line |
 | `:[range]s/pat/rep/[gi]` | Substitute, with `\( \) \| \+ \< \>`, `&` and `\1` |
 | `:[range]d`, `y`, `>`, `<`, `j` | Delete, yank, indent, dedent or join lines |
-| `:h`, `:help` | Open the help, a short read-only page of the most useful keys; `Esc` goes back |
+| `:h`, `:help` | Open the help, a short read-only page of the most useful keys, in the reading view; `Esc` goes back to your page and view |
 | `:ve`, `:version` | Show mib's version and commit, as `mib --version` does |
 | `:set view=source` | Editable plain source, with no Markdown styling or inline images |
 | `:set view=normal` | Editable styled source with inline images (default) |

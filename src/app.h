@@ -92,10 +92,12 @@ struct app {
 	struct page pages[PAGE_COUNT];
 	bool page_map, map_click;
 	/* :help shows the built-in help document (help_page) in place of the shown document,
-	 * which waits in help_return, with its media and folder, until Esc. */
+	 * which waits in help_return, with its media, folder and view, until Esc. Help is
+	 * always shown in the reading view. */
 	bool help;
 	struct page help_page, help_return;
 	char *help_directory;
+	enum view_mode help_view;
 	/* With Ctrl held, the link under the mouse (hover_start to hover_end, underlined) and
 	 * whether Ctrl+click there opens something, a link or an image. */
 	bool hover_open;

@@ -374,12 +374,14 @@ static void help_pages(const char *parent)
 	write_file(directory, "1/page.md", "changed");
 	app_input(&app, KEY_ESCAPE, NULL);
 	assert(!app.help && !strcmp(app.editor.text, "changed"));
-	/* Closing from help saves the page's place, not the help's. */
-	type(&app, ":help\n");
+	/* Closing from help saves the page's place and view, not the help's. */
+	type(&app, ":set view=source\n:help\n");
+	assert(app.editor.view == VIEW_READING);
 	app_close(&app);
 	assert(app_open(&app) && session_open(&app, directory) == 1);
 	assert(!app.help && app.current == 0 &&
-	       !strcmp(app.editor.text, "changed"));
+	       !strcmp(app.editor.text, "changed") &&
+	       app.editor.view == VIEW_SOURCE);
 	app_close(&app);
 	remove_notes(directory);
 }

@@ -207,7 +207,7 @@ static struct app_settings current_settings(const struct app *app)
 		.width = app->maximized ? app->restore_width : app->width,
 		.height = app->maximized ? app->restore_height : app->height,
 		.font_size = app->font_size,
-		.view = app->editor.view,
+		.view = app->help ? app->help_view : app->editor.view,
 		.colorscheme = app->editor.colorscheme,
 		.maximized = app->maximized,
 		.light = app->editor.light,
