@@ -25,7 +25,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             pkg-config libwayland-dev libxkbcommon-dev wayland-protocols
       - run: make
-      - run: make test
+      # The tests build with AddressSanitizer and UBSan (TEST_SANITIZE in the Makefile); the
+      # packaged binary comes from the plain make above.
+      - name: Test under AddressSanitizer and UBSan
+        run: make -j"$(nproc)" test
       - name: Check formatting
         run: make format-check CLANG_FORMAT="pipx run clang-format==23.1.4"
       - name: Package
