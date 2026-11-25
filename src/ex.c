@@ -268,7 +268,7 @@ static bool missing_option(struct editor *ed, const char *option)
 		const char *name, *short_name, *message;
 	} options[] = {
 		{ "textwidth", "tw",
-		  "mib has no textwidth: :set wrapwidth=N soft-wraps, gq hard-wraps at 79" },
+		  "mib has no textwidth: :set wrapwidth=N soft-wraps" },
 		{ "wrap", "wrap",
 		  "mib always soft-wraps; :set wrapwidth=N sets where" },
 		{ "linebreak", "lbr", "mib always wraps at word boundaries" },

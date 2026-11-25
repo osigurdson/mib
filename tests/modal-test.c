@@ -430,27 +430,20 @@ static void marks_and_jumps(void)
 	assert(ed.cursor == 0 && !ed.message[0]);
 }
 
+/* gq isn't supported (there is no textwidth), but it takes its motion so the keys after it
+ * don't run as commands. */
 static void format(void)
 {
-	reset("one two\nthree\n\n![](assets/a.png)\nfour\nfive\n");
-	keys("gqG");
-	expect("one two three\n\n![](assets/a.png)\nfour five\n");
-	assert(editor_line_number(&ed, ed.cursor) == 3);
-	keys("u");
-	expect("one two\nthree\n\n![](assets/a.png)\nfour\nfive\n");
-	char line[200] = "  ";
-	for (unsigned i = 0; i < 20; ++i)
-		strcat(line, "word ");
-	strcat(line, "\n");
-	reset(line);
+	const char *text = "one two\nthree\n";
+	reset(text);
+	keys("gqip");
+	expect(text);
+	assert(ed.mode == NORMAL && strstr(ed.message, "not supported"));
 	keys("gqq");
-	expect("  word word word word word word word word word word word word word word word\n"
-	       "  word word word word word \n");
-	assert(ed.cursor ==
-	       strlen("  word word word word word word word word word word word word word word word\n  "));
-	editor_command(&ed, "set view=reading");
-	keys("gq");
-	assert(strstr(ed.message, "read-only"));
+	expect(text);
+	keys("Vjgq");
+	expect(text);
+	assert(ed.mode == NORMAL && strstr(ed.message, "not supported"));
 }
 
 static void replace_mode(void)

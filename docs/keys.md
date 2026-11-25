@@ -69,7 +69,6 @@ are forgotten when the page is reloaded.
 | `r` | Replace a character |
 | `~` | Toggle case |
 | `gu` `gU` `g~` | Lowercase, uppercase or toggle case: follow with a motion or text object, or double the last key (`gUU`) for the line |
-| `gq` | Rewrap to 79 columns: follow with a motion or text object (`gqip`), use `gqq` for lines, or select first. Paragraphs keep their first line's indent, and image lines stay on their own |
 | `u` `Ctrl+R` | Undo, redo (one insert session is one undo step) |
 | `.` | Repeat the last change, including any text typed in insert mode; a count replaces the original one |
 
@@ -86,7 +85,7 @@ Put `"` and a register name before a yank, delete, change or put, such as `"ayy`
 | `"_` | Nothing: deletes into it leave the clipboard and other registers alone |
 | `"+` `"*` `""` | The system clipboard, the same as no register |
 
-In visual mode, `d` `y` `c` `<` `>` act on the selection, `gq` rewraps it, `J` joins, `u` `U` `~` change case, `p` replaces, and `o` jumps to the other end. `.` doesn't repeat changes made in visual mode.
+In visual mode, `d` `y` `c` `<` `>` act on the selection, `J` joins, `u` `U` `~` change case, `p` replaces, and `o` jumps to the other end. `.` doesn't repeat changes made in visual mode.
 
 ## Text objects
 
@@ -226,7 +225,7 @@ Press `:` to open it. Up and Down browse your history.
 | `:set rnu`, `:set nornu`, `:set rnu!` | Show, hide or toggle relative line numbers (`relativenumber`) |
 | `:set nu?`, `:set rnu?` | Show the option; `inv` toggles, `&` restores the default, and several options can follow one `:set` |
 | `:set cc=80`, `:set cc=72,80`, `:set cc=` | Shade columns as a guide (`colorcolumn`): a comma list of columns. `cc+=` adds a column and `cc-=` removes one. The band takes the color scheme's ColorColumn color, kept subtle, and isn't shown in the reading view |
-| `:set wrapwidth=72`, `:set wrapwidth=0` | Soft-wrap after column 72, or at the window edge if that comes first; the file keeps its long lines. The default is 80, `&` restores it, and 0 wraps at the window edge. The reading view uses it as its width (80 when it is 0). It draws nothing itself: pair it with `:set cc=81` for a page edge. Typing never adds line breaks (mib has no `textwidth`); `gq` hard-wraps at 79 when you want it. Vim and Neovim don't have it yet; the name follows their open proposals |
+| `:set wrapwidth=72`, `:set wrapwidth=0` | Soft-wrap after column 72, or at the window edge if that comes first; the file keeps its long lines. The default is 80, `&` restores it, and 0 wraps at the window edge. The reading view uses it as its width (80 when it is 0). It draws nothing itself: pair it with `:set cc=81` for a page edge. Vim and Neovim don't have `wrapwidth` yet; the name follows their open proposals. Typing never adds line breaks: mib has no `textwidth` or `gq` |
 | `:set cc?`, `:set wrapwidth?` | Show the option. Both are kept in `~/.config/mib/config` with the other settings |
 | `:colorscheme {name}`, `:colo {name}` | Choose mib, tokyonight, catppuccin, kanagawa, or everforest |
 | `:colorscheme` | Show the active scheme |

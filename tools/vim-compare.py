@@ -24,7 +24,8 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 # Vim settings that match mib's fixed behaviour: 4-space indents, kept indentation,
-# smart-case search, single-space joins and 79-column gq.
+# smart-case search and single-space joins. textwidth=79 shows where Vim would hard-wrap,
+# which mib never does.
 VIM_SETUP = ['set nocompatible', 'set expandtab shiftwidth=4 tabstop=4 softtabstop=0 autoindent',
              'set ignorecase smartcase nojoinspaces textwidth=79 nrformats=bin,hex',
              'call cursor(1, 1)']
