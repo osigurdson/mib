@@ -1835,7 +1835,8 @@ static void record(struct editor *ed, enum editor_key key, const char *text)
 	at[0] = (unsigned char)key;
 	for (unsigned i = 0; i < 4; ++i)
 		at[1 + i] = (unsigned char)(n >> (8 * i));
-	memcpy(at + 5, text, n);
+	if (n) /* text is NULL for keys without any */
+		memcpy(at + 5, text, n);
 	ed->dot_record_length = need;
 }
 static size_t event(const unsigned char *data, size_t at, enum editor_key *key,

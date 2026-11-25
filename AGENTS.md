@@ -26,7 +26,8 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 
 ## Checks
 
-- `make test`: unit and integration tests. Add modal behaviour tests to `tests/modal-test.c`.
+- `make test`: unit and integration tests, built with AddressSanitizer and UBSan
+  (`TEST_SANITIZE=` turns them off). Add modal behaviour tests to `tests/modal-test.c`.
 - `make format-check`: C files follow `.clang-format`; run `make format` before committing.
   `make compile-commands` writes the clangd database (gitignored); `.inc` files are excluded.
 - `make windows`: cross-compiles the Windows build; run it after touching shared or Windows code.

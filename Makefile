@@ -119,15 +119,19 @@ test-windows: windows
 	WINEPREFIX="$(WINEPREFIX)" WINEARCH="$(WINEARCH)" WINEDEBUG="$(WINEDEBUG)" \
 		./tools/test-wine.sh "$(abspath $(WINDOWS_BUILD_DIR))"
 
+# The tests run under AddressSanitizer and UndefinedBehaviorSanitizer, so an out-of-bounds
+# access or overflow they reach fails the run. Pass TEST_SANITIZE= to build them without.
+TEST_SANITIZE ?= -fsanitize=address,undefined -fno-sanitize-recover=all
+
 editor-test: $(TEST_BIN)/editor-test
 
 $(TEST_BIN)/editor-test: tests/editor-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(HEADERS) $(FILES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/editor-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(FILES) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(LDFLAGS) -o $@ tests/editor-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(FILES) $(LDLIBS)
 
 client-test: $(TEST_BIN)/client-test
 
 $(TEST_BIN)/client-test: tests/client-test.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/client-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(shell $(PKG_CONFIG) --libs wayland-server) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/client-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(shell $(PKG_CONFIG) --libs wayland-server) $(LDLIBS)
 
 image-test: $(TEST_BIN)/image-test
 
@@ -141,37 +145,37 @@ $(TEST_BIN)/image-test: tests/image-test.c src/image.c $(HEADERS) | $(TEST_BIN)
 font-test: $(TEST_BIN)/font-test
 
 $(TEST_BIN)/font-test: tests/font-test.c src/tiny-font.c $(HEADERS) $(FONT_DATA) $(MEMORY) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/font-test.c $(MEMORY) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(LDFLAGS) -o $@ tests/font-test.c $(MEMORY) $(LDLIBS)
 
 app-test: $(TEST_BIN)/app-test
 
 $(TEST_BIN)/app-test: tests/app-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/app-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(LDFLAGS) -o $@ tests/app-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
 modal-test: $(TEST_BIN)/modal-test
 
 $(TEST_BIN)/modal-test: tests/modal-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(HEADERS) $(FILES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/modal-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(FILES) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(LDFLAGS) -o $@ tests/modal-test.c src/editor.c src/keys.c src/ex.c src/history.c src/substitute.c $(FILES) $(LDLIBS)
 
 session-test: $(TEST_BIN)/session-test
 
 $(TEST_BIN)/session-test: tests/session-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/session-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(LDFLAGS) -o $@ tests/session-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
 media-test: $(TEST_BIN)/media-test
 
 $(TEST_BIN)/media-test: tests/media-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/media-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(LDFLAGS) -o $@ tests/media-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
 ocr-test: $(TEST_BIN)/ocr-test
 
 $(TEST_BIN)/ocr-test: tests/ocr-test.c $(CORE) $(HEADERS) $(FONT_DATA) $(MEMORY) $(FILES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ tests/ocr-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(LDFLAGS) -o $@ tests/ocr-test.c $(CORE) $(MEMORY) $(FILES) $(LDLIBS)
 
 clipboard-test: $(TEST_BIN)/clipboard-test
 
 $(TEST_BIN)/clipboard-test: tests/clipboard-test.c $(CORE) $(HEADERS) $(MEMORY) $(FILES) $(WINDOW) $(FONT_DATA) $(PROTOCOL_HEADERS) $(PROTOCOL_SOURCES) | $(TEST_BIN)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/clipboard-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(shell $(PKG_CONFIG) --libs wayland-server) $(LDLIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_SANITIZE) $(INCLUDES) $(WAYLAND_CFLAGS) $(LDFLAGS) -o $@ tests/clipboard-test.c $(CORE) $(MEMORY) $(FILES) $(PROTOCOL_SOURCES) $(WAYLAND_LIBS) $(shell $(PKG_CONFIG) --libs wayland-server) $(LDLIBS)
 
 OPTIONAL_OCR_TEST := $(if $(shell command -v tesseract 2>/dev/null),ocr-test)
 
