@@ -1,8 +1,9 @@
 # mib font format (TVF1)
 
-TVF1 is a deliberately restricted, little-endian outline subset. The 19,164-byte
-bundled file contains 134 glyphs from one static JetBrains Mono Nerd Font Mono
-Regular TTF. It is embedded as read-only bytes in `mib`; the runtime never
+TVF1 is a deliberately restricted, little-endian outline subset. The 92,886-byte
+bundled file contains 529 glyphs from one static JetBrains Mono Nerd Font Mono
+Regular TTF: ASCII, the Latin, Greek and Cyrillic letters of European languages,
+punctuation, and a few symbols and icons. It is embedded as read-only bytes in `mib`; the runtime never
 opens the TTF or any system font. The regenerated derivative is named **Mib Mono
 Subset**, with upstream copyright and licensing retained in `fonts/`.
 

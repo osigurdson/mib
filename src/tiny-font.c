@@ -71,7 +71,7 @@ static bool valid_font(const unsigned char *data, size_t size)
 	if (size < HEADER_BYTES || memcmp(data, "TVF1", 4) || !u16(data + 4) ||
 	    !u16(data + 6) || u16(data + 14) ||
 	    s16(data + 8) <= s16(data + 10) || !u16(data + 16) ||
-	    u16(data + 16) > 512 || u16(data + 18) != RECORD_BYTES ||
+	    u16(data + 16) > 1024 || u16(data + 18) != RECORD_BYTES ||
 	    u32(data + 20) != HEADER_BYTES || u32(data + 28) != size)
 		return false;
 	unsigned count = u16(data + 16);
