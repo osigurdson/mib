@@ -60,9 +60,14 @@ README.md covers building and testing; docs/keys.md is the user-facing key refer
 
 ## Change workflow
 
-For each change: implement it with the checks above passing, commit it on `main`, then run
-`make install` so `~/.local/bin/mib` is the build the user tries. Restart mib to pick up a
-new install; an open window keeps the old binary and owns its page.
+For each change:
+
+1. Implement it and run `make install` straight away, without the slower checks, so
+   `~/.local/bin/mib` is the build the user tries. Restart mib to pick up a new install; an
+   open window keeps the old binary and owns its page.
+2. Wait for the user to try it. Fix what they find and install again.
+3. Once they say it looks good, run the checks above (`make test`, `make format-check`, and
+   `make windows` for shared or Windows code), then commit it on `main`.
 
 ## Vim parity workflow
 
