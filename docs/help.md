@@ -16,5 +16,9 @@
 - `y` on an image: copy it, ready to paste into other apps
 - `gx`, double-click: open the image in your image viewer
 
+## Updating
+- To update mib, run the install command again: `curl -fsSL https://osigurdson.github.io/mib/install.sh | sh`
+- That is all it takes. It installs the latest release over the old one and checks its checksum first.
+
 ## More
 Every key and command: https://github.com/osigurdson/mib/blob/main/docs/keys.md
