@@ -66,7 +66,7 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 	app->beacon_at = 0;
 	app->hover_start = app->hover_end = 0;
 	app->hover_open = false;
-	app->code_hover = app->code_button_hover = false;
+	app->code_hover = app->code_button_hover = app->code_copied = false;
 	bool digit = key == KEY_TEXT && text && text[0] >= '1' &&
 		     text[0] <= '9' && !text[1];
 	if (app->help) {
@@ -463,6 +463,7 @@ static void copy_code(struct app *app)
 		return;
 	editor_yank(ed, from, to, true, true);
 	app_toast(app, "Code copied");
+	app->code_copied = true;
 	if (!(ed->requests & ED_COPY))
 		return;
 	ed->requests &= ~ED_COPY;
@@ -586,6 +587,9 @@ bool app_hover(struct app *app, int x, int y, bool control)
 	if (code != app->code_hover || from != app->code_from ||
 	    button != app->code_button_hover)
 		app->dirty = true;
+	/* Copied belongs to the block that was copied: another block, or none, says Copy. */
+	if (!code || from != app->code_from)
+		app->code_copied = false;
 	app->code_hover = code;
 	app->code_from = from;
 	app->code_to = to;

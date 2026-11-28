@@ -107,8 +107,9 @@ struct app {
 	/* In the reading view, the fenced code block under the mouse (code_hover; its text runs
 	 * from code_from to code_to) shows a Copy button at the top right of its first row on
 	 * screen. code_button is whether the last paint drew it, in this box in physical pixels,
-	 * and code_button_hover whether the mouse is over it. */
-	bool code_hover, code_button, code_button_hover;
+	 * and code_button_hover whether the mouse is over it. code_copied: this block's button
+	 * was clicked, so it says Copied while the toast lasts or until the mouse leaves it. */
+	bool code_hover, code_button, code_button_hover, code_copied;
 	size_t code_from, code_to;
 	int code_button_x, code_button_y, code_button_w, code_button_h;
 	/* The cursor's row lights up and fades on opening and page switches, so it is easy to

@@ -510,6 +510,70 @@ static void code_copy_button(void)
 	       !app.code_button);
 	app_close(&app);
 }
+/* Whether two paints match inside the Copy button's box. */
+static bool same_button(const struct app *app, const uint32_t *a,
+			const uint32_t *b, int stride)
+{
+	for (int y = app->code_button_y;
+	     y < app->code_button_y + app->code_button_h; ++y)
+		if (memcmp(a + (size_t)y * stride + app->code_button_x,
+			   b + (size_t)y * stride + app->code_button_x,
+			   (size_t)app->code_button_w * sizeof(*a)))
+			return false;
+	return true;
+}
+/* Copied shows only on the block that was copied: another block's button, or the same one
+ * after the mouse has left it, says Copy again. */
+static void code_copied_label(void)
+{
+	/* "one" starts at 4 and "two" at 17. */
+	static const char page[] = "```\none\n```\n\n```\ntwo\n```\n";
+	enum { WIDTH = 640, HEIGHT = 240 };
+	static uint32_t one[WIDTH * HEIGHT], one_copied[WIDTH * HEIGHT],
+		one_again[WIDTH * HEIGHT], two[WIDTH * HEIGHT],
+		two_after[WIDTH * HEIGHT];
+	struct app app;
+	assert(app_open(&app));
+	assert(editor_replace(&app.editor, 0, 0, page, sizeof(page) - 1));
+	app.editor.cursor = 0;
+	type(&app, ":set view=reading\n");
+	assert(app_paint(&app, one, WIDTH, HEIGHT, WIDTH));
+	int x = app.text_x + app.cell / 2, row_one = -1, row_two = -1;
+	for (int y = app.title_height + app.padding;
+	     y < app.title_height + app.padding + app.text_height; ++y) {
+		size_t at = app_hit_test(&app, x, y);
+		if (at == 4 && row_one < 0)
+			row_one = y;
+		if (at == 17 && row_two < 0)
+			row_two = y;
+	}
+	assert(row_one >= 0 && row_two > row_one);
+	app_hover(&app, x, row_two, false);
+	assert(app_paint(&app, two, WIDTH, HEIGHT, WIDTH) && app.code_button);
+	app_hover(&app, x, row_one, false);
+	assert(app_paint(&app, one, WIDTH, HEIGHT, WIDTH) && app.code_button);
+	/* Click the first block's button: it says Copied. */
+	int button_x = app.code_button_x + app.code_button_w / 2,
+	    button_y = app.code_button_y + app.code_button_h / 2;
+	app_hover(&app, button_x, button_y, false);
+	app_pointer(&app, button_x, button_y, false);
+	app_pointer_release(&app);
+	app_hover(&app, x, row_one, false);
+	assert(app.code_copied && !strcmp(app.editor.register_text, "one\n"));
+	assert(app_paint(&app, one_copied, WIDTH, HEIGHT, WIDTH));
+	assert(!same_button(&app, one, one_copied, WIDTH));
+	/* While the toast still shows, the second block says Copy. */
+	app_hover(&app, x, row_two, false);
+	assert(!app.code_copied && app.toast[0]);
+	assert(app_paint(&app, two_after, WIDTH, HEIGHT, WIDTH));
+	assert(same_button(&app, two, two_after, WIDTH));
+	/* Back on the first block, it is Copy again. */
+	app_hover(&app, x, row_one, false);
+	assert(!app.code_copied);
+	assert(app_paint(&app, one_again, WIDTH, HEIGHT, WIDTH));
+	assert(same_button(&app, one, one_again, WIDTH));
+	app_close(&app);
+}
 /* :help shows the built-in help document in place of the page, read-only, until Esc. */
 static void help_document(void)
 {
@@ -1210,6 +1274,7 @@ int main(void)
 	help_document();
 	code_blocks();
 	code_copy_button();
+	code_copied_label();
 	markdown_notes();
 	markdown_tables();
 	normal_markdown_styles();

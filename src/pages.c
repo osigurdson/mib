@@ -88,7 +88,7 @@ static void reset_view(struct app *app)
 	app->beacon = true; /* show where the cursor is */
 	app->hover_start = app->hover_end = 0;
 	app->hover_open = false;
-	app->code_hover = app->code_button_hover = false;
+	app->code_hover = app->code_button_hover = app->code_copied = false;
 	ed->mode = NORMAL;
 	ed->pending[0] = 0;
 	ed->match_start = ed->match_end = 0;

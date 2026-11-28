@@ -1169,11 +1169,12 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 			break;
 		start = next;
 	}
-	/* The Copy button sits over the top right of the block, and says Copied while the
-	 * toast does. Both labels fit the same box, so it doesn't jump. */
+	/* The Copy button sits over the top right of the block. Once clicked it says Copied
+	 * while the toast lasts; both labels fit the same box, so it doesn't jump. */
 	int button_width = 8 * cell;
 	if (button_y >= 0 && text_width >= 2 * button_width) {
-		bool copied = !strcmp(app->toast, "Code copied");
+		bool copied = app->code_copied &&
+			      !strcmp(app->toast, "Code copied");
 		const char *label = copied ? "Copied" : "Copy";
 		int button_x = text_x + text_width - button_width;
 		bool over = app->code_button_hover;
