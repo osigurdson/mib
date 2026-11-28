@@ -22,6 +22,12 @@ If Tesseract is available on your machine, mib will OCR the text in the images t
 ## Themes
 Despite its small size, mib has dark / light modes and even a few built in themes (mib - default, tokyonight, catppuccin, kanagawa and everforest).  
 
+## Languages
+To save memory, mib draws text from a small built-in font rather than system font libraries.
+It covers most European languages (Latin, Greek and Cyrillic scripts). If you need another
+language, [open an issue](https://github.com/osigurdson/mib/issues) and I'm happy to add it.
+I only know English, so please also let me know if anything looks off in your language.
+
 ## Install
 
 On Linux (x86_64, Wayland, glibc 2.39 or newer):
