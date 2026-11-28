@@ -362,6 +362,38 @@ char editor_fence(const struct editor *ed, size_t p)
 		       ed->text[p] :
 		       0;
 }
+bool editor_code_block(const struct editor *ed, size_t position, size_t *from,
+		       size_t *to)
+{
+	char fence = 0;
+	size_t open = 0, body = 0, line = 0;
+	for (;;) {
+		size_t end = editor_line_end(ed, line);
+		char marker = editor_fence(ed, line);
+		if (!fence && marker) {
+			fence = marker;
+			open = line;
+			body = end < ed->length ? end + 1 : end;
+		} else if (fence && marker == fence) {
+			if (position >= open && position <= end) {
+				*from = body;
+				*to = line > body ? line - 1 : body;
+				return true;
+			}
+			fence = 0;
+		}
+		if (end >= ed->length)
+			break;
+		line = end + 1;
+	}
+	/* As in the rendering, a block still open at the end runs to the end. */
+	if (fence && position >= open) {
+		*from = body;
+		*to = ed->length;
+		return true;
+	}
+	return false;
+}
 bool editor_heading(const struct editor *ed, size_t p)
 {
 	size_t start = editor_line_start(ed, p), end = editor_line_end(ed, p);

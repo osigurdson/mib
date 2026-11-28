@@ -90,7 +90,9 @@ struct app {
 	unsigned current, map_choice;
 	char *root; /* The notes folder holding 1/ to 9/; NULL for explicit files. */
 	struct page pages[PAGE_COUNT];
-	bool page_map, map_click;
+	/* click_handled: the press already did its job (closed the page list or pressed a
+	 * button), so the rest of the click, its drag, selects nothing. */
+	bool page_map, click_handled;
 	/* :help shows the built-in help document (help_page) in place of the shown document,
 	 * which waits in help_return, with its media, folder and view, until Esc. Help is
 	 * always shown in the reading view. */
@@ -102,6 +104,13 @@ struct app {
 	 * whether Ctrl+click there opens something, a link or an image. */
 	bool hover_open;
 	size_t hover_start, hover_end;
+	/* In the reading view, the fenced code block under the mouse (code_hover; its text runs
+	 * from code_from to code_to) shows a Copy button at the top right of its first row on
+	 * screen. code_button is whether the last paint drew it, in this box in physical pixels,
+	 * and code_button_hover whether the mouse is over it. */
+	bool code_hover, code_button, code_button_hover;
+	size_t code_from, code_to;
+	int code_button_x, code_button_y, code_button_w, code_button_h;
 	/* The cursor's row lights up and fades on opening and page switches, so it is easy to
 	 * find: beacon starts it at the next paint, which sets beacon_at (session_now ms). */
 	bool beacon;
@@ -122,8 +131,9 @@ size_t app_hit_test(struct app *app, int logical_x, int logical_y);
 void app_scroll(struct app *app, int rows);
 void app_context(struct app *app, int x, int y);
 void app_pointer(struct app *app, int x, int y, bool extend);
-/* The mouse is at logical (x, y) with Ctrl held or not: track the link under it. Returns
- * whether a Ctrl+click there would open something. */
+/* The mouse is at logical (x, y), or (-1, -1) once it leaves the window, with Ctrl held or
+ * not: track the link and the code block under it. Returns whether the pointer there should
+ * be a hand: a Ctrl+click would open something, or it is over a Copy button. */
 bool app_hover(struct app *app, int x, int y, bool control);
 /* Whether a double click just selected an image, which it then opens; links need Ctrl. */
 bool app_double_click_opens(struct app *app);

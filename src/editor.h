@@ -168,6 +168,10 @@ bool editor_reload(struct editor *ed);
 void editor_command(struct editor *ed, const char *command);
 bool editor_match_at(const struct editor *ed, size_t position);
 char editor_fence(const struct editor *ed, size_t position);
+/* Whether POSITION is in a fenced code block, fence lines included. FROM and TO bound the
+ * text between the fences, without the line break before the closing fence. */
+bool editor_code_block(const struct editor *ed, size_t position, size_t *from,
+		       size_t *to);
 bool editor_heading(const struct editor *ed, size_t position);
 void editor_search(struct editor *ed, bool forward, unsigned count);
 bool editor_selection(const struct editor *ed, size_t *from, size_t *to,

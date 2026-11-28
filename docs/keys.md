@@ -260,6 +260,8 @@ In the reading view, movement,
 search, visual selection, copying, saving and link/image opening remain available.
 Typing, paste, drops, deletion, substitutions, undo and redo are blocked. Switch
 to the source or normal view to edit. Copies retain the selected Markdown source.
+Moving the mouse over a fenced code block shows a **Copy** button at its top right; clicking
+it copies the code between the fences, ready to paste into a terminal.
 
 ## Window
 

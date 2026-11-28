@@ -17,8 +17,12 @@
 - `gx`, double-click: open the image in your image viewer
 
 ## Updating
-- To update mib, run the install command again: `curl -fsSL https://osigurdson.github.io/mib/install.sh | sh`
-- That is all it takes. It installs the latest release over the old one and checks its checksum first.
+To update mib, run the install command again. That is all it takes: it installs the latest
+release over the old one and checks its checksum first. To copy the command below, move the mouse over it and click Copy.
+
+```sh
+curl -fsSL https://osigurdson.github.io/mib/install.sh | sh
+```
 
 ## More
 Every key and command: https://github.com/osigurdson/mib/blob/main/docs/keys.md

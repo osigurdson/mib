@@ -405,6 +405,111 @@ static void type(struct app *app, const char *keys)
 			app_input(app, KEY_TEXT, text);
 	}
 }
+/* The fence finder behind the Copy button: fence lines belong to their block, whose text runs
+ * between the fences; a block left open runs to the end. */
+static void code_blocks(void)
+{
+	/* The opening fence starts at 2, "echo hi" at 14, the closing fence at 22, "b" at 26. */
+	static const char page[] =
+		"a\n```sh\nls -l\necho hi\n```\nb\n~~~\nopen";
+	struct editor ed = { 0 };
+	assert(editor_open(&ed, NULL));
+	assert(editor_replace(&ed, 0, 0, page, sizeof(page) - 1));
+	size_t from, to;
+	static const size_t inside[] = { 2, 8, 14, 21, 22, 25 };
+	for (size_t i = 0; i < sizeof(inside) / sizeof(*inside); ++i)
+		assert(editor_code_block(&ed, inside[i], &from, &to) &&
+		       from == 8 && to == 21);
+	assert(!editor_code_block(&ed, 0, &from, &to));
+	assert(!editor_code_block(&ed, 26, &from, &to));
+	assert(editor_code_block(&ed, ed.length, &from, &to) && from == 32 &&
+	       to == ed.length);
+	editor_destroy(&ed);
+}
+/* In the reading view, moving the mouse over a fenced code block shows a Copy button at the
+ * top right of its first row. Clicking it copies the code without moving the cursor, and the
+ * rest of that click selects nothing. Keys and leaving the window hide it; other views and
+ * text outside blocks never show it, and y stays the yank operator. */
+static void code_copy_button(void)
+{
+	static const char page[] = "a\n```sh\nls -l\necho hi\n```\nb\n";
+	enum { WIDTH = 640, HEIGHT = 240 };
+	static uint32_t plain[WIDTH * HEIGHT], shown[WIDTH * HEIGHT];
+	struct app app;
+	assert(app_open(&app));
+	assert(editor_replace(&app.editor, 0, 0, page, sizeof(page) - 1));
+	app.editor.cursor = 0;
+	type(&app, ":set view=reading\n");
+	assert(app_paint(&app, plain, WIDTH, HEIGHT, WIDTH));
+	assert(!app.code_button);
+	/* The rows of "a", "ls -l" and "echo hi", found by hit-testing down the text. */
+	int x = app.text_x + app.cell / 2, row_a = -1, row_ls = -1,
+	    row_echo = -1;
+	for (int y = app.title_height + app.padding;
+	     y < app.title_height + app.padding + app.text_height; ++y) {
+		size_t at = app_hit_test(&app, x, y);
+		if (at == 0 && row_a < 0)
+			row_a = y;
+		if (at == 8 && row_ls < 0)
+			row_ls = y;
+		if (at == 14 && row_echo < 0)
+			row_echo = y;
+	}
+	assert(row_a >= 0 && row_ls > row_a && row_echo > row_ls);
+	assert(!app_hover(&app, x, row_a, false) && !app.code_hover);
+	/* Over the block's second row, the button goes on its first. */
+	app.dirty = false;
+	assert(!app_hover(&app, x, row_echo, false) && app.code_hover &&
+	       app.dirty && app.code_from == 8 && app.code_to == 21);
+	assert(app_paint(&app, shown, WIDTH, HEIGHT, WIDTH));
+	assert(app.code_button && memcmp(plain, shown, sizeof(plain)));
+	assert(app.code_button_y <= row_ls &&
+	       row_ls < app.code_button_y + app.code_button_h &&
+	       app.code_button_x + app.code_button_w ==
+		       app.text_x + app.text_width);
+	/* Over the button, the pointer is a hand. */
+	int button_x = app.code_button_x + app.code_button_w / 2,
+	    button_y = app.code_button_y + app.code_button_h / 2;
+	assert(app_hover(&app, button_x, button_y, false) &&
+	       app.code_button_hover);
+	/* Clicking it copies, and dragging from it selects nothing. */
+	app_pointer(&app, button_x, button_y, false);
+	assert(app.editor.register_text &&
+	       !strcmp(app.editor.register_text, "ls -l\necho hi\n") &&
+	       app.editor.register_linewise && app.editor.cursor == 0 &&
+	       !strcmp(app.toast, "Code copied") &&
+	       !strcmp(app.editor.text, page));
+	app_pointer(&app, x, row_echo, true);
+	assert(app.editor.mode == NORMAL && app.editor.cursor == 0);
+	app_pointer_release(&app);
+	/* A click elsewhere moves the cursor as before. */
+	app_pointer(&app, x, row_echo, false);
+	assert(app.editor.cursor == 14);
+	/* Leaving the window hides the button, and so does a key. */
+	assert(!app_hover(&app, -1, -1, false) && !app.code_hover);
+	assert(app_paint(&app, shown, WIDTH, HEIGHT, WIDTH) &&
+	       !app.code_button);
+	app_hover(&app, x, row_echo, false);
+	assert(app.code_hover);
+	app_input(&app, KEY_TEXT, "k");
+	assert(!app.code_hover && !app.code_button_hover);
+	assert(app_paint(&app, shown, WIDTH, HEIGHT, WIDTH) &&
+	       !app.code_button);
+	/* y in a block is still the yank operator, waiting for its motion. */
+	app.editor.cursor = 14;
+	type(&app, "y");
+	assert(!strcmp(app.editor.pending, "y"));
+	app_input(&app, KEY_ESCAPE, NULL);
+	/* Other views show no button. */
+	type(&app, ":set view=normal\n");
+	assert(app_paint(&app, shown, WIDTH, HEIGHT, WIDTH));
+	app_hover(&app, x, app.title_height + app.padding + app.line_height * 2,
+		  false);
+	assert(!app.code_hover);
+	assert(app_paint(&app, shown, WIDTH, HEIGHT, WIDTH) &&
+	       !app.code_button);
+	app_close(&app);
+}
 /* :help shows the built-in help document in place of the page, read-only, until Esc. */
 static void help_document(void)
 {
@@ -1103,6 +1208,8 @@ int main(void)
 	rounded_window();
 	render_modes();
 	help_document();
+	code_blocks();
+	code_copy_button();
 	markdown_notes();
 	markdown_tables();
 	normal_markdown_styles();

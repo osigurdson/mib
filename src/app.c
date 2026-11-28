@@ -1,4 +1,5 @@
 #include "app.h"
+#include "edit-internal.h"
 #include "media.h"
 #include "session.h"
 #include <stdio.h>
@@ -57,13 +58,15 @@ void app_input(struct app *app, enum editor_key key, const char *text)
 	app->ocr_retry = false;
 	app->image_hit = false;
 	uint64_t search_serial = app->editor.search_serial;
-	/* Typing means the cursor has been found, and may move the hovered link's text. */
-	if (app->beacon_at || app->hover_end)
+	/* Typing means the cursor has been found, and may move the hovered link's text or code
+     * block; the mouse finds them again when it moves. */
+	if (app->beacon_at || app->hover_end || app->code_hover)
 		app->dirty = true;
 	app->beacon = false;
 	app->beacon_at = 0;
 	app->hover_start = app->hover_end = 0;
 	app->hover_open = false;
+	app->code_hover = app->code_button_hover = false;
 	bool digit = key == KEY_TEXT && text && text[0] >= '1' &&
 		     text[0] <= '9' && !text[1];
 	if (app->help) {
@@ -425,7 +428,7 @@ static void drag_image(struct app *app, int x, int y)
 }
 void app_pointer_release(struct app *app)
 {
-	app->map_click = false;
+	app->click_handled = false;
 	if (!app->image_drag)
 		return;
 	app->image_drag = false;
@@ -438,14 +441,42 @@ void app_pointer_release(struct app *app)
 		 (int)((app->drag_width * 120 + scale / 2) / scale));
 	media_resize(&app->editor, app->image_box_start, spec, app);
 }
+/* Whether logical (x, y) is on the Copy button the last paint drew. */
+static bool over_code_button(const struct app *app, int x, int y)
+{
+	int px = (int)((int64_t)x * app->scale120 / 120),
+	    py = (int)((int64_t)y * app->scale120 / 120);
+	return app->code_button && app->code_hover &&
+	       px >= app->code_button_x &&
+	       px < app->code_button_x + app->code_button_w &&
+	       py >= app->code_button_y &&
+	       py < app->code_button_y + app->code_button_h;
+}
+/* The Copy button: copy the hovered code block's text, leaving the cursor where it is. Its
+ * bounds are found again, so a change since the mouse moved can't copy the wrong text. */
+static void copy_code(struct app *app)
+{
+	struct editor *ed = &app->editor;
+	size_t from, to;
+	app->dirty = true;
+	if (!editor_code_block(ed, app->code_from, &from, &to) || to <= from)
+		return;
+	editor_yank(ed, from, to, true, true);
+	app_toast(app, "Code copied");
+	if (!(ed->requests & ED_COPY))
+		return;
+	ed->requests &= ~ED_COPY;
+	if (app->service)
+		app->service(app, ED_COPY, app->service_data);
+}
 void app_pointer(struct app *app, int x, int y, bool extend)
 {
 	app->ocr_retry = false;
 	app->image_hit = false;
 	struct editor *ed = &app->editor;
-	if (app->map_click && extend)
-		return; /* The rest of the click that closed the map. */
-	app->map_click = false;
+	if (app->click_handled && extend)
+		return; /* The rest of a click that closed the map or pressed a button. */
+	app->click_handled = false;
 	if (app->page_map) {
 		/* A click on a page shows it; anywhere else closes the map. */
 		int px = (int)((int64_t)x * app->scale120 / 120),
@@ -454,7 +485,7 @@ void app_pointer(struct app *app, int x, int y, bool extend)
 		if (page >= 0)
 			app_page_switch(app, (unsigned)page);
 		app->page_map = false;
-		app->map_click = !extend;
+		app->click_handled = !extend;
 		app->dirty = true;
 		return;
 	}
@@ -501,6 +532,11 @@ void app_pointer(struct app *app, int x, int y, bool extend)
 		}
 		return;
 	}
+	if (!extend && over_code_button(app, x, y)) {
+		copy_code(app);
+		app->click_handled = true;
+		return;
+	}
 	if (extend) {
 		if (ed->mode != VISUAL) {
 			ed->anchor = ed->cursor;
@@ -537,7 +573,24 @@ bool app_hover(struct app *app, int x, int y, bool control)
 	app->hover_start = start;
 	app->hover_end = end;
 	app->hover_open = open;
-	return open;
+	/* In the reading view, a fenced code block under the mouse shows its Copy button. */
+	size_t from = 0, to = 0;
+	bool code = app->editor.view == VIEW_READING && !app->page_map &&
+		    !app->context_menu && app->cell > 0 && py >= 0 &&
+		    py < app->text_height && px >= app->text_x &&
+		    px < app->text_x + app->text_width &&
+		    editor_code_block(&app->editor, app_hit_test(app, x, y),
+				      &from, &to);
+	bool button = code && from == app->code_from &&
+		      over_code_button(app, x, y);
+	if (code != app->code_hover || from != app->code_from ||
+	    button != app->code_button_hover)
+		app->dirty = true;
+	app->code_hover = code;
+	app->code_from = from;
+	app->code_to = to;
+	app->code_button_hover = button;
+	return open || button;
 }
 bool app_double_click_opens(struct app *app)
 {

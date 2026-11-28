@@ -15,6 +15,8 @@ struct windows_window {
 	wchar_t high_surrogate;
 	unsigned high_repeat;
 	bool dragging;
+	/* Windows has been asked for WM_MOUSELEAVE, which hides a code block's Copy button. */
+	bool tracking;
 	/* An Alt+digit page switch: page_char drops its WM_SYSCHAR, and alt_code drops the Alt
      * code character a keypad digit types when Alt is released. */
 	bool page_char, alt_code;
@@ -184,13 +186,13 @@ static void hover(struct windows_window *window)
 	POINT point;
 	GetCursorPos(&point);
 	ScreenToClient(window->handle, &point);
-	bool was = window->app->hover_open;
-	bool open = app_hover(window->app,
+	bool was = window->app->hover_open || window->app->code_button_hover;
+	bool hand = app_hover(window->app,
 			      MulDiv(point.x, 96, (int)window->dpi),
 			      MulDiv(point.y, 96, (int)window->dpi),
 			      !window->dragging && GetKeyState(VK_CONTROL) < 0);
-	if (open != was) /* WM_SETCURSOR only comes with the mouse moving */
-		SetCursor(LoadCursorW(NULL, open ? IDC_HAND : IDC_IBEAM));
+	if (hand != was) /* WM_SETCURSOR only comes with the mouse moving */
+		SetCursor(LoadCursorW(NULL, hand ? IDC_HAND : IDC_IBEAM));
 }
 static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 				    LPARAM lparam)
@@ -302,9 +304,11 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 			    MulDiv((short)LOWORD(lparam), 96, (int)window->dpi),
 			    MulDiv((short)HIWORD(lparam), 96, (int)window->dpi),
 			    (wparam & MK_SHIFT) != 0);
+		/* A click a button or the page list took opens nothing, even with Ctrl. */
 		if (!window->app->image_drag &&
-		    (menu || GetKeyState(VK_CONTROL) < 0)) {
-			if (!menu)
+		    (menu || window->app->click_handled ||
+		     GetKeyState(VK_CONTROL) < 0)) {
+			if (!menu && !window->app->click_handled)
 				windows_service(window->app, ED_OPEN, window);
 			window->dragging = false;
 			ReleaseCapture();
@@ -312,7 +316,17 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 		changed(window);
 		return 0;
 	}
+	case WM_MOUSELEAVE:
+		window->tracking = false;
+		app_hover(window->app, -1, -1, false);
+		changed(window);
+		return 0;
 	case WM_MOUSEMOVE:
+		if (!window->tracking) {
+			TRACKMOUSEEVENT track = { sizeof(track), TME_LEAVE,
+						  handle, 0 };
+			window->tracking = TrackMouseEvent(&track);
+		}
 		if (window->dragging) {
 			app_pointer(window->app,
 				    MulDiv((short)LOWORD(lparam), 96,
@@ -359,7 +373,8 @@ static LRESULT CALLBACK window_proc(HWND handle, UINT message, WPARAM wparam,
 						      IDC_SIZENESW));
 				return TRUE;
 			}
-			if (window->app->hover_open) {
+			if (window->app->hover_open ||
+			    window->app->code_button_hover) {
 				SetCursor(LoadCursorW(NULL, IDC_HAND));
 				return TRUE;
 			}

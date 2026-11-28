@@ -771,7 +771,7 @@ static uint32_t pointer_shape(const struct wayland_client *client)
 			       WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE;
 	if (client->dragging || client->app->title_pressed != TITLE_NONE)
 		return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
-	if (app->hover_open)
+	if (app->hover_open || app->code_button_hover)
 		return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER;
 	switch (resize_edge(client, client->pointer_x, client->pointer_y)) {
 	case XDG_TOPLEVEL_RESIZE_EDGE_TOP:
@@ -854,7 +854,9 @@ static void pointer_leave(void *data, struct wl_pointer *pointer,
 	client->app->title_pressed = TITLE_NONE;
 	client->cursor_serial = 0;
 	client->cursor_shape = 0;
-	update_hover(client);
+	/* Off the window nothing is under the mouse: no link, and no code block's Copy button. */
+	app_hover(client->app, -1, -1, false);
+	update_cursor(client);
 }
 static void pointer_motion(void *data, struct wl_pointer *pointer,
 			   uint32_t time, wl_fixed_t x, wl_fixed_t y)
@@ -982,8 +984,9 @@ static void pointer_button(void *data, struct wl_pointer *pointer,
 				     abs(c->pointer_x - c->last_click_x) < 4 &&
 				     abs(c->pointer_y - c->last_click_y) < 4;
 			bool resizing = c->app->image_drag;
-			/* Ctrl+click opens a link or image; a double click only an image. */
-			if (!menu && !resizing &&
+			/* Ctrl+click opens a link or image; a double click only an image. A click a
+			 * button or the page list took does neither. */
+			if (!menu && !resizing && !c->app->click_handled &&
 			    (control ||
 			     (twice && app_double_click_opens(c->app)))) {
 				linux_service(c->app, ED_OPEN, c);

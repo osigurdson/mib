@@ -912,6 +912,9 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 	       cursor_line = editor_line_number(ed, ed->cursor);
 	int cursor_x = -1, cursor_y = -1, cursor_height = line_height,
 	    cursor_cell = cell;
+	/* The hovered code block's first row on screen, which gets the Copy button. */
+	int button_y = -1, button_height = 0, button_baseline = 0;
+	app->code_button = false;
 	for (int y = top; y < status_y;) {
 		size_t next = app_view_next(app, start), end = next;
 		if (end > start && ed->text[end - 1] == '\n')
@@ -994,6 +997,13 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 		struct text_layout layout = text_layout(app, cache);
 		int row_height = layout.height, text_y = y + layout.inset;
 		int text_cell = layout.cell, text_ascender = layout.ascender;
+		if (reading && app->code_hover && button_y < 0 &&
+		    cache->fenced && start >= app->code_from &&
+		    start <= app->code_to) {
+			button_y = y;
+			button_height = row_height;
+			button_baseline = text_y + text_ascender;
+		}
 		if (!reading) {
 			color_columns(app, theme, pixels, width, height, stride,
 				      y, row_height,
@@ -1158,6 +1168,31 @@ static bool paint(struct app *app, uint32_t *pixels, int width, int height,
 		     (next == 0 || ed->text[next - 1] != '\n')))
 			break;
 		start = next;
+	}
+	/* The Copy button sits over the top right of the block, and says Copied while the
+	 * toast does. Both labels fit the same box, so it doesn't jump. */
+	int button_width = 8 * cell;
+	if (button_y >= 0 && text_width >= 2 * button_width) {
+		bool copied = !strcmp(app->toast, "Code copied");
+		const char *label = copied ? "Copied" : "Copy";
+		int button_x = text_x + text_width - button_width;
+		bool over = app->code_button_hover;
+		render_rectangle(pixels, width, height, stride, button_x,
+				 button_y, button_width, button_height,
+				 over ? theme->menu_selected : theme->menu);
+		if (!render_label(app, pixels, width, height, stride, label,
+				  button_x + (button_width -
+					      (int)strlen(label) * cell) /
+						     2,
+				  button_baseline, cell,
+				  over ? theme->menu_selected_text :
+					 theme->menu_text))
+			return false;
+		app->code_button = true;
+		app->code_button_x = button_x;
+		app->code_button_y = button_y;
+		app->code_button_w = button_width;
+		app->code_button_h = button_height;
 	}
 	if (!reading && !ed->command_active && cursor_x >= 0) {
 		if (ed->mode == INSERT)
